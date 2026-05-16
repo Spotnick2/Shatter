@@ -612,7 +612,7 @@ function MainFrame:Create()
 
     local detailScroll = CreateFrame("ScrollFrame", nil, detailPanel, "UIPanelScrollFrameTemplate")
     detailScroll:SetPoint("TOPLEFT", detailPanel.selectedMeta, "BOTTOMLEFT", 0, -12)
-    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 84)
+    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 94)
     detailScroll:EnableMouseWheel(true)
     detailScroll:SetScript("OnMouseWheel", function(self, delta)
         local current = self:GetVerticalScroll() or 0
@@ -622,7 +622,7 @@ function MainFrame:Create()
     detailPanel.scroll = detailScroll
 
     local detailContent = CreateFrame("Frame", nil, detailScroll)
-    detailContent:SetSize(1, 190)
+    detailContent:SetSize(1, 150)
     detailScroll:SetScrollChild(detailContent)
     detailScroll:SetScript("OnSizeChanged", function(self)
         detailContent:SetWidth(math.max(1, self:GetWidth()))
@@ -643,11 +643,11 @@ function MainFrame:Create()
     local previousMaterial
     for i = 1, 3 do
         local row = CreateFrame("Frame", nil, detailContent)
-        row:SetHeight(28)
+        row:SetHeight(24)
         row:SetPoint("LEFT", detailContent, "LEFT", 0, 0)
         row:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
         if previousMaterial then
-            row:SetPoint("TOP", previousMaterial, "BOTTOM", 0, -2)
+            row:SetPoint("TOP", previousMaterial, "BOTTOM", 0, -1)
         else
             row:SetPoint("TOP", detailPanel.materialLabel, "BOTTOM", 0, -4)
         end
@@ -693,7 +693,7 @@ function MainFrame:Create()
     local generated = CreateFrame("Frame", nil, detailPanel)
     generated:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", 8, 8)
     generated:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -8, 8)
-    generated:SetHeight(42)
+    generated:SetHeight(40)
     detailPanel.generated = generated
 
     generated.label = generated:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -742,7 +742,7 @@ function MainFrame:Create()
     detailPanel.generatedMore:Hide()
 
     detailPanel.sessionLabel = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    detailPanel.sessionLabel:SetPoint("BOTTOMLEFT", generated, "TOPLEFT", 0, 30)
+    detailPanel.sessionLabel:SetPoint("BOTTOMLEFT", generated, "TOPLEFT", 0, 28)
     detailPanel.sessionLabel:SetText("Session")
     Shatter.SetTextColor(detailPanel.sessionLabel, Shatter.C.ACCENT)
     detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")
