@@ -1,0 +1,17 @@
+package-as: Shatter
+
+enable-nolib-creation: no
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - .github
+  - docs
+  - screenshots
+  - AGENTS.md
+  - SPEC.md
+  - README.md
+  - CHANGELOG.md
+  - LICENSE

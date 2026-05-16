@@ -1,0 +1,28 @@
+## Interface: 20505
+## Title: |cffffd200Shatter|r
+## Notes: Guided disenchanting workflow addon for TBC Classic enchanters. /shatter
+## Author: Spotnick
+## Version: @project-version@
+## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
+## SavedVariables: ShatterDB
+
+Core.lua
+Constants.lua
+Theme.lua
+Database.lua
+Debug.lua
+Events.lua
+MaterialTracker.lua
+ItemScanner.lua
+Queue.lua
+Session.lua
+Disenchant.lua
+UI\Rows.lua
+UI\Settings.lua
+UI\Summary.lua
+UI\MainFrame.lua
+Modes\SoloMode.lua
+Modes\MailMode.lua
+Modes\RaidMode.lua
+Integrations\AuctionData.lua
+Integrations\Gargul.lua

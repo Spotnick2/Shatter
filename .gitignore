@@ -1,0 +1,47 @@
+# Packaged addon archives
+*.zip
+*.tar.gz
+
+# Compiled Lua sources
+luac.out
+
+# Local editor and tool state
+.vscode/
+.idea/
+*.log
+
+# Luarocks build files
+*.src.rock
+
+# Object files
+*.o
+*.os
+*.ko
+*.obj
+*.elf
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+*.def
+*.exp
+
+# Shared objects
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
