@@ -217,8 +217,7 @@ local function UpdateDetailSections(detail, selected)
                 row.name:SetText(StripColorCodes(link or name or ("item:" .. tostring(entry.itemID))))
                 local r, g, b = Shatter.GetQualityColor(select(3, GetItemInfo(entry.itemID)))
                 row.name:SetTextColor(r, g, b, 1)
-                row.expected:SetText(FormatExpectedQuantity(entry.expectedAmount))
-                row.range:SetText("Range: " .. FormatRange(entry.minAmount, entry.maxAmount))
+                row.meta:SetText(string.format("%s   Range: %s", FormatExpectedQuantity(entry.expectedAmount), FormatRange(entry.minAmount, entry.maxAmount)))
                 local _, _, _, _, _, _, _, _, _, texture = GetItemInfo(entry.itemID)
                 row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
             else
@@ -613,7 +612,7 @@ function MainFrame:Create()
 
     local detailScroll = CreateFrame("ScrollFrame", nil, detailPanel, "UIPanelScrollFrameTemplate")
     detailScroll:SetPoint("TOPLEFT", detailPanel.selectedMeta, "BOTTOMLEFT", 0, -12)
-    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 100)
+    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 84)
     detailScroll:EnableMouseWheel(true)
     detailScroll:SetScript("OnMouseWheel", function(self, delta)
         local current = self:GetVerticalScroll() or 0
@@ -623,7 +622,7 @@ function MainFrame:Create()
     detailPanel.scroll = detailScroll
 
     local detailContent = CreateFrame("Frame", nil, detailScroll)
-    detailContent:SetSize(1, 166)
+    detailContent:SetSize(1, 190)
     detailScroll:SetScrollChild(detailContent)
     detailScroll:SetScript("OnSizeChanged", function(self)
         detailContent:SetWidth(math.max(1, self:GetWidth()))
@@ -644,7 +643,7 @@ function MainFrame:Create()
     local previousMaterial
     for i = 1, 3 do
         local row = CreateFrame("Frame", nil, detailContent)
-        row:SetHeight(19)
+        row:SetHeight(28)
         row:SetPoint("LEFT", detailContent, "LEFT", 0, 0)
         row:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
         if previousMaterial then
@@ -654,13 +653,13 @@ function MainFrame:Create()
         end
 
         row.chance = CreateDetailText(row, "GameFontDisableSmall")
-        row.chance:SetPoint("LEFT", row, "LEFT", 0, 0)
+        row.chance:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
         row.chance:SetWidth(29)
         row.chance:SetJustifyH("RIGHT")
 
         row.iconBorder = CreateFrame("Frame", nil, row, "BackdropTemplate")
         row.iconBorder:SetSize(16, 16)
-        row.iconBorder:SetPoint("LEFT", row.chance, "RIGHT", 7, 0)
+        row.iconBorder:SetPoint("TOPLEFT", row.chance, "TOPRIGHT", 7, 0)
         Shatter.ApplyBackdrop(row.iconBorder, 0, 0, 0, 1)
         row.icon = row.iconBorder:CreateTexture(nil, "ARTWORK")
         row.icon:SetSize(14, 14)
@@ -668,21 +667,16 @@ function MainFrame:Create()
         row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
         row.name = CreateDetailText(row, "GameFontDisableSmall")
-        row.name:SetPoint("LEFT", row.iconBorder, "RIGHT", 7, 0)
-        row.name:SetPoint("RIGHT", row, "RIGHT", -120, 0)
+        row.name:SetPoint("TOPLEFT", row.iconBorder, "TOPRIGHT", 7, 0)
+        row.name:SetPoint("RIGHT", row, "RIGHT", -2, 0)
         row.name:SetJustifyH("LEFT")
         row.name:SetNonSpaceWrap(false)
 
-        row.expected = CreateDetailText(row, "GameFontDisableSmall")
-        row.expected:SetPoint("LEFT", row.name, "RIGHT", 6, 0)
-        row.expected:SetWidth(38)
-        row.expected:SetJustifyH("RIGHT")
-
-        row.range = CreateDetailText(row, "GameFontDisableSmall")
-        row.range:SetPoint("LEFT", row.expected, "RIGHT", 8, 0)
-        row.range:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-        row.range:SetJustifyH("LEFT")
-        row.range:SetTextColor(0.62, 0.62, 0.62, 1)
+        row.meta = CreateDetailText(row, "GameFontDisableSmall")
+        row.meta:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -1)
+        row.meta:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+        row.meta:SetJustifyH("LEFT")
+        row.meta:SetTextColor(0.62, 0.62, 0.62, 1)
 
         row.frame = row
         detailPanel.materialRows[i] = row
@@ -699,7 +693,7 @@ function MainFrame:Create()
     local generated = CreateFrame("Frame", nil, detailPanel)
     generated:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", 8, 8)
     generated:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -8, 8)
-    generated:SetHeight(50)
+    generated:SetHeight(42)
     detailPanel.generated = generated
 
     generated.label = generated:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -715,7 +709,7 @@ function MainFrame:Create()
     local previousSlot
     for i = 1, 4 do
         local slot = CreateFrame("Button", nil, generated, "BackdropTemplate")
-        slot:SetSize(26, 35)
+        slot:SetSize(24, 32)
         if previousSlot then
             slot:SetPoint("LEFT", previousSlot, "RIGHT", 10, 0)
         else
@@ -723,7 +717,7 @@ function MainFrame:Create()
         end
         Shatter.ApplyBackdrop(slot, 0, 0, 0, 1)
         slot.icon = slot:CreateTexture(nil, "ARTWORK")
-        slot.icon:SetSize(22, 22)
+        slot.icon:SetSize(20, 20)
         slot.icon:SetPoint("TOP", slot, "TOP", 0, -2)
         slot.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         slot.count = slot:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -748,7 +742,7 @@ function MainFrame:Create()
     detailPanel.generatedMore:Hide()
 
     detailPanel.sessionLabel = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    detailPanel.sessionLabel:SetPoint("BOTTOMLEFT", generated, "TOPLEFT", 0, 34)
+    detailPanel.sessionLabel:SetPoint("BOTTOMLEFT", generated, "TOPLEFT", 0, 30)
     detailPanel.sessionLabel:SetText("Session")
     Shatter.SetTextColor(detailPanel.sessionLabel, Shatter.C.ACCENT)
     detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rebalanced the Solo details pane so expected material names remain readable and Value stays available.
 - Refined the Solo details pane into a compact inspection/results panel with generated material icons.
 - Made the selected item details body scrollable and switched expected material rows to a safer two-line layout.
 - Added queue item counts and a scrollable Solo queue list for larger inventories.
