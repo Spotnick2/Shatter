@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added explanatory tooltips to Settings controls.
 - Restored the right-side inspection panel layout with compact Session and Generated sections.
 - Added coin icon formatting to right-pane expected disenchant value.
 

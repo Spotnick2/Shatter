@@ -29,6 +29,23 @@ local function SetShown(frame, shown)
     end
 end
 
+local function AddTooltip(frame, title, text)
+    if not frame then return end
+    frame:SetScript("OnEnter", function(self)
+        if self.SetBackdropColor and self.text then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title, 1, 0.82, 0)
+        if text and text ~= "" then
+            GameTooltip:AddLine(text, 0.82, 0.82, 0.82, true)
+        end
+        GameTooltip:Show()
+    end)
+    frame:SetScript("OnLeave", function(self)
+        if self.SetBackdropColor and self.text then self:SetBackdropColor(0.12, 0.12, 0.12, 1) end
+        GameTooltip:Hide()
+    end)
+end
+
 function SettingsUI:Create(parent)
     if self.frame then return self.frame end
 
@@ -83,6 +100,9 @@ function SettingsUI:Create(parent)
     uncommon:SetScript("OnClick", function() SetQuality(2) end)
     rare:SetScript("OnClick", function() SetQuality(3) end)
     epic:SetScript("OnClick", function() SetQuality(4) end)
+    AddTooltip(uncommon, "Maximum quality: Uncommon", "Only queue uncommon items. Rare and epic items are excluded from Solo Mode scans.")
+    AddTooltip(rare, "Maximum quality: Rare", "Queue uncommon and rare disenchantable items. This is the default Solo Mode behavior.")
+    AddTooltip(epic, "Maximum quality: Epic", "Allow epic disenchantable items in the Solo queue. Use this carefully.")
     self.qualityButtons = { [2] = uncommon, [3] = rare, [4] = epic }
 
     local orderLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -104,6 +124,9 @@ function SettingsUI:Create(parent)
     bagSlot:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.BAG_SLOT) end)
     fifo:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.FIFO) end)
     lifo:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.LIFO) end)
+    AddTooltip(bagSlot, "Bag / Slot order", "Process items by bag index and slot number. This is predictable and matches how items are arranged in your bags.")
+    AddTooltip(fifo, "First In, First Out", "Process items in the order Shatter first saw them in the current Solo session.")
+    AddTooltip(lifo, "Last In, First Out", "Process the newest items Shatter added to the current Solo session first.")
     self.queueOrderButtons = {
         [Shatter.Constants.QUEUE_ORDER.BAG_SLOT] = bagSlot,
         [Shatter.Constants.QUEUE_ORDER.FIFO] = fifo,
@@ -138,6 +161,10 @@ function SettingsUI:Create(parent)
     value1g:SetScript("OnClick", function() SetThreshold(10000) end)
     value5g:SetScript("OnClick", function() SetThreshold(50000) end)
     value10g:SetScript("OnClick", function() SetThreshold(100000) end)
+    AddTooltip(valueOff, "No minimum value", "Do not require a minimum expected disenchant value.")
+    AddTooltip(value1g, "Minimum expected value: 1g", "When value filtering is enabled, only queue items with expected disenchant materials worth at least 1 gold.")
+    AddTooltip(value5g, "Minimum expected value: 5g", "When value filtering is enabled, only queue items with expected disenchant materials worth at least 5 gold.")
+    AddTooltip(value10g, "Minimum expected value: 10g", "When value filtering is enabled, only queue items with expected disenchant materials worth at least 10 gold.")
     self.valueButtons = {
         [0] = valueOff,
         [10000] = value1g,
@@ -161,6 +188,7 @@ function SettingsUI:Create(parent)
         Shatter.Database:GetSettings().includeSoulbound = self:GetChecked() and true or false
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_SOULBOUND", 0.05) end
     end)
+    AddTooltip(soulbound, "Include soulbound items", "Allow soulbound disenchantable equipment in the Solo queue. Leave this off if you only want tradable items.")
     self.soulbound = soulbound
 
     local minimap = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -175,6 +203,7 @@ function SettingsUI:Create(parent)
         settings.minimap.hide = not self:GetChecked()
         if Shatter.MinimapButton then Shatter.MinimapButton:Refresh() end
     end)
+    AddTooltip(minimap, "Show minimap button", "Show or hide Shatter's minimap button. The button toggles Shatter and can be dragged around the minimap.")
     self.minimap = minimap
 
     local useValues = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -187,6 +216,7 @@ function SettingsUI:Create(parent)
         Shatter.Database:GetSettings().useAuctionData = self:GetChecked() and true or false
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_VALUE_FILTER", 0.05) end
     end)
+    AddTooltip(useValues, "Filter by expected value", "Use installed TSM, Auctioneer, or Auctionator prices to filter the queue by the selected minimum expected value. Items stay visible if no pricing data is available.")
     self.useValues = useValues
 
     local debug = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -205,6 +235,7 @@ function SettingsUI:Create(parent)
         SettingsUI:Refresh()
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_DEBUG", 0.05) end
     end)
+    AddTooltip(debug, "Debug logging", "Print important Shatter state changes to chat. This is useful while testing but should usually stay off during normal play.")
     self.debug = debug
 
     local trace = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -217,6 +248,7 @@ function SettingsUI:Create(parent)
         Shatter.Database:GetSettings().traceDebug = self:GetChecked() and true or false
         SettingsUI:Refresh()
     end)
+    AddTooltip(trace, "Trace logging", "Print verbose scan and event details for troubleshooting. This can be noisy and is intended for short debugging sessions.")
     self.trace = trace
 
     local simulate = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -231,6 +263,7 @@ function SettingsUI:Create(parent)
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_SIMULATION", 0.05) end
         if Shatter.MainFrame then Shatter.MainFrame:Update() end
     end)
+    AddTooltip(simulate, "Development simulation", "Record fake disenchant results without casting Disenchant or consuming items. This is a development/testing mode only.")
     self.simulate = simulate
 
     local note = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
