@@ -19,4 +19,4 @@
 - Added a bottom-right resize grip with drag-to-resize, Shift-drag-to-scale, right-click reset, tooltip guidance, responsive Solo layout, and persisted size/scale/position settings.
 - Reworked Solo Mode scanning to use debounced event-driven scheduling with scan reasons, recursive-scan protection, quieter debug logging, and optional trace logging.
 - Polished the Phase 1 Solo UI with a smaller default/reset size, lighter simulation badge, clearer diagonal resize grip, and tighter queue/detail alignment.
-- Replaced the failing `/cast` + `/use bag slot` macro path with a direct hardware-click Disenchant cast plus bag-slot target call, and moved noisy pending UI errors to trace logging.
+- Mirrored TSM's secure macro button pattern for guided disenchanting by using `*type1` / `*macrotext1`, client-aware click registration, and `/cast Disenchant;` plus `/use bag slot` macro text.

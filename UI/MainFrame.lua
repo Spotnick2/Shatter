@@ -40,7 +40,13 @@ local function CreateButton(parent, text, width, secure)
     local template = secure and "SecureActionButtonTemplate,BackdropTemplate" or "BackdropTemplate"
     local button = CreateFrame("Button", nil, parent, template)
     button:SetSize(width or 100, 26)
-    button:RegisterForClicks("LeftButtonUp")
+    if secure then
+        button:RegisterForClicks(GetCVarBool and GetCVarBool("ActionButtonUseKeyDown") and "LeftButtonDown" or "LeftButtonUp")
+        button:SetAttribute("*type1", "macro")
+        button:SetAttribute("*macrotext1", "")
+    else
+        button:RegisterForClicks("LeftButtonUp")
+    end
     Shatter.ApplyBackdrop(button, 0.12, 0.12, 0.12, 1)
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.text:SetAllPoints()
