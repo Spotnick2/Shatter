@@ -145,6 +145,10 @@ end
 local function UpdateGenerated(detail)
     if not detail then return end
     local summary = Shatter.Session and Shatter.Session.active and Shatter.Session.active.summary
+    local line1, line2 = GetSessionSummary()
+    if detail.sessionText then
+        detail.sessionText:SetText((line1 or "") .. "   |   " .. (line2 or ""))
+    end
     local list = SortedMaterials(summary and summary.materialsGenerated)
     local hasMaterials = #list > 0
     if detail.generatedEmpty then
@@ -193,14 +197,10 @@ local function UpdateDetailSections(detail, selected)
         for _, row in ipairs(detail.materialRows or {}) do row.frame:Hide() end
         SetShown(detail.valueLabel, false)
         SetShown(detail.valueText, false)
-        SetShown(detail.sessionLabel, hasWork)
-        SetShown(detail.sessionText, hasWork)
     else
         SetShown(detail.materialLabel, true)
         SetShown(detail.valueLabel, true)
         SetShown(detail.valueText, true)
-        SetShown(detail.sessionLabel, true)
-        SetShown(detail.sessionText, true)
         local estimate = selected.expectedEstimate
         local materials = estimate and estimate.materials
         local hasMaterials = materials and #materials > 0
@@ -232,11 +232,6 @@ local function UpdateDetailSections(detail, selected)
         end
     end
 
-    local line1, line2 = GetSessionSummary()
-    if detail.sessionText then
-        detail.sessionText:SetText((line1 or "") .. "\n" .. (line2 or ""))
-    end
-    UpdateGenerated(detail)
 end
 
 function MainFrame:EnsureQueueRows(count)
@@ -341,8 +336,16 @@ function MainFrame:Layout()
 
     self.queuePanel:ClearAllPoints()
     self.queuePanel:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 10, -CONTENT_TOP)
-    self.queuePanel:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 10, CONTENT_BOTTOM)
     self.queuePanel:SetPoint("RIGHT", self.detailPanel, "LEFT", -8, 0)
+    if self.generatedPanel then
+        self.generatedPanel:ClearAllPoints()
+        self.generatedPanel:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 10, CONTENT_BOTTOM)
+        self.generatedPanel:SetPoint("RIGHT", self.detailPanel, "LEFT", -8, 0)
+        self.generatedPanel:SetHeight(76)
+        self.queuePanel:SetPoint("BOTTOMLEFT", self.generatedPanel, "TOPLEFT", 0, 8)
+    else
+        self.queuePanel:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 10, CONTENT_BOTTOM)
+    end
 
     if self.status then
         self.status:ClearAllPoints()
@@ -594,6 +597,63 @@ function MainFrame:Create()
         previous = row
     end
 
+    local generatedPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    generatedPanel:SetPoint("TOPLEFT", queuePanel, "BOTTOMLEFT", 0, -8)
+    generatedPanel:SetPoint("RIGHT", queuePanel, "RIGHT", 0, 0)
+    generatedPanel:SetHeight(76)
+    Shatter.ApplyBackdrop(generatedPanel, unpack(Shatter.C.BG_PANEL))
+    self.generatedPanel = generatedPanel
+
+    generatedPanel.label = generatedPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    generatedPanel.label:SetPoint("TOPLEFT", generatedPanel, "TOPLEFT", 8, -8)
+    generatedPanel.label:SetText("Generated")
+    Shatter.SetTextColor(generatedPanel.label, Shatter.C.ACCENT)
+
+    generatedPanel.sessionText = CreateDetailText(generatedPanel, "GameFontHighlightSmall")
+    generatedPanel.sessionText:SetPoint("LEFT", generatedPanel.label, "RIGHT", 12, 0)
+    generatedPanel.sessionText:SetPoint("RIGHT", generatedPanel, "RIGHT", -10, 0)
+    generatedPanel.sessionText:SetNonSpaceWrap(false)
+
+    generatedPanel.generatedEmpty = CreateDetailText(generatedPanel, "GameFontDisableSmall")
+    generatedPanel.generatedEmpty:SetPoint("TOPLEFT", generatedPanel.label, "BOTTOMLEFT", 0, -12)
+    generatedPanel.generatedEmpty:SetText("No materials yet")
+
+    generatedPanel.generatedSlots = {}
+    local previousGeneratedSlot
+    for i = 1, 5 do
+        local slot = CreateFrame("Button", nil, generatedPanel, "BackdropTemplate")
+        slot:SetSize(30, 40)
+        if previousGeneratedSlot then
+            slot:SetPoint("LEFT", previousGeneratedSlot, "RIGHT", 12, 0)
+        else
+            slot:SetPoint("TOPLEFT", generatedPanel.label, "BOTTOMLEFT", 0, -5)
+        end
+        Shatter.ApplyBackdrop(slot, 0, 0, 0, 1)
+        slot.icon = slot:CreateTexture(nil, "ARTWORK")
+        slot.icon:SetSize(24, 24)
+        slot.icon:SetPoint("TOP", slot, "TOP", 0, -2)
+        slot.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        slot.count = slot:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        slot.count:SetPoint("TOP", slot.icon, "BOTTOM", 0, -1)
+        slot.count:SetTextColor(0.86, 0.86, 0.86, 1)
+        slot:SetScript("OnEnter", function(self)
+            if self.itemLink and GameTooltip then
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:SetHyperlink(self.itemLink)
+                GameTooltip:Show()
+            end
+        end)
+        slot:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+        slot:Hide()
+        generatedPanel.generatedSlots[i] = slot
+        previousGeneratedSlot = slot
+    end
+
+    generatedPanel.generatedMore = generatedPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    generatedPanel.generatedMore:SetPoint("LEFT", previousGeneratedSlot, "RIGHT", 12, 6)
+    generatedPanel.generatedMore:SetTextColor(1.00, 0.82, 0.18, 1)
+    generatedPanel.generatedMore:Hide()
+
     local detailPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     detailPanel:SetPoint("TOPLEFT", queuePanel, "TOPRIGHT", 8, 0)
     detailPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, CONTENT_BOTTOM)
@@ -602,17 +662,18 @@ function MainFrame:Create()
 
     detailPanel.selectedLabel = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     detailPanel.selectedLabel:SetPoint("TOPLEFT", detailPanel, "TOPLEFT", 8, -9)
-    detailPanel.selectedLabel:SetText("Selected Item")
-    Shatter.SetTextColor(detailPanel.selectedLabel, Shatter.C.ACCENT)
+    detailPanel.selectedLabel:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.selectedLabel:SetJustifyH("LEFT")
+    detailPanel.selectedLabel:SetText("")
 
     detailPanel.selectedMeta = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    detailPanel.selectedMeta:SetPoint("TOPLEFT", detailPanel.selectedLabel, "BOTTOMLEFT", 0, -7)
+    detailPanel.selectedMeta:SetPoint("TOPLEFT", detailPanel.selectedLabel, "BOTTOMLEFT", 0, -5)
     detailPanel.selectedMeta:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
     detailPanel.selectedMeta:SetJustifyH("LEFT")
 
     local detailScroll = CreateFrame("ScrollFrame", nil, detailPanel, "UIPanelScrollFrameTemplate")
-    detailScroll:SetPoint("TOPLEFT", detailPanel.selectedMeta, "BOTTOMLEFT", 0, -12)
-    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 94)
+    detailScroll:SetPoint("TOPLEFT", detailPanel.selectedMeta, "BOTTOMLEFT", 0, -14)
+    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 8)
     detailScroll:EnableMouseWheel(true)
     detailScroll:SetScript("OnMouseWheel", function(self, delta)
         local current = self:GetVerticalScroll() or 0
@@ -689,66 +750,6 @@ function MainFrame:Create()
     detailPanel.valueText:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
     detailPanel.valueText:SetNonSpaceWrap(false)
     detailPanel.valueText:SetText("Unavailable")
-
-    local generated = CreateFrame("Frame", nil, detailPanel)
-    generated:SetPoint("BOTTOMLEFT", detailPanel, "BOTTOMLEFT", 8, 8)
-    generated:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -8, 8)
-    generated:SetHeight(40)
-    detailPanel.generated = generated
-
-    generated.label = generated:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    generated.label:SetPoint("TOPLEFT", generated, "TOPLEFT", 0, 0)
-    generated.label:SetText("Generated")
-    Shatter.SetTextColor(generated.label, Shatter.C.ACCENT)
-
-    detailPanel.generatedEmpty = CreateDetailText(generated, "GameFontDisableSmall")
-    detailPanel.generatedEmpty:SetPoint("TOPLEFT", generated.label, "BOTTOMLEFT", 0, -10)
-    detailPanel.generatedEmpty:SetText("No materials yet")
-
-    detailPanel.generatedSlots = {}
-    local previousSlot
-    for i = 1, 4 do
-        local slot = CreateFrame("Button", nil, generated, "BackdropTemplate")
-        slot:SetSize(24, 32)
-        if previousSlot then
-            slot:SetPoint("LEFT", previousSlot, "RIGHT", 10, 0)
-        else
-            slot:SetPoint("TOPLEFT", generated.label, "BOTTOMLEFT", 0, -4)
-        end
-        Shatter.ApplyBackdrop(slot, 0, 0, 0, 1)
-        slot.icon = slot:CreateTexture(nil, "ARTWORK")
-        slot.icon:SetSize(20, 20)
-        slot.icon:SetPoint("TOP", slot, "TOP", 0, -2)
-        slot.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        slot.count = slot:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-        slot.count:SetPoint("TOP", slot.icon, "BOTTOM", 0, -1)
-        slot.count:SetTextColor(0.86, 0.86, 0.86, 1)
-        slot:SetScript("OnEnter", function(self)
-            if self.itemLink and GameTooltip then
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetHyperlink(self.itemLink)
-                GameTooltip:Show()
-            end
-        end)
-        slot:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-        slot:Hide()
-        detailPanel.generatedSlots[i] = slot
-        previousSlot = slot
-    end
-
-    detailPanel.generatedMore = generated:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    detailPanel.generatedMore:SetPoint("LEFT", previousSlot, "RIGHT", 10, 5)
-    detailPanel.generatedMore:SetTextColor(1.00, 0.82, 0.18, 1)
-    detailPanel.generatedMore:Hide()
-
-    detailPanel.sessionLabel = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    detailPanel.sessionLabel:SetPoint("BOTTOMLEFT", generated, "TOPLEFT", 0, 28)
-    detailPanel.sessionLabel:SetText("Session")
-    Shatter.SetTextColor(detailPanel.sessionLabel, Shatter.C.ACCENT)
-    detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")
-    detailPanel.sessionText:SetPoint("TOPLEFT", detailPanel.sessionLabel, "BOTTOMLEFT", 0, -2)
-    detailPanel.sessionText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
-    detailPanel.sessionText:SetNonSpaceWrap(false)
 
     local castBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     castBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 48)
@@ -893,6 +894,7 @@ function MainFrame:SetActiveView(view)
     local simulation = settings and settings.debug and settings.simulateDisenchant
 
     SetShown(self.queuePanel, self.activeView == "solo")
+    SetShown(self.generatedPanel, self.activeView == "solo")
     SetShown(self.detailPanel, self.activeView == "solo")
     SetShown(self.primary, self.activeView == "solo")
     SetShown(self.ignoreButton, self.activeView == "solo")
@@ -984,19 +986,24 @@ function MainFrame:Update()
     local detail = self.detailPanel
     if selected then
         local qualityLabel = Shatter.Constants.QUALITY_LABELS[selected.quality] or ("Quality " .. tostring(selected.quality or "?"))
-        detail.selectedLabel:SetText("Selected Item")
-        detail.selectedMeta:SetText(string.format("%s - Item Level %s - Bag %d, Slot %d%s", qualityLabel, tostring(selected.itemLevel or "?"), selected.bag or 0, selected.slot or 0, selected.isSoulbound and " - Soulbound" or ""))
+        detail.selectedLabel:SetText(StripColorCodes(selected.itemLink or selected.itemName or "Selected item"))
+        local r, g, b = Shatter.GetQualityColor(selected.quality)
+        detail.selectedLabel:SetTextColor(r, g, b, 1)
+        detail.selectedMeta:SetText(string.format("Item Level %s - %s - Bag %d, Slot %d%s", tostring(selected.itemLevel or "?"), qualityLabel, selected.bag or 0, selected.slot or 0, selected.isSoulbound and " - Soulbound" or ""))
         UpdateDetailSections(detail, selected)
     else
         if HasSessionWork() then
             detail.selectedLabel:SetText("Queue complete")
+            Shatter.SetTextColor(detail.selectedLabel, Shatter.C.ACCENT)
             detail.selectedMeta:SetText(select(1, GetSessionSummary()) .. "   " .. select(2, GetSessionSummary()))
         else
             detail.selectedLabel:SetText("No eligible items")
+            Shatter.SetTextColor(detail.selectedLabel, Shatter.C.ACCENT)
             detail.selectedMeta:SetText("No disenchantable items match your current settings.")
         end
         UpdateDetailSections(detail, nil)
     end
+    UpdateGenerated(self.generatedPanel)
 
     local now = GetTime and GetTime() or 0
     local status, isError
