@@ -61,9 +61,10 @@ function Rows.CreateQueueRow(parent, index)
     function row:SetSelected(selected)
         self.selected = selected
         if selected then
-            self:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
-            self:SetBackdropBorderColor(0.55, 0.45, 0.05, 1)
+            self:SetBackdropColor(0.22, 0.18, 0.08, 0.98)
+            self:SetBackdropBorderColor(0.95, 0.78, 0.08, 1)
             self.selectedStripe:Show()
+            self.selectedStripe:SetWidth(3)
         else
             local color = self.index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD
             self:SetBackdropColor(unpack(color))
@@ -74,6 +75,7 @@ function Rows.CreateQueueRow(parent, index)
                 self:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
             end
             self.selectedStripe:Hide()
+            self.selectedStripe:SetWidth(2)
         end
     end
 
