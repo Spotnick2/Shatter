@@ -81,6 +81,13 @@ local function CreateDetailText(parent, template)
     return text
 end
 
+local function StripColorCodes(text)
+    text = tostring(text or "")
+    text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+    text = string.gsub(text, "|r", "")
+    return text
+end
+
 local function FormatChance(chance)
     return string.format("%d%%", math.floor((chance or 0) * 100 + 0.5))
 end
@@ -149,7 +156,9 @@ local function UpdateDetailSections(detail, selected)
                 row.frame:Show()
                 row.chance:SetText(FormatChance(entry.chance))
                 local name, link = GetItemInfo(entry.itemID)
-                row.name:SetText(link or name or ("item:" .. tostring(entry.itemID)))
+                row.name:SetText(StripColorCodes(link or name or ("item:" .. tostring(entry.itemID))))
+                local r, g, b = Shatter.GetQualityColor(select(3, GetItemInfo(entry.itemID)))
+                row.name:SetTextColor(r, g, b, 1)
                 row.expected:SetText(FormatExpectedQuantity(entry.expectedAmount))
                 row.range:SetText(FormatRange(entry.minAmount, entry.maxAmount))
             else
@@ -518,7 +527,7 @@ function MainFrame:Create()
     detailPanel.location:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
     detailPanel.location:SetJustifyH("LEFT")
 
-    detailPanel.materialLabel = CreateDetailLabel(detailPanel, detailPanel.iconBorder, 0, -6, "Expected Materials")
+    detailPanel.materialLabel = CreateDetailLabel(detailPanel, detailPanel.iconBorder, 0, -20, "Expected Materials")
     detailPanel.materialEmpty = CreateDetailText(detailPanel, "GameFontDisableSmall")
     detailPanel.materialEmpty:SetPoint("TOPLEFT", detailPanel.materialLabel, "BOTTOMLEFT", 0, -3)
     detailPanel.materialEmpty:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
@@ -544,17 +553,18 @@ function MainFrame:Create()
 
         row.name = CreateDetailText(row, "GameFontDisableSmall")
         row.name:SetPoint("LEFT", row.chance, "RIGHT", 6, 0)
-        row.name:SetPoint("RIGHT", row, "RIGHT", -70, 0)
+        row.name:SetPoint("RIGHT", row, "RIGHT", -74, 0)
         row.name:SetJustifyH("LEFT")
+        row.name:SetNonSpaceWrap(false)
 
         row.expected = CreateDetailText(row, "GameFontDisableSmall")
         row.expected:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
-        row.expected:SetWidth(34)
+        row.expected:SetWidth(38)
         row.expected:SetJustifyH("RIGHT")
 
         row.range = CreateDetailText(row, "GameFontDisableSmall")
         row.range:SetPoint("LEFT", row.expected, "RIGHT", 6, 0)
-        row.range:SetWidth(30)
+        row.range:SetWidth(28)
         row.range:SetJustifyH("RIGHT")
 
         row.frame = row
@@ -566,12 +576,14 @@ function MainFrame:Create()
     detailPanel.valueText = CreateDetailText(detailPanel, "GameFontDisableSmall")
     detailPanel.valueText:SetPoint("TOPLEFT", detailPanel.valueLabel, "BOTTOMLEFT", 0, -2)
     detailPanel.valueText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.valueText:SetNonSpaceWrap(false)
     detailPanel.valueText:SetText("Unavailable")
 
     detailPanel.sessionLabel = CreateDetailLabel(detailPanel, detailPanel.valueText, 0, -5, "Session")
     detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")
     detailPanel.sessionText:SetPoint("TOPLEFT", detailPanel.sessionLabel, "BOTTOMLEFT", 0, -2)
     detailPanel.sessionText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.sessionText:SetNonSpaceWrap(false)
 
     local castBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     castBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 48)
