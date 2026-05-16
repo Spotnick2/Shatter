@@ -36,12 +36,6 @@ local function Clamp(value, minValue, maxValue)
     return value
 end
 
-local function SetTextureRotation(texture, radians)
-    if texture and texture.SetRotation then
-        texture:SetRotation(radians)
-    end
-end
-
 local function CreateButton(parent, text, width, secure)
     local template = secure and "SecureActionButtonTemplate,BackdropTemplate" or "BackdropTemplate"
     local button = CreateFrame("Button", nil, parent, template)
@@ -125,35 +119,23 @@ end
 
 function MainFrame:CreateResizeGrip(parent)
     local grip = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    grip:SetSize(20, 20)
-    grip:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -2, 2)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -3, 3)
     grip:RegisterForClicks("RightButtonUp")
     grip:EnableMouse(true)
 
-    local corner = grip:CreateTexture(nil, "BACKGROUND")
-    corner:SetTexture("Interface\\Buttons\\WHITE8X8")
-    corner:SetColorTexture(0.08, 0.08, 0.08, 0.82)
-    corner:SetSize(16, 16)
-    corner:SetPoint("BOTTOMRIGHT", grip, "BOTTOMRIGHT", 0, 0)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
 
-    local function AddStripe(width, x, y, alpha)
-        local stripe = grip:CreateTexture(nil, "ARTWORK")
-        stripe:SetTexture("Interface\\Buttons\\WHITE8X8")
-        stripe:SetColorTexture(0.72, 0.72, 0.72, alpha)
-        stripe:SetSize(width, 2)
-        stripe:SetPoint("CENTER", grip, "BOTTOMRIGHT", x, y)
-        SetTextureRotation(stripe, math.rad(-45))
+    local normal = grip:GetNormalTexture()
+    if normal then
+        normal:SetVertexColor(0.78, 0.78, 0.78, 0.9)
     end
-    AddStripe(7, -4, 4, 0.95)
-    AddStripe(10, -7, 7, 0.80)
-    AddStripe(13, -10, 10, 0.62)
-
-    local shadow = grip:CreateTexture(nil, "BORDER")
-    shadow:SetTexture("Interface\\Buttons\\WHITE8X8")
-    shadow:SetColorTexture(0, 0, 0, 0.65)
-    shadow:SetSize(15, 1)
-    shadow:SetPoint("CENTER", grip, "BOTTOMRIGHT", -8, 8)
-    SetTextureRotation(shadow, math.rad(-45))
+    local highlight = grip:GetHighlightTexture()
+    if highlight then
+        highlight:SetVertexColor(1, 0.82, 0.22, 0.75)
+    end
 
     grip:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
