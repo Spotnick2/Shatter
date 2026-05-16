@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.12-alpha - 2026-05-16
+
+- Tagged the first Shatter Phase 1 alpha release for CurseForge packaging and repository distribution.
+
 ## 0.1.0 - 2026-05-16
 
 - Initialized the Shatter repository.
