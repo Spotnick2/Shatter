@@ -22,3 +22,4 @@
 - Mirrored TSM's secure macro button pattern for guided disenchanting by using `*type1` / `*macrotext1`, client-aware click registration, and `/cast Disenchant;` plus `/use bag slot` macro text.
 - Added a compact Shatter-owned cast/progress bar for disenchant casting, waiting-for-result, and simulation progress.
 - Added a Solo queue order setting with per-mode saved-variable structure for Bag / Slot, FIFO, and LIFO ordering.
+- Added CurseForge project metadata for project ID `1545161`.

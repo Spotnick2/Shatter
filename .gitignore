@@ -9,6 +9,7 @@ luac.out
 .vscode/
 .idea/
 *.log
+AGENTS.md
 
 # Luarocks build files
 *.src.rock

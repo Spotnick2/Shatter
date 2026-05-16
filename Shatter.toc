@@ -5,6 +5,7 @@
 ## Version: @project-version@
 ## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
 ## SavedVariables: ShatterDB
+## X-Curse-Project-ID: 1545161
 
 Core.lua
 Constants.lua
