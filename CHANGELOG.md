@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.1.22-alpha - 2026-05-16
+
 - Moved Generated materials and session counters under the left queue and simplified the right pane to item details only.
 - Increased the default/reset Solo window size and minimum bounds for the richer Phase 1 details layout.
 - Rebalanced the Solo details pane so expected material names remain readable and Value stays available.
