@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Restored the right-side inspection panel layout with compact Session and Generated sections.
+- Added coin icon formatting to right-pane expected disenchant value.
+
 ## v0.1.22-alpha - 2026-05-16
 
 - Moved Generated materials and session counters under the left queue and simplified the right pane to item details only.
