@@ -16,6 +16,11 @@ local DEFAULTS = {
         traceDebug = false,
         simulateDisenchant = false,
         ignoredItems = {},
+        queueOrder = {
+            solo = "BAG_SLOT",
+            mail = "FIFO",
+            raid = "FIFO",
+        },
         window = {
             point = "CENTER",
             relativePoint = "CENTER",
@@ -66,6 +71,19 @@ local function NormalizeWindow(window)
     window.scale = Clamp(window.scale or 1, defaults.minScale, defaults.maxScale)
 end
 
+local function NormalizeQueueOrder(settings)
+    local constants = Shatter.Constants and Shatter.Constants.QUEUE_ORDER or {}
+    settings.queueOrder = type(settings.queueOrder) == "table" and settings.queueOrder or {}
+    local valid = {
+        [constants.BAG_SLOT or "BAG_SLOT"] = true,
+        [constants.FIFO or "FIFO"] = true,
+        [constants.LIFO or "LIFO"] = true,
+    }
+    if not valid[settings.queueOrder.solo] then settings.queueOrder.solo = constants.BAG_SLOT or "BAG_SLOT" end
+    if not valid[settings.queueOrder.mail] then settings.queueOrder.mail = constants.FIFO or "FIFO" end
+    if not valid[settings.queueOrder.raid] then settings.queueOrder.raid = constants.FIFO or "FIFO" end
+end
+
 local function CopyDefaults(defaults, target)
     for key, value in pairs(defaults) do
         if type(value) == "table" then
@@ -87,7 +105,23 @@ function Database:Initialize()
         ShatterDB.settings.traceDebug = false
         ShatterDB.settings.simulateDisenchant = false
     end
+    NormalizeQueueOrder(ShatterDB.settings)
     NormalizeWindow(ShatterDB.settings.window)
+end
+
+function Database:GetQueueOrder(mode)
+    local settings = self:GetSettings()
+    NormalizeQueueOrder(settings)
+    mode = mode or "solo"
+    return settings.queueOrder[mode] or (Shatter.Constants and Shatter.Constants.QUEUE_ORDER.BAG_SLOT) or "BAG_SLOT"
+end
+
+function Database:SetQueueOrder(mode, order)
+    local settings = self:GetSettings()
+    NormalizeQueueOrder(settings)
+    mode = mode or "solo"
+    settings.queueOrder[mode] = order
+    NormalizeQueueOrder(settings)
 end
 
 function Database:Get()

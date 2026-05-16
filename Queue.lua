@@ -13,10 +13,37 @@ function Queue:Initialize()
     self.selectedIndex = 1
 end
 
+local function SortBagSlot(a, b)
+    if (a.bag or 0) ~= (b.bag or 0) then return (a.bag or 0) < (b.bag or 0) end
+    if (a.slot or 0) ~= (b.slot or 0) then return (a.slot or 0) < (b.slot or 0) end
+    return (a.itemID or 0) < (b.itemID or 0)
+end
+
+local function SortQueueItems(items)
+    local order = Shatter.Database and Shatter.Database:GetQueueOrder("solo") or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
+    for _, item in ipairs(items or {}) do
+        if Shatter.Session then Shatter.Session:AssignQueueSequence(item) end
+    end
+    if order == Shatter.Constants.QUEUE_ORDER.FIFO then
+        table.sort(items, function(a, b)
+            if (a.queueSequence or 0) ~= (b.queueSequence or 0) then return (a.queueSequence or 0) < (b.queueSequence or 0) end
+            return SortBagSlot(a, b)
+        end)
+    elseif order == Shatter.Constants.QUEUE_ORDER.LIFO then
+        table.sort(items, function(a, b)
+            if (a.queueSequence or 0) ~= (b.queueSequence or 0) then return (a.queueSequence or 0) > (b.queueSequence or 0) end
+            return SortBagSlot(a, b)
+        end)
+    else
+        table.sort(items, SortBagSlot)
+    end
+end
+
 function Queue:SetItems(items)
     local previous = self:GetSelected()
     local previousId = previous and previous.queueId
     self.items = items or {}
+    SortQueueItems(self.items)
     self.selectedIndex = 1
 
     if previousId then

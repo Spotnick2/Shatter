@@ -20,3 +20,5 @@
 - Reworked Solo Mode scanning to use debounced event-driven scheduling with scan reasons, recursive-scan protection, quieter debug logging, and optional trace logging.
 - Polished the Phase 1 Solo UI with a smaller default/reset size, lighter simulation badge, clearer diagonal resize grip, and tighter queue/detail alignment.
 - Mirrored TSM's secure macro button pattern for guided disenchanting by using `*type1` / `*macrotext1`, client-aware click registration, and `/cast Disenchant;` plus `/use bag slot` macro text.
+- Added a compact Shatter-owned cast/progress bar for disenchant casting, waiting-for-result, and simulation progress.
+- Added a Solo queue order setting with per-mode saved-variable structure for Bag / Slot, FIFO, and LIFO ordering.

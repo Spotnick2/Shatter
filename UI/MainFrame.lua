@@ -28,7 +28,7 @@ local MAX_H = WINDOW.MAX_HEIGHT
 local MIN_SCALE = WINDOW.MIN_SCALE
 local MAX_SCALE = WINDOW.MAX_SCALE
 local CONTENT_TOP = 76
-local CONTENT_BOTTOM = 52
+local CONTENT_BOTTOM = 72
 
 local function Clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
@@ -84,6 +84,57 @@ function MainFrame:SaveGeometry()
     if Shatter.Database then Shatter.Database:SaveWindow(self.frame) end
 end
 
+function MainFrame:HideCastBar()
+    if not self.castBar then return end
+    self.castBar:Hide()
+    self.castBar:SetScript("OnUpdate", nil)
+    self.castBar.mode = nil
+end
+
+function MainFrame:ShowCastBar(label, duration, mode)
+    if not self.castBar then return end
+    local bar = self.castBar
+    duration = duration or 0
+    bar.mode = mode or "timed"
+    bar.startedAt = GetTime and GetTime() or 0
+    bar.duration = duration
+    bar.label:SetText(label or "")
+    bar.fill:SetWidth(1)
+    bar:Show()
+    bar:SetScript("OnUpdate", function(self)
+        local now = GetTime and GetTime() or 0
+        local width = self:GetWidth() or 1
+        local progress = 0
+        if self.mode == "pulse" then
+            progress = 0.18 + (math.sin(now * 5) + 1) * 0.32
+        elseif (self.duration or 0) > 0 then
+            progress = Clamp((now - (self.startedAt or now)) / self.duration, 0, 1)
+        end
+        self.fill:SetWidth(math.max(1, width * progress))
+    end)
+end
+
+function MainFrame:ShowCastProgress(spellName, item, startTimeMS, endTimeMS)
+    local now = GetTime and GetTime() or 0
+    local startTime = startTimeMS and startTimeMS / 1000 or now
+    local endTime = endTimeMS and endTimeMS / 1000 or (now + 1.5)
+    local duration = math.max(0.1, endTime - startTime)
+    local label = spellName or "Disenchanting..."
+    if item and (item.itemLink or item.itemName) then
+        label = string.format("%s: %s", label, item.itemLink or item.itemName)
+    end
+    self:ShowCastBar(label, duration, "timed")
+    self.castBar.startedAt = startTime
+end
+
+function MainFrame:ShowWaitingForResult(item, duration)
+    local label = "Waiting for result..."
+    if item and (item.itemLink or item.itemName) then
+        label = string.format("Waiting for result: %s", item.itemLink or item.itemName)
+    end
+    self:ShowCastBar(label, duration or 0, duration and "timed" or "pulse")
+end
+
 function MainFrame:Layout()
     if not self.frame or not self.queuePanel or not self.detailPanel then return end
     if self.layouting then return end
@@ -106,6 +157,12 @@ function MainFrame:Layout()
         self.status:ClearAllPoints()
         self.status:SetPoint("LEFT", self.footer, "LEFT", 0, 0)
         self.status:SetPoint("RIGHT", self.primary, "LEFT", -10, 0)
+    end
+    if self.castBar then
+        self.castBar:ClearAllPoints()
+        self.castBar:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 10, 48)
+        self.castBar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -30, 48)
+        self.castBar:SetHeight(14)
     end
     self.layouting = false
 end
@@ -367,6 +424,25 @@ function MainFrame:Create()
     detailPanel.results:SetPoint("TOPLEFT", detailPanel.expected, "BOTTOMLEFT", 0, -18)
     detailPanel.results:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
     detailPanel.results:SetJustifyH("LEFT")
+
+    local castBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    castBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 48)
+    castBar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 48)
+    castBar:SetHeight(14)
+    Shatter.ApplyBackdrop(castBar, 0.04, 0.04, 0.04, 0.95)
+    castBar.fill = castBar:CreateTexture(nil, "ARTWORK")
+    castBar.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
+    castBar.fill:SetColorTexture(0.85, 0.58, 0.10, 0.78)
+    castBar.fill:SetPoint("TOPLEFT", castBar, "TOPLEFT", 1, -1)
+    castBar.fill:SetPoint("BOTTOMLEFT", castBar, "BOTTOMLEFT", 1, 1)
+    castBar.fill:SetWidth(1)
+    castBar.label = castBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    castBar.label:SetPoint("LEFT", castBar, "LEFT", 6, 0)
+    castBar.label:SetPoint("RIGHT", castBar, "RIGHT", -6, 0)
+    castBar.label:SetJustifyH("LEFT")
+    castBar.label:SetTextColor(1.00, 0.82, 0.18, 1)
+    castBar:Hide()
+    self.castBar = castBar
 
     local footer = CreateFrame("Frame", nil, frame)
     footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 10)

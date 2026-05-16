@@ -66,8 +66,39 @@ function SettingsUI:Create(parent)
     epic:SetScript("OnClick", function() SetQuality(4) end)
     self.qualityButtons = { [2] = uncommon, [3] = rare, [4] = epic }
 
+    local orderLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    orderLabel:SetPoint("TOPLEFT", uncommon, "BOTTOMLEFT", 0, -14)
+    orderLabel:SetText("Solo queue order")
+
+    local bagSlot = CreatePanelButton(frame, "Bag / Slot", 78)
+    bagSlot:SetPoint("TOPLEFT", orderLabel, "BOTTOMLEFT", 0, -8)
+    local fifo = CreatePanelButton(frame, "First In, First Out", 118)
+    fifo:SetPoint("LEFT", bagSlot, "RIGHT", 6, 0)
+    local lifo = CreatePanelButton(frame, "Last In, First Out", 118)
+    lifo:SetPoint("LEFT", fifo, "RIGHT", 6, 0)
+
+    local function SetQueueOrder(order)
+        if Shatter.Database then Shatter.Database:SetQueueOrder("solo", order) end
+        self:Refresh()
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_QUEUE_ORDER", 0.05) end
+    end
+    bagSlot:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.BAG_SLOT) end)
+    fifo:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.FIFO) end)
+    lifo:SetScript("OnClick", function() SetQueueOrder(Shatter.Constants.QUEUE_ORDER.LIFO) end)
+    self.queueOrderButtons = {
+        [Shatter.Constants.QUEUE_ORDER.BAG_SLOT] = bagSlot,
+        [Shatter.Constants.QUEUE_ORDER.FIFO] = fifo,
+        [Shatter.Constants.QUEUE_ORDER.LIFO] = lifo,
+    }
+
+    local orderHelp = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    orderHelp:SetPoint("LEFT", lifo, "RIGHT", 10, 0)
+    orderHelp:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+    orderHelp:SetJustifyH("LEFT")
+    orderHelp:SetText("Controls the Solo queue processing order.")
+
     local soulbound = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
-    soulbound:SetPoint("TOPLEFT", uncommon, "BOTTOMLEFT", -4, -18)
+    soulbound:SetPoint("TOPLEFT", bagSlot, "BOTTOMLEFT", -4, -14)
     soulbound:SetSize(24, 24)
     soulbound.label = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     soulbound.label:SetPoint("LEFT", soulbound, "RIGHT", 4, 0)
@@ -145,6 +176,16 @@ function SettingsUI:Refresh()
     SetShown(self.simulate and self.simulate.label, settings.debug or settings.simulateDisenchant)
     for quality, button in pairs(self.qualityButtons or {}) do
         if quality == settings.maxQuality then
+            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        else
+            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
+        end
+    end
+    local order = Shatter.Database and Shatter.Database:GetQueueOrder("solo") or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
+    for value, button in pairs(self.queueOrderButtons or {}) do
+        if value == order then
             button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else

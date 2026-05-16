@@ -11,6 +11,18 @@ Constants.QUALITY_RARE = 3
 Constants.QUALITY_EPIC = 4
 Constants.DEFAULT_MAX_QUALITY = Constants.QUALITY_RARE
 
+Constants.QUEUE_ORDER = {
+    BAG_SLOT = "BAG_SLOT",
+    FIFO = "FIFO",
+    LIFO = "LIFO",
+}
+
+Constants.QUEUE_ORDER_LABELS = {
+    BAG_SLOT = "Bag / Slot",
+    FIFO = "First In, First Out",
+    LIFO = "Last In, First Out",
+}
+
 Constants.WINDOW = {
     DEFAULT_WIDTH = 540,
     DEFAULT_HEIGHT = 340,

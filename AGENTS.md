@@ -29,8 +29,10 @@ Shatter is a standalone World of Warcraft TBC Classic / Anniversary addon for gu
 - Keep `/shatter sim` available during Phase 1 development so UI and queue work can be tested without destroying items.
 - In the UI, simulation is a debug/development setting. Real MVP testing should use the guided `Shatter Next` secure button path unless explicitly testing debug simulation.
 - Solo bag scans must be event-driven through `SoloMode:ScheduleScan(reason, delay)`. Do not rescan from UI rendering or frame visibility loops; normal debug should log meaningful scan changes only, while trace debug can log every scan/event.
+- Queue ordering is saved under `ShatterDB.settings.queueOrder` with per-mode keys (`solo`, `mail`, `raid`). Phase 1 exposes only Solo ordering. Keep FIFO/LIFO stable through `Session:AssignQueueSequence(item)` rather than deriving those orders from whatever a fresh bag scan happens to return.
 - The real `Shatter Next` action must use a secure macro button pattern, not direct protected calls. The primary button is a `SecureActionButtonTemplate` button with `*type1 = "macro"` and `*macrotext1` set during `PreClick`; it registers for `LeftButtonDown` or `LeftButtonUp` based on `ActionButtonUseKeyDown`. Direct `CastSpellByName`, `UseContainerItem`, or `C_Container.UseContainerItem` calls from addon code caused protected-action errors in TBC Anniversary.
 - TSM Destroying's local implementation confirms the safe pattern for this client: set secure macro text like `/cast Disenchant;` followed by `/use bag slot` on the secure macro button before the hardware click executes. Do not copy TSM code or assets, but this API pattern is validated reference behavior.
+- The Shatter-owned cast/progress bar lives in `UI/MainFrame.lua`. It may use `OnUpdate` only while visible for an active cast, result wait, simulation progress, or resize scale drag; it must clear `OnUpdate` when hidden or idle.
 - Mail Mode and Raid / Trade Mode must remain disabled placeholders until Solo Mode is accepted as Phase 1 MVP.
 
 ## Repository Practices

@@ -19,6 +19,8 @@ local function NewSession(mode)
         sourceAttribution = {},
         simulatedQueueIds = {},
         skippedQueueIds = {},
+        queuedItemSequences = {},
+        nextQueueSequence = 0,
         pendingAction = nil,
         summary = {
             itemsQueued = 0,
@@ -52,6 +54,18 @@ end
 function Session:SetQueuedCount(count)
     local session = self:Ensure(Shatter.Constants.MODES.SOLO)
     session.summary.itemsQueued = count or 0
+end
+
+function Session:AssignQueueSequence(item)
+    if not item or not item.queueId then return 0 end
+    local session = self:Ensure(item.mode or Shatter.Constants.MODES.SOLO)
+    session.queuedItemSequences = session.queuedItemSequences or {}
+    if not session.queuedItemSequences[item.queueId] then
+        session.nextQueueSequence = (session.nextQueueSequence or 0) + 1
+        session.queuedItemSequences[item.queueId] = session.nextQueueSequence
+    end
+    item.queueSequence = session.queuedItemSequences[item.queueId]
+    return item.queueSequence
 end
 
 function Session:BeginAction(item)

@@ -85,6 +85,8 @@ end
 function Disenchant:Initialize()
     if not Shatter.Events then return end
     Shatter.Events:Register("UNIT_SPELLCAST_START", self, self.OnEvent)
+    Shatter.Events:Register("UNIT_SPELLCAST_STOP", self, self.OnEvent)
+    Shatter.Events:Register("UNIT_SPELLCAST_DELAYED", self, self.OnEvent)
     Shatter.Events:Register("UNIT_SPELLCAST_SUCCEEDED", self, self.OnEvent)
     Shatter.Events:Register("UNIT_SPELLCAST_FAILED", self, self.OnEvent)
     Shatter.Events:Register("UNIT_SPELLCAST_FAILED_QUIET", self, self.OnEvent)
@@ -204,6 +206,7 @@ function Disenchant:BeginSecureClick(button)
     if Shatter.Session then Shatter.Session:BeginAction(item) end
     if Shatter.MainFrame then
         Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false)
+        Shatter.MainFrame:ShowCastBar("Starting Disenchant...", 0, "pulse")
         Shatter.MainFrame:Update()
     end
     self:StartTimeout()
@@ -239,6 +242,7 @@ function Disenchant:Simulate(item)
     if Shatter.Session then Shatter.Session:BeginAction(item) end
     if Shatter.MainFrame then
         Shatter.MainFrame:SetStatus("Simulating " .. (item.itemLink or item.itemName or "item") .. "...", false)
+        Shatter.MainFrame:ShowCastBar("Simulating: " .. (item.itemLink or item.itemName or "item"), 0.25, "timed")
         Shatter.MainFrame:Update()
     end
 
@@ -255,6 +259,7 @@ function Disenchant:Simulate(item)
         self.finalizing = false
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SIMULATION_RESULT", 0.1) end
         if Shatter.MainFrame then
+            Shatter.MainFrame:HideCastBar()
             Shatter.MainFrame:SetStatus("Simulated result recorded.", false)
             Shatter.MainFrame:Update()
         end
@@ -289,6 +294,7 @@ function Disenchant:Finish()
 
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("DISENCHANT_RESOLVED", 0.1) end
         if Shatter.MainFrame then
+            Shatter.MainFrame:HideCastBar()
             Shatter.MainFrame:SetStatus("Disenchanted: " .. (pending.item.itemLink or pending.item.itemName or "item"), false, 3)
             Shatter.MainFrame:Update()
         end
@@ -301,6 +307,7 @@ function Disenchant:Fail(reason)
     self.finalizing = false
     if Shatter.Session then Shatter.Session:FailPending(reason) end
     if Shatter.MainFrame then
+        Shatter.MainFrame:HideCastBar()
         Shatter.MainFrame:SetStatus(reason or "Disenchant failed", true, 3)
         Shatter.MainFrame:Update()
     end
@@ -348,7 +355,19 @@ function Disenchant:OnEvent(event, ...)
 
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         self.pending.succeeded = true
-        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false) end
+        if Shatter.MainFrame then
+            Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false)
+            Shatter.MainFrame:ShowWaitingForResult(self.pending.item, self.timeoutSeconds)
+        end
+    elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_DELAYED" then
+        if Shatter.MainFrame then
+            local name, _, _, startTimeMS, endTimeMS = UnitCastingInfo and UnitCastingInfo("player")
+            Shatter.MainFrame:ShowCastProgress(name or "Disenchanting...", self.pending.item, startTimeMS, endTimeMS)
+        end
+    elseif event == "UNIT_SPELLCAST_STOP" then
+        if not self.pending.succeeded and Shatter.MainFrame then
+            Shatter.MainFrame:ShowWaitingForResult(self.pending.item, self.timeoutSeconds)
+        end
     elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_FAILED_QUIET" or event == "UNIT_SPELLCAST_INTERRUPTED" then
         self:Fail(Shatter.Constants.STATUS.DISENCHANT_FAILED)
     end
