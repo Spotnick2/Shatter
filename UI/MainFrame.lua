@@ -651,7 +651,7 @@ function MainFrame:Update()
         local qualityLabel = Shatter.Constants.QUALITY_LABELS[selected.quality] or ("Quality " .. tostring(selected.quality or "?"))
         detail.meta:SetText(string.format("%s - Item Level %s", qualityLabel, tostring(selected.itemLevel or "?")))
         detail.location:SetText(string.format("Bag %d, Slot %d%s", selected.bag or 0, selected.slot or 0, selected.isSoulbound and " - Soulbound" or ""))
-        detail.expected:SetText("Expected materials will be available once disenchant tables are added.")
+        detail.expected:SetText(Shatter.DisenchantTables and Shatter.DisenchantTables:FormatEstimate(selected.expectedEstimate) or "Expected materials: unavailable")
         detail.results:SetText(Shatter.Session and Shatter.Session:FormatSummary() or "")
     else
         detail.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")

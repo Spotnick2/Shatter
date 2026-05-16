@@ -46,7 +46,7 @@ function SettingsUI:Create(parent)
     self.scroll = scroll
 
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(1, 260)
+    content:SetSize(1, 340)
     scroll:SetScrollChild(content)
     scroll:SetScript("OnSizeChanged", function(self)
         content:SetWidth(math.max(1, self:GetWidth()))
@@ -116,8 +116,43 @@ function SettingsUI:Create(parent)
     orderHelp:SetJustifyH("LEFT")
     orderHelp:SetText("Controls the Solo queue processing order.")
 
+    local valueLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    valueLabel:SetPoint("TOPLEFT", orderHelp, "BOTTOMLEFT", 0, -10)
+    valueLabel:SetText("Minimum expected value")
+
+    local valueOff = CreatePanelButton(content, "Off", 44)
+    valueOff:SetPoint("TOPLEFT", valueLabel, "BOTTOMLEFT", 0, -8)
+    local value1g = CreatePanelButton(content, "1g", 44)
+    value1g:SetPoint("LEFT", valueOff, "RIGHT", 6, 0)
+    local value5g = CreatePanelButton(content, "5g", 44)
+    value5g:SetPoint("LEFT", value1g, "RIGHT", 6, 0)
+    local value10g = CreatePanelButton(content, "10g", 50)
+    value10g:SetPoint("LEFT", value5g, "RIGHT", 6, 0)
+
+    local function SetThreshold(value)
+        Shatter.Database:GetSettings().minExpectedValueCopper = value or 0
+        self:Refresh()
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_VALUE_THRESHOLD", 0.05) end
+    end
+    valueOff:SetScript("OnClick", function() SetThreshold(0) end)
+    value1g:SetScript("OnClick", function() SetThreshold(10000) end)
+    value5g:SetScript("OnClick", function() SetThreshold(50000) end)
+    value10g:SetScript("OnClick", function() SetThreshold(100000) end)
+    self.valueButtons = {
+        [0] = valueOff,
+        [10000] = value1g,
+        [50000] = value5g,
+        [100000] = value10g,
+    }
+
+    local valueHelp = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    valueHelp:SetPoint("LEFT", value10g, "RIGHT", 10, 0)
+    valueHelp:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+    valueHelp:SetJustifyH("LEFT")
+    valueHelp:SetText("Uses optional TSM, Auctioneer, or Auctionator prices when available.")
+
     local soulbound = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    soulbound:SetPoint("TOPLEFT", orderHelp, "BOTTOMLEFT", -4, -8)
+    soulbound:SetPoint("TOPLEFT", valueOff, "BOTTOMLEFT", -4, -8)
     soulbound:SetSize(24, 24)
     soulbound.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     soulbound.label:SetPoint("LEFT", soulbound, "RIGHT", 4, 0)
@@ -142,8 +177,20 @@ function SettingsUI:Create(parent)
     end)
     self.minimap = minimap
 
+    local useValues = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    useValues:SetPoint("TOPLEFT", minimap, "BOTTOMLEFT", 0, -6)
+    useValues:SetSize(24, 24)
+    useValues.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    useValues.label:SetPoint("LEFT", useValues, "RIGHT", 4, 0)
+    useValues.label:SetText("Filter queue by expected value")
+    useValues:SetScript("OnClick", function(self)
+        Shatter.Database:GetSettings().useAuctionData = self:GetChecked() and true or false
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_VALUE_FILTER", 0.05) end
+    end)
+    self.useValues = useValues
+
     local debug = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    debug:SetPoint("TOPLEFT", minimap, "BOTTOMLEFT", 0, -6)
+    debug:SetPoint("TOPLEFT", useValues, "BOTTOMLEFT", 0, -6)
     debug:SetSize(24, 24)
     debug.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     debug.label:SetPoint("LEFT", debug, "RIGHT", 4, 0)
@@ -190,7 +237,7 @@ function SettingsUI:Create(parent)
     note:SetPoint("TOPLEFT", simulate, "BOTTOMLEFT", 4, -10)
     note:SetPoint("RIGHT", content, "RIGHT", -12, 0)
     note:SetJustifyH("LEFT")
-    note:SetText("Expected materials and value thresholds are reserved for Phase 2. Mail and Raid modes are reserved for later phases.")
+    note:SetText("Expected materials use built-in disenchant tables. Value filters use optional TSM, Auctioneer, or Auctionator prices when available. Mail and Raid modes are reserved for later phases.")
 
     self:Refresh()
     return frame
@@ -201,6 +248,7 @@ function SettingsUI:Refresh()
     local settings = Shatter.Database:GetSettings()
     if self.soulbound then self.soulbound:SetChecked(settings.includeSoulbound) end
     if self.minimap then self.minimap:SetChecked(not (settings.minimap and settings.minimap.hide)) end
+    if self.useValues then self.useValues:SetChecked(settings.useAuctionData) end
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end
@@ -220,6 +268,16 @@ function SettingsUI:Refresh()
     local order = Shatter.Database and Shatter.Database:GetQueueOrder("solo") or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
     for value, button in pairs(self.queueOrderButtons or {}) do
         if value == order then
+            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        else
+            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
+        end
+    end
+    local threshold = tonumber(settings.minExpectedValueCopper) or 0
+    for value, button in pairs(self.valueButtons or {}) do
+        if value == threshold then
             button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else

@@ -160,7 +160,22 @@ function ItemScanner:ScanBags()
             if item then
                 local ok = self:IsCandidateDisenchantable(item)
                 if ok then
-                    table.insert(items, item)
+                    if Shatter.DisenchantTables then
+                        local estimate = Shatter.DisenchantTables:GetExpected(item)
+                        item.expectedMats = estimate and estimate.materials or nil
+                        item.expectedValueCopper = estimate and estimate.expectedValueCopper or nil
+                        item.valueSource = estimate and estimate.valueSource or nil
+                        item.expectedEstimate = estimate
+                    end
+                    local settings = Shatter.Database and Shatter.Database:GetSettings() or {}
+                    local threshold = tonumber(settings.minExpectedValueCopper) or 0
+                    local valueAllowed = true
+                    if settings.useAuctionData and threshold > 0 and item.expectedValueCopper then
+                        valueAllowed = item.expectedValueCopper >= threshold
+                    end
+                    if valueAllowed then
+                        table.insert(items, item)
+                    end
                 end
             elseif reason == "item info pending" then
                 pendingInfo = true

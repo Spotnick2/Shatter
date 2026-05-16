@@ -12,7 +12,7 @@ The MVP is planned as a lightweight replacement for the useful parts of the Trad
 
 ## Status
 
-This repository currently contains the specification, packaging scaffold, and an early modular Solo Mode prototype. Mail Mode and Raid / Trade Mode are documented but not implemented yet.
+This repository currently contains a working Solo Mode MVP with guided disenchanting, result tracking, Shatter-owned progress UI, queue ordering, expected material estimates, and optional value filtering. Mail Mode and Raid / Trade Mode are documented but not implemented yet.
 
 ## Usage
 
@@ -47,6 +47,12 @@ Debug logging reports meaningful state changes. `/shatter trace` enables verbose
 Solo Mode is the only implemented mode. Mail and Raid / Trade tabs are disabled placeholders for later phases.
 
 The real `Shatter Next` path uses a guided secure macro button for one player click against the selected bag slot. Additional in-game API validation is still needed before treating real disenchant result tracking as final.
+
+## Phase 2 Notes
+
+Expected materials use built-in Shatter tables for Classic/TBC disenchant outcomes. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
+
+Value filtering is opt-in from Settings. If no pricing source is available, Shatter keeps otherwise eligible items in the queue instead of hiding them.
 
 ## Installation
 

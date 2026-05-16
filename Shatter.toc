@@ -14,6 +14,7 @@ Database.lua
 Debug.lua
 Events.lua
 MaterialTracker.lua
+Data\DisenchantTables.lua
 ItemScanner.lua
 Queue.lua
 Session.lua

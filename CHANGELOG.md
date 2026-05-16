@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added Phase 2 disenchant material estimates for Solo queue items using Shatter-owned Classic/TBC disenchant rules.
+- Added optional expected value calculation from installed pricing addons: TSM, Auctioneer, or Auctionator.
+- Added Settings controls for expected value filtering and value thresholds.
+- Updated item detail text to show expected materials and value source when available.
+
 ## v0.1.12-alpha - 2026-05-16
 
 - Tagged the first Shatter Phase 1 alpha release for CurseForge packaging and repository distribution.
