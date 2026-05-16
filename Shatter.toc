@@ -22,6 +22,7 @@ UI\Rows.lua
 UI\Settings.lua
 UI\Summary.lua
 UI\MainFrame.lua
+UI\Minimap.lua
 Modes\SoloMode.lua
 Modes\MailMode.lua
 Modes\RaidMode.lua

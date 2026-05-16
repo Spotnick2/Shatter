@@ -39,6 +39,7 @@ function Shatter.Initialize()
     if Shatter.Session then SafeCall("Session", Shatter.Session.Initialize, Shatter.Session) end
     if Shatter.Disenchant then SafeCall("Disenchant", Shatter.Disenchant.Initialize, Shatter.Disenchant) end
     if Shatter.MainFrame then SafeCall("MainFrame", Shatter.MainFrame.Initialize, Shatter.MainFrame) end
+    if Shatter.MinimapButton then SafeCall("MinimapButton", Shatter.MinimapButton.Initialize, Shatter.MinimapButton) end
     if Shatter.SummaryUI then SafeCall("SummaryUI", Shatter.SummaryUI.Initialize, Shatter.SummaryUI) end
     if Shatter.SoloMode then SafeCall("SoloMode", Shatter.SoloMode.Initialize, Shatter.SoloMode) end
     if Shatter.MailMode then SafeCall("MailMode", Shatter.MailMode.Initialize, Shatter.MailMode) end

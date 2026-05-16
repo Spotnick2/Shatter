@@ -128,8 +128,22 @@ function SettingsUI:Create(parent)
     end)
     self.soulbound = soulbound
 
+    local minimap = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    minimap:SetPoint("TOPLEFT", soulbound, "BOTTOMLEFT", 0, -6)
+    minimap:SetSize(24, 24)
+    minimap.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    minimap.label:SetPoint("LEFT", minimap, "RIGHT", 4, 0)
+    minimap.label:SetText("Show minimap button")
+    minimap:SetScript("OnClick", function(self)
+        local settings = Shatter.Database:GetSettings()
+        settings.minimap = type(settings.minimap) == "table" and settings.minimap or {}
+        settings.minimap.hide = not self:GetChecked()
+        if Shatter.MinimapButton then Shatter.MinimapButton:Refresh() end
+    end)
+    self.minimap = minimap
+
     local debug = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    debug:SetPoint("TOPLEFT", soulbound, "BOTTOMLEFT", 0, -6)
+    debug:SetPoint("TOPLEFT", minimap, "BOTTOMLEFT", 0, -6)
     debug:SetSize(24, 24)
     debug.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     debug.label:SetPoint("LEFT", debug, "RIGHT", 4, 0)
@@ -186,6 +200,7 @@ function SettingsUI:Refresh()
     if not self.frame then return end
     local settings = Shatter.Database:GetSettings()
     if self.soulbound then self.soulbound:SetChecked(settings.includeSoulbound) end
+    if self.minimap then self.minimap:SetChecked(not (settings.minimap and settings.minimap.hide)) end
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end

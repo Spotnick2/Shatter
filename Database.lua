@@ -5,13 +5,13 @@ Shatter.Database = Database
 Shatter.RegisterModule("Database", Database)
 
 local DEFAULTS = {
-    version = 1,
+    version = 2,
     settings = {
         maxQuality = 3,
         includeSoulbound = false,
         minExpectedValueCopper = 0,
         useAuctionData = false,
-        minimap = { hide = true },
+        minimap = { hide = false, angle = 225 },
         debug = false,
         traceDebug = false,
         simulateDisenchant = false,
@@ -99,7 +99,11 @@ end
 
 function Database:Initialize()
     ShatterDB = ShatterDB or {}
+    local previousVersion = tonumber(ShatterDB.version) or 0
     CopyDefaults(DEFAULTS, ShatterDB)
+    if previousVersion < 2 and ShatterDB.settings and ShatterDB.settings.minimap then
+        ShatterDB.settings.minimap.hide = false
+    end
     ShatterDB.version = DEFAULTS.version
     if ShatterDB.settings and not ShatterDB.settings.debug then
         ShatterDB.settings.traceDebug = false
