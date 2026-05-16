@@ -23,3 +23,4 @@
 - Added a compact Shatter-owned cast/progress bar for disenchant casting, waiting-for-result, and simulation progress.
 - Added a Solo queue order setting with per-mode saved-variable structure for Bag / Slot, FIFO, and LIFO ordering.
 - Added CurseForge project metadata for project ID `1545161`.
+- Fixed Settings view clipping at the smaller default size by moving settings controls into a reserved scrollable content area and hiding footer status text while Settings is open.

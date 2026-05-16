@@ -573,6 +573,7 @@ function MainFrame:SetActiveView(view)
     SetShown(self.ignoreButton, self.activeView == "solo")
     SetShown(self.skipButton, self.activeView == "solo")
     SetShown(self.summaryButton, self.activeView ~= "settings")
+    SetShown(self.status, self.activeView ~= "settings")
 
     if self.settingsButton and self.settingsButton.text then
         self.settingsButton.text:SetText(self.activeView == "solo" and "Settings" or "Back")
@@ -588,7 +589,7 @@ function MainFrame:SetActiveView(view)
     if simulation then
         self:SetStatus("Simulation mode enabled - no items will be disenchanted.", false)
     elseif self.settingsOpen then
-        self:SetStatus("Settings", false)
+        self:SetStatus("", false)
     elseif summaryOpen then
         self:SetStatus("Summary", false)
     else
@@ -626,7 +627,7 @@ function MainFrame:Update()
         if simulation then
             self:SetStatus("Simulation mode enabled - no items will be disenchanted.", false)
         else
-            self:SetStatus(self.activeView == "settings" and "Settings" or "Summary", false)
+            self:SetStatus(self.activeView == "settings" and "" or "Summary", false)
         end
         return
     end
