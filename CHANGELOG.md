@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added queue item counts and a scrollable Solo queue list for larger inventories.
 - Polished the selected item details pane with Expected Materials, Value, and Session sections.
 - Added Phase 2 disenchant material estimates for Solo queue items using Shatter-owned Classic/TBC disenchant rules.
 - Added optional expected value calculation from installed pricing addons: TSM, Auctioneer, or Auctionator.

@@ -179,6 +179,24 @@ local function UpdateDetailSections(detail, selected)
     end
 end
 
+function MainFrame:EnsureQueueRows(count)
+    if not self.queueContent then return end
+    count = math.max(count or 0, ROWS)
+    local previous = self.rows[#self.rows]
+    for i = #self.rows + 1, count do
+        local row = Shatter.Rows.CreateQueueRow(self.queueContent, i)
+        row:SetPoint("LEFT", self.queueContent, "LEFT", 0, 0)
+        row:SetPoint("RIGHT", self.queueContent, "RIGHT", 0, 0)
+        if previous then
+            row:SetPoint("TOP", previous, "BOTTOM", 0, -2)
+        else
+            row:SetPoint("TOP", self.queueContent, "TOP", 0, 0)
+        end
+        self.rows[i] = row
+        previous = row
+    end
+end
+
 function MainFrame:ClampGeometry()
     if not self.frame then return end
     local width = Clamp(self.frame:GetWidth() or FRAME_W, MIN_W, MAX_W)
@@ -481,16 +499,36 @@ function MainFrame:Create()
     queueTitle:SetPoint("TOPLEFT", queuePanel, "TOPLEFT", 8, -7)
     queueTitle:SetText("Queue")
     Shatter.SetTextColor(queueTitle, Shatter.C.ACCENT)
+    self.queueTitle = queueTitle
+
+    local queueScroll = CreateFrame("ScrollFrame", nil, queuePanel, "UIPanelScrollFrameTemplate")
+    queueScroll:SetPoint("TOPLEFT", queuePanel, "TOPLEFT", 6, -30)
+    queueScroll:SetPoint("BOTTOMRIGHT", queuePanel, "BOTTOMRIGHT", -25, 7)
+    queueScroll:EnableMouseWheel(true)
+    queueScroll:SetScript("OnMouseWheel", function(self, delta)
+        local current = self:GetVerticalScroll() or 0
+        local maxScroll = self:GetVerticalScrollRange() or 0
+        self:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * 24)))
+    end)
+    self.queueScroll = queueScroll
+
+    local queueContent = CreateFrame("Frame", nil, queueScroll)
+    queueContent:SetSize(1, 1)
+    queueScroll:SetScrollChild(queueContent)
+    queueScroll:SetScript("OnSizeChanged", function(self)
+        queueContent:SetWidth(math.max(1, self:GetWidth()))
+    end)
+    self.queueContent = queueContent
 
     local previous
     for i = 1, ROWS do
-        local row = Shatter.Rows.CreateQueueRow(queuePanel, i)
-        row:SetPoint("LEFT", queuePanel, "LEFT", 6, 0)
-        row:SetPoint("RIGHT", queuePanel, "RIGHT", -6, 0)
+        local row = Shatter.Rows.CreateQueueRow(queueContent, i)
+        row:SetPoint("LEFT", queueContent, "LEFT", 0, 0)
+        row:SetPoint("RIGHT", queueContent, "RIGHT", 0, 0)
         if previous then
             row:SetPoint("TOP", previous, "BOTTOM", 0, -2)
         else
-            row:SetPoint("TOP", queuePanel, "TOP", 0, -30)
+            row:SetPoint("TOP", queueContent, "TOP", 0, 0)
         end
         self.rows[i] = row
         previous = row
@@ -794,6 +832,15 @@ function MainFrame:Update()
 
     local items = Shatter.Queue and Shatter.Queue:GetItems() or {}
     local selected = Shatter.Queue and Shatter.Queue:GetSelected()
+    local itemCount = #items
+
+    if self.queueTitle then
+        self.queueTitle:SetText(string.format("Queue (%d)", itemCount))
+    end
+    self:EnsureQueueRows(itemCount)
+    if self.queueContent then
+        self.queueContent:SetHeight(math.max(1, itemCount * 36))
+    end
 
     for i, row in ipairs(self.rows) do
         row.index = i
