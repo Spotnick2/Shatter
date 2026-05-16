@@ -66,6 +66,110 @@ local function SetShown(frame, shown)
     end
 end
 
+local function CreateDetailLabel(parent, anchor, x, y, text)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", x or 0, y or -8)
+    label:SetText(text)
+    Shatter.SetTextColor(label, Shatter.C.ACCENT)
+    return label
+end
+
+local function CreateDetailText(parent, template)
+    local text = parent:CreateFontString(nil, "OVERLAY", template or "GameFontDisableSmall")
+    text:SetJustifyH("LEFT")
+    text:SetTextColor(0.72, 0.72, 0.72, 1)
+    return text
+end
+
+local function FormatChance(chance)
+    return string.format("%d%%", math.floor((chance or 0) * 100 + 0.5))
+end
+
+local function FormatExpectedQuantity(amount)
+    return string.format("x%.2f", amount or 0)
+end
+
+local function FormatRange(minAmount, maxAmount)
+    minAmount = minAmount or 1
+    maxAmount = maxAmount or minAmount
+    if minAmount == maxAmount then return tostring(minAmount) end
+    return string.format("%d-%d", minAmount, maxAmount)
+end
+
+local function FormatPriceSource(source)
+    if not source or source == "" then return "Unknown" end
+    if source == "TSM dbmarket" then return "TSM dbmarket" end
+    if string.find(source, "TSM", 1, true) then return "TSM market" end
+    if string.find(source, "Auctionator", 1, true) then return "Auctionator" end
+    if string.find(source, "Auctioneer", 1, true) then return "Auctioneer" end
+    return source
+end
+
+local function GetSessionSummary()
+    local session = Shatter.Session and Shatter.Session.active
+    if not session or not session.summary then
+        return "No active session.", "", ""
+    end
+    local summary = session.summary
+    local materials = Shatter.MaterialTracker and Shatter.MaterialTracker:Format(summary.materialsGenerated) or "No result recorded"
+    return string.format("Disenchanted: %d   Skipped: %d   Ignored: %d", summary.itemsDisenchanted or 0, summary.itemsSkipped or 0, summary.itemsIgnored or 0),
+        string.format("Failed: %d   Materials: %s", summary.itemsFailed or 0, materials or "No result recorded")
+end
+
+local function UpdateDetailSections(detail, selected)
+    if not detail then return end
+
+    if not selected then
+        SetShown(detail.materialLabel, false)
+        if detail.materialEmpty then
+            detail.materialEmpty:SetText("Select an item from the queue.")
+            SetShown(detail.materialEmpty, true)
+        end
+        for _, row in ipairs(detail.materialRows or {}) do row.frame:Hide() end
+        SetShown(detail.valueLabel, false)
+        SetShown(detail.valueText, false)
+        SetShown(detail.sessionLabel, false)
+        SetShown(detail.sessionText, false)
+    else
+        SetShown(detail.materialLabel, true)
+        SetShown(detail.valueLabel, true)
+        SetShown(detail.valueText, true)
+        SetShown(detail.sessionLabel, true)
+        SetShown(detail.sessionText, true)
+        local estimate = selected.expectedEstimate
+        local materials = estimate and estimate.materials
+        local hasMaterials = materials and #materials > 0
+        if detail.materialEmpty then
+            detail.materialEmpty:SetText(hasMaterials and "" or "Unavailable until disenchant tables are added.")
+            SetShown(detail.materialEmpty, not hasMaterials)
+        end
+        for i, row in ipairs(detail.materialRows or {}) do
+            local entry = hasMaterials and materials[i]
+            if entry then
+                row.frame:Show()
+                row.chance:SetText(FormatChance(entry.chance))
+                local name, link = GetItemInfo(entry.itemID)
+                row.name:SetText(link or name or ("item:" .. tostring(entry.itemID)))
+                row.expected:SetText(FormatExpectedQuantity(entry.expectedAmount))
+                row.range:SetText(FormatRange(entry.minAmount, entry.maxAmount))
+            else
+                row.frame:Hide()
+            end
+        end
+
+        if estimate and estimate.expectedValueCopper and Shatter.DisenchantTables then
+            detail.valueText:SetText("Expected DE Value: " .. Shatter.DisenchantTables:FormatMoney(estimate.expectedValueCopper) .. "\nSource: " .. FormatPriceSource(estimate.valueSource))
+        else
+            detail.valueText:SetText("Unavailable")
+        end
+    end
+
+    local line1, line2 = GetSessionSummary()
+    if detail.sessionText then
+        detail.sessionText:SetText((line1 or "") .. "\n" .. (line2 or ""))
+    end
+end
+
 function MainFrame:ClampGeometry()
     if not self.frame then return end
     local width = Clamp(self.frame:GetWidth() or FRAME_W, MIN_W, MAX_W)
@@ -414,16 +518,60 @@ function MainFrame:Create()
     detailPanel.location:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
     detailPanel.location:SetJustifyH("LEFT")
 
-    detailPanel.expected = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    detailPanel.expected:SetPoint("TOPLEFT", detailPanel.iconBorder, "BOTTOMLEFT", 0, -17)
-    detailPanel.expected:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
-    detailPanel.expected:SetJustifyH("LEFT")
-    detailPanel.expected:SetText("Expected materials: unknown")
+    detailPanel.materialLabel = CreateDetailLabel(detailPanel, detailPanel.iconBorder, 0, -6, "Expected Materials")
+    detailPanel.materialEmpty = CreateDetailText(detailPanel, "GameFontDisableSmall")
+    detailPanel.materialEmpty:SetPoint("TOPLEFT", detailPanel.materialLabel, "BOTTOMLEFT", 0, -3)
+    detailPanel.materialEmpty:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.materialEmpty:SetText("Unavailable until disenchant tables are added.")
 
-    detailPanel.results = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    detailPanel.results:SetPoint("TOPLEFT", detailPanel.expected, "BOTTOMLEFT", 0, -18)
-    detailPanel.results:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
-    detailPanel.results:SetJustifyH("LEFT")
+    detailPanel.materialRows = {}
+    local previousMaterial
+    for i = 1, 3 do
+        local row = CreateFrame("Frame", nil, detailPanel)
+        row:SetHeight(12)
+        row:SetPoint("LEFT", detailPanel, "LEFT", 8, 0)
+        row:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+        if previousMaterial then
+            row:SetPoint("TOP", previousMaterial, "BOTTOM", 0, 0)
+        else
+            row:SetPoint("TOP", detailPanel.materialLabel, "BOTTOM", 0, -3)
+        end
+
+        row.chance = CreateDetailText(row, "GameFontDisableSmall")
+        row.chance:SetPoint("LEFT", row, "LEFT", 0, 0)
+        row.chance:SetWidth(30)
+        row.chance:SetJustifyH("RIGHT")
+
+        row.name = CreateDetailText(row, "GameFontDisableSmall")
+        row.name:SetPoint("LEFT", row.chance, "RIGHT", 6, 0)
+        row.name:SetPoint("RIGHT", row, "RIGHT", -70, 0)
+        row.name:SetJustifyH("LEFT")
+
+        row.expected = CreateDetailText(row, "GameFontDisableSmall")
+        row.expected:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
+        row.expected:SetWidth(34)
+        row.expected:SetJustifyH("RIGHT")
+
+        row.range = CreateDetailText(row, "GameFontDisableSmall")
+        row.range:SetPoint("LEFT", row.expected, "RIGHT", 6, 0)
+        row.range:SetWidth(30)
+        row.range:SetJustifyH("RIGHT")
+
+        row.frame = row
+        detailPanel.materialRows[i] = row
+        previousMaterial = row
+    end
+
+    detailPanel.valueLabel = CreateDetailLabel(detailPanel, detailPanel.materialRows[3], 0, -5, "Value")
+    detailPanel.valueText = CreateDetailText(detailPanel, "GameFontDisableSmall")
+    detailPanel.valueText:SetPoint("TOPLEFT", detailPanel.valueLabel, "BOTTOMLEFT", 0, -2)
+    detailPanel.valueText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.valueText:SetText("Unavailable")
+
+    detailPanel.sessionLabel = CreateDetailLabel(detailPanel, detailPanel.valueText, 0, -5, "Session")
+    detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")
+    detailPanel.sessionText:SetPoint("TOPLEFT", detailPanel.sessionLabel, "BOTTOMLEFT", 0, -2)
+    detailPanel.sessionText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
 
     local castBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     castBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 48)
@@ -651,17 +799,15 @@ function MainFrame:Update()
         local qualityLabel = Shatter.Constants.QUALITY_LABELS[selected.quality] or ("Quality " .. tostring(selected.quality or "?"))
         detail.meta:SetText(string.format("%s - Item Level %s", qualityLabel, tostring(selected.itemLevel or "?")))
         detail.location:SetText(string.format("Bag %d, Slot %d%s", selected.bag or 0, selected.slot or 0, selected.isSoulbound and " - Soulbound" or ""))
-        detail.expected:SetText(Shatter.DisenchantTables and Shatter.DisenchantTables:FormatEstimate(selected.expectedEstimate) or "Expected materials: unavailable")
-        detail.results:SetText(Shatter.Session and Shatter.Session:FormatSummary() or "")
+        UpdateDetailSections(detail, selected)
     else
         detail.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         if detail.iconBorder then detail.iconBorder:SetBackdropBorderColor(unpack(Shatter.C.BORDER)) end
-        detail.name:SetText("No item selected")
+        detail.name:SetText("Select an item from the queue.")
         Shatter.SetTextColor(detail.name, Shatter.C.TEXT_DIM)
         detail.meta:SetText("")
         detail.location:SetText("")
-        detail.expected:SetText("Expected materials: none")
-        detail.results:SetText(Shatter.Session and Shatter.Session:FormatSummary() or "")
+        UpdateDetailSections(detail, nil)
     end
 
     local now = GetTime and GetTime() or 0
