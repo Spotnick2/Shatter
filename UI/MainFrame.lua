@@ -119,12 +119,18 @@ local function GetSessionSummary()
     end
     local summary = session.summary
     local materials = Shatter.MaterialTracker and Shatter.MaterialTracker:Format(summary.materialsGenerated) or "No result recorded"
-    return string.format("Disenchanted: %d   Skipped: %d   Ignored: %d", summary.itemsDisenchanted or 0, summary.itemsSkipped or 0, summary.itemsIgnored or 0),
-        string.format("Failed: %d   Materials: %s", summary.itemsFailed or 0, materials or "No result recorded")
+    return string.format("Disenchanted: %d   Skipped: %d", summary.itemsDisenchanted or 0, summary.itemsSkipped or 0),
+        string.format("Ignored: %d        Failed: %d", summary.itemsIgnored or 0, summary.itemsFailed or 0),
+        "Materials: " .. (materials or "No result recorded")
 end
 
 local function UpdateDetailSections(detail, selected)
     if not detail then return end
+    local selectedId = selected and selected.queueId
+    if detail.scroll and selectedId ~= detail.lastSelectedId then
+        detail.scroll:SetVerticalScroll(0)
+    end
+    detail.lastSelectedId = selectedId
 
     if not selected then
         SetShown(detail.materialLabel, false)
@@ -159,8 +165,7 @@ local function UpdateDetailSections(detail, selected)
                 row.name:SetText(StripColorCodes(link or name or ("item:" .. tostring(entry.itemID))))
                 local r, g, b = Shatter.GetQualityColor(select(3, GetItemInfo(entry.itemID)))
                 row.name:SetTextColor(r, g, b, 1)
-                row.expected:SetText(FormatExpectedQuantity(entry.expectedAmount))
-                row.range:SetText(FormatRange(entry.minAmount, entry.maxAmount))
+                row.meta:SetText(string.format("%s   Range: %s", FormatExpectedQuantity(entry.expectedAmount), FormatRange(entry.minAmount, entry.maxAmount)))
             else
                 row.frame:Hide()
             end
@@ -173,9 +178,9 @@ local function UpdateDetailSections(detail, selected)
         end
     end
 
-    local line1, line2 = GetSessionSummary()
+    local line1, line2, line3 = GetSessionSummary()
     if detail.sessionText then
-        detail.sessionText:SetText((line1 or "") .. "\n" .. (line2 or ""))
+        detail.sessionText:SetText((line1 or "") .. "\n" .. (line2 or "") .. "\n" .. (line3 or ""))
     end
 end
 
@@ -565,62 +570,81 @@ function MainFrame:Create()
     detailPanel.location:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
     detailPanel.location:SetJustifyH("LEFT")
 
-    detailPanel.materialLabel = CreateDetailLabel(detailPanel, detailPanel.iconBorder, 0, -20, "Expected Materials")
-    detailPanel.materialEmpty = CreateDetailText(detailPanel, "GameFontDisableSmall")
+    local detailScroll = CreateFrame("ScrollFrame", nil, detailPanel, "UIPanelScrollFrameTemplate")
+    detailScroll:SetPoint("TOPLEFT", detailPanel.iconBorder, "BOTTOMLEFT", 0, -18)
+    detailScroll:SetPoint("BOTTOMRIGHT", detailPanel, "BOTTOMRIGHT", -25, 8)
+    detailScroll:EnableMouseWheel(true)
+    detailScroll:SetScript("OnMouseWheel", function(self, delta)
+        local current = self:GetVerticalScroll() or 0
+        local maxScroll = self:GetVerticalScrollRange() or 0
+        self:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * 20)))
+    end)
+    detailPanel.scroll = detailScroll
+
+    local detailContent = CreateFrame("Frame", nil, detailScroll)
+    detailContent:SetSize(1, 214)
+    detailScroll:SetScrollChild(detailContent)
+    detailScroll:SetScript("OnSizeChanged", function(self)
+        detailContent:SetWidth(math.max(1, self:GetWidth()))
+    end)
+    detailPanel.content = detailContent
+
+    detailPanel.materialLabel = detailContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    detailPanel.materialLabel:SetPoint("TOPLEFT", detailContent, "TOPLEFT", 0, 0)
+    detailPanel.materialLabel:SetText("Expected Materials")
+    Shatter.SetTextColor(detailPanel.materialLabel, Shatter.C.ACCENT)
+
+    detailPanel.materialEmpty = CreateDetailText(detailContent, "GameFontDisableSmall")
     detailPanel.materialEmpty:SetPoint("TOPLEFT", detailPanel.materialLabel, "BOTTOMLEFT", 0, -3)
-    detailPanel.materialEmpty:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.materialEmpty:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
     detailPanel.materialEmpty:SetText("Unavailable until disenchant tables are added.")
 
     detailPanel.materialRows = {}
     local previousMaterial
     for i = 1, 3 do
-        local row = CreateFrame("Frame", nil, detailPanel)
-        row:SetHeight(12)
-        row:SetPoint("LEFT", detailPanel, "LEFT", 8, 0)
-        row:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+        local row = CreateFrame("Frame", nil, detailContent)
+        row:SetHeight(27)
+        row:SetPoint("LEFT", detailContent, "LEFT", 0, 0)
+        row:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
         if previousMaterial then
-            row:SetPoint("TOP", previousMaterial, "BOTTOM", 0, 0)
+            row:SetPoint("TOP", previousMaterial, "BOTTOM", 0, -2)
         else
-            row:SetPoint("TOP", detailPanel.materialLabel, "BOTTOM", 0, -3)
+            row:SetPoint("TOP", detailPanel.materialLabel, "BOTTOM", 0, -4)
         end
 
         row.chance = CreateDetailText(row, "GameFontDisableSmall")
-        row.chance:SetPoint("LEFT", row, "LEFT", 0, 0)
+        row.chance:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
         row.chance:SetWidth(30)
         row.chance:SetJustifyH("RIGHT")
 
         row.name = CreateDetailText(row, "GameFontDisableSmall")
-        row.name:SetPoint("LEFT", row.chance, "RIGHT", 6, 0)
-        row.name:SetPoint("RIGHT", row, "RIGHT", -74, 0)
+        row.name:SetPoint("TOPLEFT", row.chance, "TOPRIGHT", 6, 0)
+        row.name:SetPoint("RIGHT", row, "RIGHT", 0, 0)
         row.name:SetJustifyH("LEFT")
         row.name:SetNonSpaceWrap(false)
 
-        row.expected = CreateDetailText(row, "GameFontDisableSmall")
-        row.expected:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
-        row.expected:SetWidth(38)
-        row.expected:SetJustifyH("RIGHT")
-
-        row.range = CreateDetailText(row, "GameFontDisableSmall")
-        row.range:SetPoint("LEFT", row.expected, "RIGHT", 6, 0)
-        row.range:SetWidth(28)
-        row.range:SetJustifyH("RIGHT")
+        row.meta = CreateDetailText(row, "GameFontDisableSmall")
+        row.meta:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -1)
+        row.meta:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+        row.meta:SetJustifyH("LEFT")
+        row.meta:SetTextColor(0.56, 0.56, 0.56, 1)
 
         row.frame = row
         detailPanel.materialRows[i] = row
         previousMaterial = row
     end
 
-    detailPanel.valueLabel = CreateDetailLabel(detailPanel, detailPanel.materialRows[3], 0, -5, "Value")
-    detailPanel.valueText = CreateDetailText(detailPanel, "GameFontDisableSmall")
+    detailPanel.valueLabel = CreateDetailLabel(detailContent, detailPanel.materialRows[3], 0, -8, "Value")
+    detailPanel.valueText = CreateDetailText(detailContent, "GameFontDisableSmall")
     detailPanel.valueText:SetPoint("TOPLEFT", detailPanel.valueLabel, "BOTTOMLEFT", 0, -2)
-    detailPanel.valueText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.valueText:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
     detailPanel.valueText:SetNonSpaceWrap(false)
     detailPanel.valueText:SetText("Unavailable")
 
-    detailPanel.sessionLabel = CreateDetailLabel(detailPanel, detailPanel.valueText, 0, -5, "Session")
-    detailPanel.sessionText = CreateDetailText(detailPanel, "GameFontHighlightSmall")
+    detailPanel.sessionLabel = CreateDetailLabel(detailContent, detailPanel.valueText, 0, -8, "Session")
+    detailPanel.sessionText = CreateDetailText(detailContent, "GameFontHighlightSmall")
     detailPanel.sessionText:SetPoint("TOPLEFT", detailPanel.sessionLabel, "BOTTOMLEFT", 0, -2)
-    detailPanel.sessionText:SetPoint("RIGHT", detailPanel, "RIGHT", -10, 0)
+    detailPanel.sessionText:SetPoint("RIGHT", detailContent, "RIGHT", -4, 0)
     detailPanel.sessionText:SetNonSpaceWrap(false)
 
     local castBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -840,6 +864,12 @@ function MainFrame:Update()
     self:EnsureQueueRows(itemCount)
     if self.queueContent then
         self.queueContent:SetHeight(math.max(1, itemCount * 36))
+    end
+    if self.queueScroll then
+        local maxScroll = self.queueScroll:GetVerticalScrollRange() or 0
+        if (self.queueScroll:GetVerticalScroll() or 0) > maxScroll then
+            self.queueScroll:SetVerticalScroll(maxScroll)
+        end
     end
 
     for i, row in ipairs(self.rows) do
