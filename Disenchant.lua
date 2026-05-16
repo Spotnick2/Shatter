@@ -28,6 +28,18 @@ local function ClearButtonAction(button)
     button:SetAttribute("macrotext", "")
 end
 
+local function UseBagItem(bag, slot)
+    if C_Container and C_Container.UseContainerItem then
+        C_Container.UseContainerItem(bag, slot)
+        return true
+    end
+    if UseContainerItem then
+        UseContainerItem(bag, slot)
+        return true
+    end
+    return false
+end
+
 local function AddResult(result, itemID, count)
     if not itemID or not count or count <= 0 then return end
     result[itemID] = (result[itemID] or 0) + count
@@ -183,13 +195,7 @@ function Disenchant:BeginSecureClick(button)
         return
     end
 
-    local spellName = GetSpellInfo and GetSpellInfo(Shatter.Constants.SPELL_DISENCHANT) or "Disenchant"
-    local macro = string.format("/cast %s\n/use %d %d", spellName, item.bag, item.slot)
-
-    button:SetAttribute("type", "macro")
-    button:SetAttribute("macrotext", macro)
-    self:Debug("Prepared secure macro: /cast %s ; /use %d %d", tostring(spellName), item.bag, item.slot)
-
+    ClearButtonAction(button)
     self.pending = {
         item = current,
         before = Shatter.MaterialTracker and Shatter.MaterialTracker:Snapshot() or {},
@@ -206,6 +212,28 @@ function Disenchant:BeginSecureClick(button)
         Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false)
         Shatter.MainFrame:Update()
     end
+
+    local spellName = GetSpellInfo and GetSpellInfo(Shatter.Constants.SPELL_DISENCHANT) or "Disenchant"
+    self:Debug("Casting Disenchant directly from hardware click: %s", tostring(spellName))
+    local castOk, castError = pcall(CastSpellByName, spellName)
+    if not castOk then
+        self:Fail("Failed: could not cast Disenchant from the button click.")
+        self:Debug("CastSpellByName failed: %s", tostring(castError))
+        return
+    end
+    if SpellIsTargeting and SpellIsTargeting() then
+        self:Debug("Targeting bag item directly: bag=%s slot=%s", tostring(current.bag), tostring(current.slot))
+        local useOk, useError = pcall(UseBagItem, current.bag, current.slot)
+        if not useOk or not useError then
+            self:Fail("Failed: this client does not expose a bag item use API.")
+            if not useOk then self:Debug("UseContainerItem failed: %s", tostring(useError)) end
+            return
+        end
+    else
+        self:Fail("Failed: Disenchant did not enter item targeting.")
+        return
+    end
+
     self:StartTimeout()
 end
 
@@ -333,12 +361,12 @@ function Disenchant:OnEvent(event, ...)
         return
     elseif event == "CURRENT_SPELL_CAST_CHANGED" then
         if not self.pending.succeeded and not SpellIsTargeting() and self:PendingItemStillExists() then
-            self:Debug("Spell targeting ended without success")
+            self:Trace("Spell targeting ended without success")
         end
         return
     elseif event == "UI_ERROR_MESSAGE" then
-        local _, message = ...
-        self:Debug("UI error: %s", tostring(message))
+        local message = select(2, ...) or select(1, ...)
+        self:Trace("UI error: %s", tostring(message))
         return
     end
 
