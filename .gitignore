@@ -10,6 +10,7 @@ luac.out
 .idea/
 *.log
 AGENTS.md
+SPEC.md
 
 # Luarocks build files
 *.src.rock
