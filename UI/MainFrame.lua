@@ -1056,7 +1056,10 @@ function MainFrame:Update()
         self.statusOverride = nil
         self.statusIsError = false
 
-        local label, enabled = Shatter.MailMode and Shatter.MailMode:GetPrimaryState()
+        local label, enabled
+        if Shatter.MailMode then
+            label, enabled = Shatter.MailMode:GetPrimaryState()
+        end
         local pending = Shatter.Disenchant and Shatter.Disenchant:HasPending()
         if pending then
             label, enabled = "Waiting...", false

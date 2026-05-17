@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed Mail Mode primary button enablement so `Take Attachments` receives both label and enabled state correctly.
 - Kept Mail Mode's `Take Attachments` action clickable when selected item rows exist and made mailbox-frame detection more defensive.
 - Clarified Mail Mode's first action by showing `Open Mailbox` when attachment intake is paused and the Blizzard mailbox is not open.
 - Refined Phase 3 Mail Mode so the Input Queue is item-based while preserving source mail metadata internally.
