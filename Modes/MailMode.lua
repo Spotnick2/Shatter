@@ -98,20 +98,27 @@ function MailMode:ScanInbox(reason)
     return session
 end
 
-function MailMode:SelectMails(mode)
+function MailMode:SelectInputItems(mode)
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return end
-    for _, mail in ipairs(session.inputMails or {}) do
+    for _, item in ipairs(session.inputItems or {}) do
         if mode == "all" then
-            mail.selected = true
+            item.selected = true
         elseif mode == "none" then
-            mail.selected = false
+            item.selected = false
         else
-            mail.selected = mail.disenchantable and true or false
+            item.selected = item.disenchantable and true or false
+        end
+        if item.status == "selected" or item.status == "detected" then
+            item.status = item.selected and "selected" or "detected"
         end
     end
     if Shatter.MailSession then Shatter.MailSession:Log("info", "Selection changed: %s.", mode or "disenchantable") end
     if Shatter.MainFrame then Shatter.MainFrame:Update() end
+end
+
+function MailMode:SelectMails(mode)
+    self:SelectInputItems(mode)
 end
 
 function MailMode:SetRecipientMode(mode)
@@ -130,15 +137,15 @@ function MailMode:PrepareDisenchantQueue()
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     if not session then return end
     local items = {}
-    for inputItemId, input in pairs(session.inputItems or {}) do
+    for _, input in ipairs(session.inputItems or {}) do
         if input.disenchantStatus == "waiting" and input.bag and input.slot and Shatter.ItemScanner then
             local item = Shatter.ItemScanner:BuildItem(input.bag, input.slot)
             if item and item.itemID == input.itemID then
                 item.mode = Shatter.Constants.MODES.MAIL
-                item.sourceId = inputItemId
+                item.sourceId = input.inputItemId
                 item.sourceSender = input.sourceSender
                 item.sourceMailId = input.sourceMailId
-                item.queueId = string.format("mail:%s:%d:%d:%d", inputItemId, item.bag or 0, item.slot or 0, item.itemID or 0)
+                item.queueId = string.format("mail:%s:%d:%d:%d", input.inputItemId, item.bag or 0, item.slot or 0, item.itemID or 0)
                 if Shatter.DisenchantTables then
                     local estimate = Shatter.DisenchantTables:GetExpected(item)
                     item.expectedMats = estimate and estimate.materials or nil
@@ -147,8 +154,10 @@ function MailMode:PrepareDisenchantQueue()
                     item.expectedEstimate = estimate
                 end
                 table.insert(items, item)
+                input.status = "queued for disenchant"
             else
                 input.disenchantStatus = "unresolved"
+                input.status = "failed"
             end
         end
     end
@@ -175,9 +184,10 @@ end
 
 function MailMode:OnDisenchantResult(item, result)
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
-    local input = session and item and item.sourceId and session.inputItems[item.sourceId]
+    local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
     if input then
         input.disenchantStatus = "done"
+        input.status = "disenchanted"
         if Shatter.ReturnQueue then Shatter.ReturnQueue:AddResult(input.sourceSender, result or {}) end
         if Shatter.MailSession then Shatter.MailSession:Log("info", "Disenchanted %s for %s.", item.itemLink or item.itemName or "item", input.sourceSender or "?") end
     end
@@ -186,16 +196,22 @@ end
 
 function MailMode:OnDisenchantFailed(item, reason)
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
-    local input = session and item and item.sourceId and session.inputItems[item.sourceId]
-    if input then input.disenchantStatus = "failed" end
+    local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
+    if input then
+        input.disenchantStatus = "failed"
+        input.status = "failed"
+    end
     if Shatter.MailSession then Shatter.MailSession:Log("warn", "Disenchant failed: %s", tostring(reason or "unknown")) end
     self:PrepareDisenchantQueue()
 end
 
 function MailMode:SkipQueueItem(item)
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
-    local input = session and item and item.sourceId and session.inputItems[item.sourceId]
-    if input then input.disenchantStatus = "skipped" end
+    local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
+    if input then
+        input.disenchantStatus = "skipped"
+        input.status = "skipped"
+    end
     if Shatter.MailSession then Shatter.MailSession:Log("info", "Skipped mail item.") end
     self:PrepareDisenchantQueue()
 end

@@ -58,17 +58,17 @@ function MailFrame:Create(parent)
 
     local all = CreateButton(left, "All", 44)
     all:SetPoint("LEFT", scan, "RIGHT", 6, 0)
-    all:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectMails("all") end end)
+    all:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectInputItems("all") end end)
     self.allButton = all
 
     local none = CreateButton(left, "None", 50)
     none:SetPoint("LEFT", all, "RIGHT", 6, 0)
-    none:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectMails("none") end end)
+    none:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectInputItems("none") end end)
     self.noneButton = none
 
     local de = CreateButton(left, "Disenchantable", 96)
     de:SetPoint("LEFT", none, "RIGHT", 6, 0)
-    de:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectMails("disenchantable") end end)
+    de:SetScript("OnClick", function() if Shatter.MailMode then Shatter.MailMode:SelectInputItems("disenchantable") end end)
     self.deButton = de
 
     local returnMode = CreateButton(right, "Return", 64)
@@ -178,15 +178,15 @@ end
 function MailFrame:Refresh()
     if not self.frame then return end
     local session = Shatter.MailSession and Shatter.MailSession:Get()
-    local mails = session and session.inputMails or {}
+    local inputItems = session and session.inputItems or {}
     local selected, de = Shatter.MailSession and Shatter.MailSession:CountSelected() or 0, 0
     if Shatter.MailSession then selected, de = Shatter.MailSession:CountSelected() end
-    self.inputTitle:SetText(string.format("Input Queue (%d)", #mails))
-    EnsureRows(self.inputRows, math.max(#mails, 1), self.inputContent, Shatter.MailRows.CreateInputRow)
-    self.inputContent:SetHeight(math.max(1, #mails * 40))
+    self.inputTitle:SetText(string.format("Input Queue (%d)", #inputItems))
+    EnsureRows(self.inputRows, math.max(#inputItems, 1), self.inputContent, Shatter.MailRows.CreateInputRow)
+    self.inputContent:SetHeight(math.max(1, #inputItems * 44))
     for i, row in ipairs(self.inputRows) do
         row.index = i
-        row:SetMail(mails[i])
+        row:SetInputItem(inputItems[i])
     end
 
     local mode = session and session.recipientMode or Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS

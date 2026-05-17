@@ -16,7 +16,7 @@ end
 
 function MailRows.CreateInputRow(parent, index)
     local row = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    row:SetHeight(38)
+    row:SetHeight(42)
     row.index = index
     Shatter.ApplyBackdrop(row, unpack(index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD))
 
@@ -24,8 +24,11 @@ function MailRows.CreateInputRow(parent, index)
     row.check:SetSize(22, 22)
     row.check:SetPoint("LEFT", row, "LEFT", 4, 0)
     row.check:SetScript("OnClick", function(self)
-        if row.mail then
-            row.mail.selected = self:GetChecked() and true or false
+        if row.inputItem then
+            row.inputItem.selected = self:GetChecked() and true or false
+            if row.inputItem.status == "selected" or row.inputItem.status == "detected" then
+                row.inputItem.status = row.inputItem.selected and "selected" or "detected"
+            end
             if Shatter.MainFrame then Shatter.MainFrame:Update() end
         end
     end)
@@ -39,54 +42,52 @@ function MailRows.CreateInputRow(parent, index)
     row.icon:SetPoint("CENTER", row.iconBorder, "CENTER", 0, 0)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    row.sender = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.sender:SetPoint("LEFT", row.iconBorder, "RIGHT", 8, 6)
-    row.sender:SetPoint("RIGHT", row, "RIGHT", -130, 6)
-    row.sender:SetJustifyH("LEFT")
-    Shatter.SetTextColor(row.sender, Shatter.C.ACCENT)
+    row.name = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    row.name:SetPoint("LEFT", row.iconBorder, "RIGHT", 8, 7)
+    row.name:SetPoint("RIGHT", row, "RIGHT", -92, 7)
+    row.name:SetJustifyH("LEFT")
 
-    row.subject = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    row.subject:SetPoint("LEFT", row.iconBorder, "RIGHT", 8, -8)
-    row.subject:SetPoint("RIGHT", row, "RIGHT", -130, -8)
-    row.subject:SetJustifyH("LEFT")
+    row.meta = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    row.meta:SetPoint("LEFT", row.iconBorder, "RIGHT", 8, -9)
+    row.meta:SetPoint("RIGHT", row, "RIGHT", -92, -9)
+    row.meta:SetJustifyH("LEFT")
 
-    row.kind = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    row.kind:SetPoint("RIGHT", row, "RIGHT", -70, 0)
-    row.kind:SetWidth(44)
-    row.kind:SetJustifyH("CENTER")
+    row.status = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    row.status:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+    row.status:SetWidth(80)
+    row.status:SetJustifyH("RIGHT")
 
-    row.days = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    row.days:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-    row.days:SetWidth(56)
-    row.days:SetJustifyH("RIGHT")
-
-    function row:SetMail(mail)
-        self.mail = mail
-        if not mail then
+    function row:SetInputItem(item)
+        self.inputItem = item
+        if not item then
             self:Hide()
             return
         end
         self:Show()
-        self.check:SetChecked(mail.selected)
-        local first = mail.attachments and mail.attachments[1]
-        self.icon:SetTexture(first and first.texture or "Interface\\Icons\\INV_Letter_15")
-        local r, g, b = Shatter.GetQualityColor(first and first.quality)
+        self.check:SetChecked(item.selected)
+        self.icon:SetTexture(item.texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+        local r, g, b = Shatter.GetQualityColor(item.quality)
         self.iconBorder:SetBackdropBorderColor(r, g, b, 1)
-        self.sender:SetText(mail.sender or "Unknown")
-        self.subject:SetText((first and (first.itemLink or first.itemName)) or mail.subject or "(no subject)")
-        self.kind:SetText(mail.disenchantable and "*" or "-")
-        self.kind:SetTextColor(mail.disenchantable and 0.65 or 0.55, mail.disenchantable and 1 or 0.55, mail.disenchantable and 0.20 or 0.55, 1)
-        self.days:SetText(mail.daysLeft and string.format("%dd", math.floor(mail.daysLeft)) or "")
-        ApplyStatusColor(self.sender, mail.status)
+        self.name:SetText(item.itemLink or item.itemName or "Unknown item")
+        self.name:SetTextColor(r, g, b, 1)
+        local days = item.daysLeft and string.format("%dd", math.floor(item.daysLeft)) or "?d"
+        self.meta:SetText(string.format("From: %s - Mail %s - %s", item.sourceSender or "Unknown", tostring(item.lastKnownMailIndex or "?"), days))
+        self.status:SetText(item.status or "detected")
+        ApplyStatusColor(self.status, item.status)
     end
 
     row:SetScript("OnEnter", function(self)
         self:SetBackdropColor(unpack(Shatter.C.BG_HOVER))
-        if self.mail and GameTooltip then
+        if self.inputItem and GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(self.mail.sender or "Mail", 1, 0.82, 0)
-            GameTooltip:AddLine(self.mail.subject or "(no subject)", 0.82, 0.82, 0.82, true)
-            GameTooltip:AddLine(self.mail.disenchantable and "Contains disenchantable attachment." or (self.mail.ineligibleReason or "Not disenchantable."), 0.82, 0.82, 0.82, true)
+            if self.inputItem.itemLink then
+                GameTooltip:SetHyperlink(self.inputItem.itemLink)
+            else
+                GameTooltip:SetText(self.inputItem.itemName or "Mail item", 1, 0.82, 0)
+            end
+            GameTooltip:AddLine("From: " .. tostring(self.inputItem.sourceSender or "Unknown"), 0.82, 0.82, 0.82, true)
+            GameTooltip:AddLine("Subject: " .. tostring(self.inputItem.mailSubject or "(no subject)"), 0.82, 0.82, 0.82, true)
+            GameTooltip:AddLine("Status: " .. tostring(self.inputItem.status or "detected"), 0.82, 0.82, 0.82, true)
             GameTooltip:Show()
         end
     end)

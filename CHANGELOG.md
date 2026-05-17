@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Refined Phase 3 Mail Mode so the Input Queue is item-based while preserving source mail metadata internally.
 - Started Phase 3 Mail Mode on a dedicated branch with durable mail sessions, mailbox auto-activation, Input/Output Queue UI scaffolding, read-only inbox scans, and guided attachment intake.
 - Added a Settings profile selector with Global as the default and per-character Personal profiles.
 - Reduced normal debug chat noise by moving routine disenchant flow and scan details to trace logging.

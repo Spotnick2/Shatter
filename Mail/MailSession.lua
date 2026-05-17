@@ -18,7 +18,7 @@ local function NewSession()
         mailboxOpen = false,
         recipientMode = Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS,
         funnelRecipient = "",
-        inputMails = {},
+        sourceMails = {},
         inputItems = {},
         outputRecipients = {},
         pendingAction = nil,
@@ -97,10 +97,10 @@ function MailSession:CountSelected()
     local session = self:Get()
     local selected, disenchantable = 0, 0
     if not session then return 0, 0 end
-    for _, mail in ipairs(session.inputMails or {}) do
-        if mail.selected then
+    for _, item in ipairs(session.inputItems or {}) do
+        if item.selected then
             selected = selected + 1
-            if mail.disenchantable then disenchantable = disenchantable + 1 end
+            if item.disenchantable then disenchantable = disenchantable + 1 end
         end
     end
     return selected, disenchantable
@@ -109,8 +109,8 @@ end
 function MailSession:HasUnresolvedWork()
     local session = self:Get()
     if not session then return false end
-    for _, mail in ipairs(session.inputMails or {}) do
-        if mail.selected and mail.status ~= "skipped" and mail.status ~= "taken" and mail.status ~= "done" then
+    for _, item in ipairs(session.inputItems or {}) do
+        if item.selected and item.status ~= "skipped" and item.status ~= "disenchanted" and item.status ~= "failed" then
             return true
         end
     end
@@ -146,4 +146,20 @@ function MailSession:SetRecipientMode(mode, funnelRecipient)
     session.recipientMode = mode
     if funnelRecipient ~= nil then session.funnelRecipient = funnelRecipient end
     session.updatedAt = Now()
+end
+
+function MailSession:FindInputItem(inputItemId)
+    local session = self:Get()
+    if not session or not inputItemId then return nil end
+    for _, item in ipairs(session.inputItems or {}) do
+        if item.inputItemId == inputItemId then return item end
+    end
+end
+
+function MailSession:FindSourceMail(sourceMailId)
+    local session = self:Get()
+    if not session or not sourceMailId then return nil end
+    for _, mail in ipairs(session.sourceMails or {}) do
+        if mail.sourceMailId == sourceMailId then return mail end
+    end
 end

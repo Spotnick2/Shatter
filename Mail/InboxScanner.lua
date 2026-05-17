@@ -80,14 +80,39 @@ local function Fingerprint(header, attachments)
     return table.concat(parts, "|")
 end
 
+local function FindPreviousItem(previousItems, mail, attachment)
+    for _, existing in ipairs(previousItems or {}) do
+        if existing.itemID == attachment.itemID
+            and existing.sourceSender == mail.sender
+            and existing.mailSubject == mail.subject
+            and existing.sourceAttachmentIndex == attachment.attachmentIndex then
+            return existing
+        end
+    end
+end
+
+local function ShouldCarryForward(item)
+    if not item then return false end
+    if item.bag and item.slot then return true end
+    return item.status == "taken"
+        or item.status == "queued for disenchant"
+        or item.status == "disenchanted"
+        or item.status == "failed"
+        or item.status == "skipped"
+end
+
 function InboxScanner:Scan()
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     if not session then return nil end
     session.status = Shatter.Constants.MAIL_STATE.SCANNING
-    session.inputMails = {}
+    local previousItems = session.inputItems or {}
+    session.sourceMails = {}
+    session.inputItems = {}
     session.updatedAt = time and time() or 0
 
     local count = GetInboxCount()
+    local scannedAttachments = 0
+    local eligibleAttachments = 0
     for mailIndex = 1, count do
         local header = GetHeader(mailIndex)
         if header then
@@ -99,10 +124,12 @@ function InboxScanner:Scan()
                     attachment.sourceAttachmentIndex = attachmentIndex
                     table.insert(attachments, attachment)
                     if attachment.disenchantable then disenchantable = true end
+                    scannedAttachments = scannedAttachments + 1
                 end
             end
+            local fingerprint = Fingerprint(header, attachments)
             local mail = {
-                mailId = string.format("mail:%d:%d", session.createdAt or 0, mailIndex),
+                sourceMailId = string.format("mail:%d:%d:%s", session.createdAt or 0, mailIndex, fingerprint),
                 sender = header.sender,
                 normalizedSender = header.sender,
                 subject = header.subject,
@@ -114,17 +141,60 @@ function InboxScanner:Scan()
                 selected = disenchantable and not header.isGM and (header.cod or 0) == 0,
                 attachments = attachments,
                 disenchantable = disenchantable,
-                fingerprint = Fingerprint(header, attachments),
+                fingerprint = fingerprint,
                 status = disenchantable and "queued" or "skipped",
                 ineligibleReason = disenchantable and nil or "No disenchantable attachments",
             }
-            table.insert(session.inputMails, mail)
+            table.insert(session.sourceMails, mail)
+
+            for _, attachment in ipairs(attachments) do
+                if attachment.disenchantable and not header.isGM and (header.cod or 0) == 0 then
+                    eligibleAttachments = eligibleAttachments + 1
+                    local previous = FindPreviousItem(previousItems, mail, attachment)
+                    if previous then previous.__shatterSeen = true end
+                    local inputItemId = previous and previous.inputItemId or string.format("mailitem:%s:%d:%d", mail.sourceMailId, attachment.attachmentIndex, attachment.itemID or 0)
+                    local item = {
+                        inputItemId = inputItemId,
+                        itemID = attachment.itemID,
+                        itemLink = attachment.itemLink,
+                        itemName = attachment.itemName,
+                        texture = attachment.texture,
+                        count = attachment.count or 1,
+                        quality = attachment.quality,
+                        itemLevel = attachment.itemLevel,
+                        classID = attachment.classID,
+                        subclassID = attachment.subclassID,
+                        equipLoc = attachment.equipLoc,
+                        expectedEstimate = attachment.expectedEstimate,
+                        disenchantable = true,
+                        selected = previous and previous.selected ~= false or true,
+                        status = previous and previous.status or "selected",
+                        sourceMailId = mail.sourceMailId,
+                        sourceSender = mail.sender,
+                        mailSubject = mail.subject,
+                        sourceAttachmentIndex = attachment.attachmentIndex,
+                        lastKnownMailIndex = mail.mailIndex,
+                        daysLeft = mail.daysLeft,
+                        bag = previous and previous.bag or nil,
+                        slot = previous and previous.slot or nil,
+                        disenchantStatus = previous and previous.disenchantStatus or "detected",
+                    }
+                    table.insert(session.inputItems, item)
+                end
+            end
+        end
+    end
+    for _, previous in ipairs(previousItems or {}) do
+        if previous.__shatterSeen then
+            previous.__shatterSeen = nil
+        elseif ShouldCarryForward(previous) then
+            table.insert(session.inputItems, previous)
         end
     end
     session.status = Shatter.Constants.MAIL_STATE.SELECTING
     if Shatter.MailSession then
         local selected, de = Shatter.MailSession:CountSelected()
-        Shatter.MailSession:Log("info", "Scanned %d incoming mails. Selected %d (%d disenchantable).", count, selected, de)
+        Shatter.MailSession:Log("info", "Scanned %d mails, %d attachments. Selected %d of %d disenchantable items.", count, scannedAttachments, selected, eligibleAttachments)
     end
     return session
 end

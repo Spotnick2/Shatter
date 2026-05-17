@@ -41,13 +41,9 @@ end
 function AttachmentQueue:GetNext()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return nil end
-    for _, mail in ipairs(session.inputMails or {}) do
-        if mail.selected and mail.status ~= "taken" and mail.status ~= "done" then
-            for _, attachment in ipairs(mail.attachments or {}) do
-                if attachment.disenchantable and not attachment.taken and attachment.status ~= "taken" then
-                    return mail, attachment
-                end
-            end
+    for _, item in ipairs(session.inputItems or {}) do
+        if item.selected and item.disenchantable and not item.bag and item.status ~= "taken" and item.status ~= "queued for disenchant" and item.status ~= "disenchanted" then
+            return item
         end
     end
 end
@@ -58,8 +54,8 @@ function AttachmentQueue:TakeNext()
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
         return false
     end
-    local mail, attachment = self:GetNext()
-    if not mail or not attachment then
+    local item = self:GetNext()
+    if not item then
         if Shatter.MailMode then Shatter.MailMode:PrepareDisenchantQueue() end
         return false
     end
@@ -70,16 +66,17 @@ function AttachmentQueue:TakeNext()
     session.status = Shatter.Constants.MAIL_STATE.TAKING
     session.pendingAction = {
         kind = "TAKE_ATTACHMENT",
-        mailId = mail.mailId,
-        attachmentIndex = attachment.attachmentIndex,
-        itemID = attachment.itemID,
+        inputItemId = item.inputItemId,
+        sourceMailId = item.sourceMailId,
+        attachmentIndex = item.sourceAttachmentIndex,
+        itemID = item.itemID,
         startedAt = GetTime and GetTime() or 0,
         beforeCounts = SnapshotItemCounts(),
     }
-    mail.status = "taking"
-    attachment.status = "taking"
-    if Shatter.MailSession then Shatter.MailSession:Log("info", "Taking attachment from %s: %s.", mail.sender or "?", attachment.itemLink or attachment.itemName or "?") end
-    TakeInboxItem(mail.mailIndex, attachment.attachmentIndex)
+    item.status = "taking attachment"
+    item.disenchantStatus = "taking"
+    if Shatter.MailSession then Shatter.MailSession:Log("info", "Taking attachment from %s: %s.", item.sourceSender or "?", item.itemLink or item.itemName or "?") end
+    TakeInboxItem(item.lastKnownMailIndex, item.sourceAttachmentIndex)
     if Shatter.Events then
         Shatter.Events:After(0.8, function() self:ResolvePending("timer") end)
         Shatter.Events:After(2.0, function() self:ResolvePending("timeout") end)
@@ -100,35 +97,13 @@ function AttachmentQueue:ResolvePending(reason)
         session.pendingAction = nil
         return
     end
-    for _, mail in ipairs(session.inputMails or {}) do
-        if mail.mailId == pending.mailId then
-            for _, attachment in ipairs(mail.attachments or {}) do
-                if attachment.attachmentIndex == pending.attachmentIndex then
-                    attachment.taken = true
-                    attachment.status = "taken"
-                    attachment.bag = bag
-                    attachment.slot = slot
-                    mail.status = "taken"
-                    local inputItemId = string.format("mailitem:%s:%d", mail.mailId, attachment.attachmentIndex)
-                    attachment.inputItemId = inputItemId
-                    session.inputItems[inputItemId] = {
-                        inputItemId = inputItemId,
-                        sourceSender = mail.sender,
-                        sourceMailId = mail.mailId,
-                        sourceAttachmentIndex = attachment.attachmentIndex,
-                        itemID = attachment.itemID,
-                        itemLink = attachment.itemLink,
-                        itemName = attachment.itemName,
-                        count = attachment.count or 1,
-                        bag = bag,
-                        slot = slot,
-                        disenchantStatus = "waiting",
-                    }
-                    if Shatter.MailSession then Shatter.MailSession:Log("info", "Attachment ready in Bag %d, Slot %d.", bag, slot) end
-                    break
-                end
-            end
-        end
+    local item = Shatter.MailSession and Shatter.MailSession:FindInputItem(pending.inputItemId)
+    if item then
+        item.status = "taken"
+        item.bag = bag
+        item.slot = slot
+        item.disenchantStatus = "waiting"
+        if Shatter.MailSession then Shatter.MailSession:Log("info", "Attachment ready in Bag %d, Slot %d.", bag, slot) end
     end
     session.pendingAction = nil
     if self:GetNext() then
