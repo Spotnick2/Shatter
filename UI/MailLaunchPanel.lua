@@ -40,16 +40,26 @@ local function SetPanelPreferredVisible(shown)
     settings.mail.launchPanelVisible = shown and true or false
 end
 
-local function ApplyButtonState(button, enabled)
+local function ApplyButtonState(button, enabled, emphasis)
     if not button then return end
     if enabled then
         button:Enable()
-        button:SetBackdropColor(0.12, 0.12, 0.12, 1)
-        Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        if emphasis == "primary" then
+            button._normalColor = { 0.20, 0.17, 0.07, 1 }
+            button._hoverColor = { 0.24, 0.20, 0.08, 1 }
+            Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        else
+            button._normalColor = { 0.12, 0.12, 0.12, 1 }
+            button._hoverColor = { 0.18, 0.18, 0.18, 1 }
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
+        end
+        button:SetBackdropColor(unpack(button._normalColor))
     else
         button:Disable()
         button:SetBackdropColor(0.10, 0.10, 0.10, 1)
         Shatter.SetTextColor(button.text, Shatter.C.TEXT_DIM)
+        button._normalColor = { 0.10, 0.10, 0.10, 1 }
+        button._hoverColor = { 0.10, 0.10, 0.10, 1 }
     end
 end
 
@@ -66,14 +76,18 @@ local function CreateActionButton(parent, text, width)
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
+    button._normalColor = { 0.12, 0.12, 0.12, 1 }
+    button._hoverColor = { 0.18, 0.18, 0.18, 1 }
     button:SetScript("OnEnter", function(self)
         if self:IsEnabled() then
-            self:SetBackdropColor(0.18, 0.18, 0.18, 1)
+            local hover = self._hoverColor or { 0.18, 0.18, 0.18, 1 }
+            self:SetBackdropColor(unpack(hover))
         end
     end)
     button:SetScript("OnLeave", function(self)
         if self:IsEnabled() then
-            self:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            local normal = self._normalColor or { 0.12, 0.12, 0.12, 1 }
+            self:SetBackdropColor(unpack(normal))
         else
             self:SetBackdropColor(0.10, 0.10, 0.10, 1)
         end
@@ -136,7 +150,7 @@ function MailLaunchPanel:Create()
     if self.frame then return self.frame end
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(250, 356)
+    frame:SetSize(250, 324)
     Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_PANEL))
     frame:SetFrameStrata("MEDIUM")
     frame:Hide()
@@ -158,15 +172,15 @@ function MailLaunchPanel:Create()
     self.closeButton = close
 
     self.mailboxStatus = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    self.mailboxStatus:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
+    self.mailboxStatus:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
     self.mailboxStatus:SetText("Mailbox unavailable")
 
     self.sessionStatus = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    self.sessionStatus:SetPoint("TOPLEFT", self.mailboxStatus, "BOTTOMLEFT", 0, -4)
+    self.sessionStatus:SetPoint("TOPLEFT", self.mailboxStatus, "BOTTOMLEFT", 0, -3)
     self.sessionStatus:SetText("No active session.")
 
     local startButton = CreateActionButton(frame, "Start New Session", 220)
-    startButton:SetPoint("TOPLEFT", self.sessionStatus, "BOTTOMLEFT", 0, -10)
+    startButton:SetPoint("TOPLEFT", self.sessionStatus, "BOTTOMLEFT", 0, -8)
     startButton:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:StartNewSessionFromLaunchPanel()
@@ -176,7 +190,7 @@ function MailLaunchPanel:Create()
     self.startButton = startButton
 
     local continueButton = CreateActionButton(frame, "Continue Existing Session", 220)
-    continueButton:SetPoint("TOPLEFT", startButton, "BOTTOMLEFT", 0, -8)
+    continueButton:SetPoint("TOPLEFT", startButton, "BOTTOMLEFT", 0, -6)
     continueButton:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:ContinueSessionFromLaunchPanel()
@@ -188,18 +202,18 @@ function MailLaunchPanel:Create()
     local sep1 = frame:CreateTexture(nil, "ARTWORK")
     sep1:SetTexture("Interface\\Buttons\\WHITE8X8")
     sep1:SetColorTexture(0.22, 0.22, 0.22, 1)
-    sep1:SetPoint("TOPLEFT", continueButton, "BOTTOMLEFT", 0, -10)
-    sep1:SetPoint("TOPRIGHT", continueButton, "BOTTOMRIGHT", 0, -10)
+    sep1:SetPoint("TOPLEFT", continueButton, "BOTTOMLEFT", 0, -8)
+    sep1:SetPoint("TOPRIGHT", continueButton, "BOTTOMRIGHT", 0, -8)
     sep1:SetHeight(1)
 
     local processTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    processTitle:SetPoint("TOPLEFT", sep1, "BOTTOMLEFT", 0, -10)
+    processTitle:SetPoint("TOPLEFT", sep1, "BOTTOMLEFT", 0, -8)
     processTitle:SetText("Process")
     Shatter.SetTextColor(processTitle, Shatter.C.ACCENT)
     self.processTitle = processTitle
 
     local processAll = CreateRadioButton(frame, "All Mail")
-    processAll:SetPoint("TOPLEFT", processTitle, "BOTTOMLEFT", -2, -4)
+    processAll:SetPoint("TOPLEFT", processTitle, "BOTTOMLEFT", -2, -3)
     processAll:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.ALL)
@@ -208,7 +222,7 @@ function MailLaunchPanel:Create()
     self.processAll = processAll
 
     local processSender = CreateRadioButton(frame, "Mail from:")
-    processSender:SetPoint("TOPLEFT", processAll, "BOTTOMLEFT", 0, -4)
+    processSender:SetPoint("TOPLEFT", processAll, "BOTTOMLEFT", 0, -2)
     processSender:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
@@ -236,7 +250,7 @@ function MailLaunchPanel:Create()
     self.senderButton = senderButton
 
     local processPostal = CreateRadioButton(frame, "Selected mails (Postal)")
-    processPostal:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -4)
+    processPostal:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -2)
     processPostal:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
@@ -250,13 +264,13 @@ function MailLaunchPanel:Create()
     self.postalCount = postalCount
 
     local returnTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    returnTitle:SetPoint("TOPLEFT", processPostal, "BOTTOMLEFT", 0, -14)
+    returnTitle:SetPoint("TOPLEFT", processPostal, "BOTTOMLEFT", 0, -10)
     returnTitle:SetText("Return Mats")
     Shatter.SetTextColor(returnTitle, Shatter.C.ACCENT)
     self.returnTitle = returnTitle
 
     local returnOriginal = CreateRadioButton(frame, "Send to original sender")
-    returnOriginal:SetPoint("TOPLEFT", returnTitle, "BOTTOMLEFT", -2, -4)
+    returnOriginal:SetPoint("TOPLEFT", returnTitle, "BOTTOMLEFT", -2, -3)
     returnOriginal:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS)
@@ -265,7 +279,7 @@ function MailLaunchPanel:Create()
     self.returnOriginal = returnOriginal
 
     local returnFunnel = CreateRadioButton(frame, "Funnel to:")
-    returnFunnel:SetPoint("TOPLEFT", returnOriginal, "BOTTOMLEFT", 0, -4)
+    returnFunnel:SetPoint("TOPLEFT", returnOriginal, "BOTTOMLEFT", 0, -2)
     returnFunnel:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
@@ -277,17 +291,42 @@ function MailLaunchPanel:Create()
     funnelEdit:SetSize(132, 20)
     funnelEdit:SetPoint("LEFT", returnFunnel.label, "RIGHT", 4, 0)
     funnelEdit:SetAutoFocus(false)
+    funnelEdit:SetTextInsets(6, 16, 0, 0)
+    funnelEdit._isPlaceholder = false
+    local funnelArrow = funnelEdit:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    funnelArrow:SetPoint("RIGHT", funnelEdit, "RIGHT", -6, 0)
+    funnelArrow:SetText("v")
+    self.funnelArrow = funnelArrow
+    funnelEdit:SetScript("OnEditFocusGained", function(self)
+        if self._isPlaceholder then
+            self:SetText("")
+            self._isPlaceholder = false
+            self:SetTextColor(unpack(Shatter.C.TEXT_NORM))
+        end
+    end)
     funnelEdit:SetScript("OnEnterPressed", function(self)
         self:ClearFocus()
-        if Shatter.MailMode then Shatter.MailMode:SetLaunchFunnelRecipient(self:GetText()) end
+        if Shatter.MailMode then
+            local text = self:GetText() or ""
+            if self._isPlaceholder then
+                text = ""
+            end
+            Shatter.MailMode:SetLaunchFunnelRecipient(text)
+        end
     end)
     funnelEdit:SetScript("OnEditFocusLost", function(self)
-        if Shatter.MailMode then Shatter.MailMode:SetLaunchFunnelRecipient(self:GetText()) end
+        if Shatter.MailMode then
+            local text = self:GetText() or ""
+            if self._isPlaceholder then
+                text = ""
+            end
+            Shatter.MailMode:SetLaunchFunnelRecipient(text)
+        end
     end)
     self.funnelEdit = funnelEdit
 
     local keepMats = CreateRadioButton(frame, "Keep materials")
-    keepMats:SetPoint("TOPLEFT", returnFunnel, "BOTTOMLEFT", 0, -4)
+    keepMats:SetPoint("TOPLEFT", returnFunnel, "BOTTOMLEFT", 0, -2)
     keepMats:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.KEEP)
@@ -298,15 +337,15 @@ function MailLaunchPanel:Create()
     local sep2 = frame:CreateTexture(nil, "ARTWORK")
     sep2:SetTexture("Interface\\Buttons\\WHITE8X8")
     sep2:SetColorTexture(0.22, 0.22, 0.22, 1)
-    sep2:SetPoint("TOPLEFT", keepMats, "BOTTOMLEFT", 2, -10)
-    sep2:SetPoint("TOPRIGHT", keepMats, "BOTTOMRIGHT", 190, -10)
+    sep2:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 30)
+    sep2:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 30)
     sep2:SetHeight(1)
 
     local foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    foot:SetPoint("TOPLEFT", sep2, "BOTTOMLEFT", 0, -10)
-    foot:SetPoint("TOPRIGHT", sep2, "BOTTOMRIGHT", 0, -10)
+    foot:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 10)
+    foot:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 10)
     foot:SetJustifyH("CENTER")
-    foot:SetText("Session remains active until closed.")
+    foot:SetText("Session remains active until you close it.")
     self.footnote = foot
 
     local toggle = CreateFrame("Button", nil, UIParent)
@@ -365,8 +404,13 @@ function MailLaunchPanel:Refresh()
         Shatter.SetTextColor(self.sessionStatus, Shatter.C.TEXT_DIM)
     end
 
-    ApplyButtonState(self.startButton, mailboxOpen)
-    ApplyButtonState(self.continueButton, mailboxOpen and hasSession)
+    if hasSession then
+        ApplyButtonState(self.continueButton, mailboxOpen and hasSession, "primary")
+        ApplyButtonState(self.startButton, mailboxOpen, "secondary")
+    else
+        ApplyButtonState(self.startButton, mailboxOpen, "primary")
+        ApplyButtonState(self.continueButton, mailboxOpen and hasSession, "secondary")
+    end
 
     if self.processAll then
         self.processAll:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.ALL)
@@ -405,12 +449,22 @@ function MailLaunchPanel:Refresh()
     end
 
     if self.funnelEdit and not self.funnelEdit:HasFocus() then
-        self.funnelEdit:SetText(funnelRecipient)
+        if funnelRecipient and funnelRecipient ~= "" then
+            self.funnelEdit:SetText(funnelRecipient)
+            self.funnelEdit._isPlaceholder = false
+        else
+            self.funnelEdit:SetText("Select Recipient")
+            self.funnelEdit._isPlaceholder = true
+        end
     end
     if self.funnelEdit then
         if recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL then
             if self.funnelEdit.Enable then self.funnelEdit:Enable() end
-            self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_NORM))
+            if self.funnelEdit._isPlaceholder then
+                self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_DIM))
+            else
+                self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_NORM))
+            end
         else
             if self.funnelEdit.Disable then self.funnelEdit:Disable() end
             self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_DIM))

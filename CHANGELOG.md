@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Polished the mailbox-attached Shatter Mail launch panel layout: tighter spacing, clearer primary/secondary session action styling, dropdown-style Funnel placeholder, and footer text kept fully inside panel bounds.
 - Started the storyboard Mail Mode refactor with a mailbox-attached Shatter Mail launch panel and expand/collapse toggle button.
 - Stopped auto-opening the large Mail session window on mailbox open; mailbox now shows the launch panel first.
 - Scoped active Mail sessions by character instead of account-wide shared `activeMail`.
