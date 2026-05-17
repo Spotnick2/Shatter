@@ -157,12 +157,12 @@ end
 
 function Disenchant:BeginSecureClick(button)
     local item = Shatter.Queue and Shatter.Queue:GetSelected()
-    self:Debug("Shatter Next clicked")
+    self:Trace("Shatter Next clicked")
     if not button or not item then
         ClearButtonAction(button)
         return
     end
-    self:Debug("Selected item: %s bag=%s slot=%s itemID=%s", item.itemLink or item.itemName or "?", tostring(item.bag), tostring(item.slot), tostring(item.itemID))
+    self:Trace("Selected item: %s bag=%s slot=%s itemID=%s", item.itemLink or item.itemName or "?", tostring(item.bag), tostring(item.slot), tostring(item.itemID))
 
     if not self:IsSimulationEnabled() and not HasInventorySpace() then
         ClearButtonAction(button)
@@ -190,7 +190,7 @@ function Disenchant:BeginSecureClick(button)
 
     button:SetAttribute("*type1", "macro")
     button:SetAttribute("*macrotext1", macro)
-    self:Debug("Prepared secure macro: /cast %s ; /use %d %d", tostring(spellName), current.bag, current.slot)
+    self:Trace("Prepared secure macro: /cast %s ; /use %d %d", tostring(spellName), current.bag, current.slot)
 
     self.pending = {
         item = current,
@@ -253,7 +253,7 @@ function Disenchant:Simulate(item)
             Shatter.Session:RecordResult(item, result, { simulated = true })
         end
         if Shatter.Debug then
-            Shatter.Debug:Log("debug", "Simulated disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result) or "unknown")
+            Shatter.Debug:Log("trace", "Simulated disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result) or "unknown")
         end
         self.pending = nil
         self.finalizing = false
@@ -279,7 +279,7 @@ function Disenchant:Finish()
         if Shatter.MaterialTracker and Shatter.MaterialTracker:IsEmpty(result) then
             result = Shatter.MaterialTracker:Diff(pending.before, Shatter.MaterialTracker:Snapshot())
         end
-        self:Debug("Finish check: disappeared=%s result=%s", tostring(itemDisappeared), Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
+        self:Trace("Finish check: disappeared=%s result=%s", tostring(itemDisappeared), Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
 
         if Shatter.Session then
             Shatter.Session:RecordResult(pending.item, result or {})
@@ -289,7 +289,7 @@ function Disenchant:Finish()
         self.finalizing = false
 
         if Shatter.Debug then
-            Shatter.Debug:Log("debug", "Disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
+            Shatter.Debug:Log("trace", "Disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
         end
 
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("DISENCHANT_RESOLVED", 0.1) end

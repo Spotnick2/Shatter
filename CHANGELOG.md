@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reduced normal debug chat noise by moving routine disenchant flow and scan details to trace logging.
 - Added explanatory tooltips to Settings controls.
 - Restored the right-side inspection panel layout with compact Session and Generated sections.
 - Added coin icon formatting to right-pane expected disenchant value.

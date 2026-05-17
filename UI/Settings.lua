@@ -235,7 +235,7 @@ function SettingsUI:Create(parent)
         SettingsUI:Refresh()
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_DEBUG", 0.05) end
     end)
-    AddTooltip(debug, "Debug logging", "Print important Shatter state changes to chat. This is useful while testing but should usually stay off during normal play.")
+    AddTooltip(debug, "Debug logging", "Print important Shatter state changes such as settings changes and failures. Routine disenchant event details require Trace logging.")
     self.debug = debug
 
     local trace = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
@@ -248,7 +248,7 @@ function SettingsUI:Create(parent)
         Shatter.Database:GetSettings().traceDebug = self:GetChecked() and true or false
         SettingsUI:Refresh()
     end)
-    AddTooltip(trace, "Trace logging", "Print verbose scan and event details for troubleshooting. This can be noisy and is intended for short debugging sessions.")
+    AddTooltip(trace, "Trace logging", "Print verbose scan, secure button, and disenchant event details for troubleshooting. This can be noisy and is intended for short debugging sessions.")
     self.trace = trace
 
     local simulate = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")

@@ -69,9 +69,7 @@ local function IsImportantReason(reason)
     return string.find(reason, "SETTINGS", 1, true)
         or string.find(reason, "IGNORED", 1, true)
         or string.find(reason, "SKIPPED", 1, true)
-        or string.find(reason, "DISENCHANT", 1, true)
         or string.find(reason, "MANUAL", 1, true)
-        or string.find(reason, "SIMULATION", 1, true)
 end
 
 function SoloMode:Rescan(reason)
@@ -107,13 +105,11 @@ function SoloMode:Rescan(reason)
     if Shatter.Session then Shatter.Session:SetQueuedCount(#items) end
     if Shatter.MainFrame then Shatter.MainFrame:Update() end
 
-    local countChanged = self.lastEligibleCount ~= #items
-    local selectedChanged = self.lastSelectedQueueId ~= selectedQueueId
     local important = IsImportantReason(reason)
     if Shatter.Debug then
         if settings and settings.traceDebug then
             Shatter.Debug:Log("trace", "Solo scan completed: %d eligible item%s. Selected: %s. Reason: %s.", #items, #items == 1 and "" or "s", selectedQueueId or "none", reason)
-        elseif countChanged or selectedChanged or important then
+        elseif important then
             Shatter.Debug:Log("debug", "Solo scan updated: %d eligible item%s. Reason: %s.", #items, #items == 1 and "" or "s", reason)
         end
     end
