@@ -2,6 +2,8 @@ local _, Shatter = ...
 
 local MailMode = {
     scanScheduled = false,
+    launchOptions = nil,
+    launchSenders = {},
 }
 
 Shatter.MailMode = MailMode
@@ -24,7 +26,53 @@ local function SyncMailboxState(session)
     return open
 end
 
+local function GetInboxCount()
+    if not GetInboxNumItems then return 0 end
+    return GetInboxNumItems() or 0
+end
+
+local function CollectSenders()
+    local seen = {}
+    local list = {}
+    if not GetInboxHeaderInfo then return list end
+    for mailIndex = 1, GetInboxCount() do
+        local sender = select(3, GetInboxHeaderInfo(mailIndex))
+        if sender and sender ~= "" and not seen[sender] then
+            seen[sender] = true
+            table.insert(list, sender)
+        end
+    end
+    table.sort(list)
+    return list
+end
+
+local function CountEntries(map)
+    local count = 0
+    for _, selected in pairs(map or {}) do
+        if selected then count = count + 1 end
+    end
+    return count
+end
+
+local function CopyMap(source)
+    if type(source) ~= "table" then return nil end
+    local copy = {}
+    for key, value in pairs(source) do
+        if value then copy[key] = true end
+    end
+    return next(copy) and copy or nil
+end
+
 function MailMode:Initialize()
+    local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    local recipients = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    self.launchOptions = {
+        selectionMode = modes.ALL or "ALL",
+        sender = nil,
+        recipientMode = recipients.ORIGINAL_SENDERS or "ORIGINAL_SENDERS",
+        funnelRecipient = "",
+    }
+    self.launchSenders = {}
     if not Shatter.Events then return end
     Shatter.Events:Register("MAIL_SHOW", self, self.OnEvent)
     Shatter.Events:Register("MAIL_CLOSED", self, self.OnEvent)
@@ -39,6 +87,133 @@ function MailMode:IsAvailable()
     return IsMailboxOpen() or hasSession
 end
 
+function MailMode:IsPostalAvailable()
+    return IsAddOnLoaded and IsAddOnLoaded("Postal")
+end
+
+function MailMode:GetPostalSelectedMailIndices()
+    local selected = {}
+    if not self:IsPostalAvailable() then
+        return selected
+    end
+    local pageNum = InboxFrame and InboxFrame.pageNum or 1
+    local base = math.max(0, ((pageNum or 1) - 1) * 7)
+    for row = 1, 7 do
+        local check = _G["PostalInboxCB" .. row]
+        if check and check.GetChecked and check:IsShown() and check:GetChecked() then
+            local mailIndex = base + row
+            selected[mailIndex] = true
+        end
+    end
+    return selected
+end
+
+function MailMode:GetLaunchSenders()
+    return self.launchSenders or {}
+end
+
+function MailMode:RefreshLaunchSenders()
+    if not IsMailboxOpen() then
+        self.launchSenders = {}
+        return
+    end
+    self.launchSenders = CollectSenders()
+    if self.launchOptions and self.launchOptions.selectionMode == (Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER or "SENDER") then
+        local sender = self.launchOptions.sender
+        if sender then
+            local exists = false
+            for _, value in ipairs(self.launchSenders) do
+                if value == sender then
+                    exists = true
+                    break
+                end
+            end
+            if not exists then
+                self.launchOptions.sender = self.launchSenders[1]
+            end
+        elseif #self.launchSenders > 0 then
+            self.launchOptions.sender = self.launchSenders[1]
+        end
+    end
+end
+
+function MailMode:LoadLaunchOptionsFromSession()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
+    if not session or not self.launchOptions then return end
+    local selection = session.mailSelection or {}
+    local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    local recipients = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    local mode = selection.mode
+    if mode ~= selectionModes.SENDER and mode ~= selectionModes.POSTAL_SELECTED then
+        mode = selectionModes.ALL or "ALL"
+    end
+    local recipientMode = session.recipientMode
+    if recipientMode ~= recipients.FUNNEL and recipientMode ~= recipients.KEEP then
+        recipientMode = recipients.ORIGINAL_SENDERS or "ORIGINAL_SENDERS"
+    end
+    self.launchOptions.selectionMode = mode
+    self.launchOptions.sender = selection.sender
+    self.launchOptions.recipientMode = recipientMode
+    self.launchOptions.funnelRecipient = session.funnelRecipient or ""
+    self.launchOptions.selectedMailIndices = CopyMap(selection.selectedMailIndices)
+end
+
+function MailMode:SetLaunchMailSelectionMode(mode)
+    if not self.launchOptions then return end
+    local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    if mode ~= modes.SENDER and mode ~= modes.POSTAL_SELECTED then
+        mode = modes.ALL or "ALL"
+    end
+    self.launchOptions.selectionMode = mode
+    if mode == modes.SENDER and (not self.launchOptions.sender or self.launchOptions.sender == "") then
+        self:RefreshLaunchSenders()
+        self.launchOptions.sender = self.launchSenders[1]
+    end
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+end
+
+function MailMode:SetLaunchSender(sender)
+    if not self.launchOptions then return end
+    self.launchOptions.sender = sender and tostring(sender) or nil
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+end
+
+function MailMode:SetLaunchRecipientMode(mode)
+    if not self.launchOptions then return end
+    local recipients = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    if mode ~= recipients.FUNNEL and mode ~= recipients.KEEP then
+        mode = recipients.ORIGINAL_SENDERS or "ORIGINAL_SENDERS"
+    end
+    self.launchOptions.recipientMode = mode
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+end
+
+function MailMode:SetLaunchFunnelRecipient(name)
+    if not self.launchOptions then return end
+    self.launchOptions.funnelRecipient = name and tostring(name) or ""
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+end
+
+function MailMode:GetLaunchContext()
+    if IsMailboxOpen() and (#(self.launchSenders or {}) == 0) then
+        self:RefreshLaunchSenders()
+    end
+    local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    local selectionMode = self.launchOptions and self.launchOptions.selectionMode or (modes.ALL or "ALL")
+    local postalSelected = self:GetPostalSelectedMailIndices()
+    return {
+        mailboxOpen = IsMailboxOpen(),
+        hasSession = Shatter.MailSession and Shatter.MailSession:HasActiveSession() or false,
+        senders = self:GetLaunchSenders(),
+        postalAvailable = self:IsPostalAvailable(),
+        postalSelectedCount = CountEntries(postalSelected),
+        selectionMode = selectionMode,
+        selectedSender = self.launchOptions and self.launchOptions.sender or nil,
+        recipientMode = self.launchOptions and self.launchOptions.recipientMode or (Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS),
+        funnelRecipient = self.launchOptions and self.launchOptions.funnelRecipient or "",
+    }
+end
+
 function MailMode:OnEvent(event, ...)
     if event == "MAIL_SHOW" then
         self:ActivateFromMailbox()
@@ -47,6 +222,7 @@ function MailMode:OnEvent(event, ...)
         if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:HideForMailboxClose() end
         if Shatter.MainFrame then Shatter.MainFrame:Update() end
     elseif event == "MAIL_INBOX_UPDATE" then
+        self:RefreshLaunchSenders()
         if Shatter.MailSession and Shatter.MailSession:HasActiveSession() then
             self:ScheduleScan("MAIL_INBOX_UPDATE", 0.2)
         end
@@ -72,10 +248,12 @@ end
 function MailMode:ActivateFromMailbox()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if session then
+        self:LoadLaunchOptionsFromSession()
         Shatter.MailSession:SetMailboxOpen(true)
         session.status = Shatter.Constants.MAIL_STATE.CREATING
         Shatter.MailSession:Log("info", "Mailbox opened; Mail Mode active.")
     end
+    self:RefreshLaunchSenders()
     if Shatter.MailLaunchPanel then
         Shatter.MailLaunchPanel:ShowForMailbox()
     end
@@ -89,29 +267,70 @@ function MailMode:StartNewSessionFromLaunchPanel()
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
         return false
     end
+    local options = self.launchOptions or {}
+    local selectionMode = options.selectionMode or (Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.ALL) or "ALL"
+    local sender = options.sender
+    local selectedMailIndices = nil
+    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") and (not sender or sender == "") then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("Select a sender for Mail from filter.", true, 3) end
+        return false
+    end
+    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") and #(self.launchSenders or {}) == 0 then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("No mailbox senders were detected for Mail from filter.", true, 4) end
+        return false
+    end
+    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED) or "POSTAL_SELECTED") then
+        selectedMailIndices = self:GetPostalSelectedMailIndices()
+        if CountEntries(selectedMailIndices) == 0 then
+            if Shatter.MainFrame then Shatter.MainFrame:SetStatus("No Postal selected mails on the current inbox page.", true, 4) end
+            return false
+        end
+    end
+    if options.recipientMode == ((Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL) or "FUNNEL")
+        and (not options.funnelRecipient or options.funnelRecipient == "") then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("Set a funnel recipient before starting this session.", true, 4) end
+        return false
+    end
+
     local session = Shatter.MailSession and Shatter.MailSession:StartNew()
     if not session then return false end
     Shatter.MailSession:SetMailboxOpen(true)
     session.status = Shatter.Constants.MAIL_STATE.CREATING
+    Shatter.MailSession:SetRecipientMode(options.recipientMode, options.funnelRecipient)
+    session.keepRecipient = UnitName and UnitName("player") or "Self"
+    Shatter.MailSession:SetMailSelection(selectionMode, sender, selectedMailIndices)
+    self.launchOptions.selectedMailIndices = CopyMap(selectedMailIndices)
     Shatter.MailSession:Log("info", "New mail session started from mailbox panel.")
-    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
-    if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
-        Shatter.MainFrame:Update()
+    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") then
+        Shatter.MailSession:Log("info", "Mail selection: sender '%s'.", tostring(sender))
+    elseif selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED) or "POSTAL_SELECTED") then
+        Shatter.MailSession:Log("info", "Mail selection: %d Postal-selected mail(s) on current page.", CountEntries(selectedMailIndices))
+    else
+        Shatter.MailSession:Log("info", "Mail selection: all mail.")
     end
+    self:ScanInbox("SESSION_START")
+    if Shatter.MainFrame then
+        Shatter.MainFrame:Show()
+        Shatter.MainFrame:SetActiveView("mail")
+    end
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
     return true
 end
 
 function MailMode:ContinueSessionFromLaunchPanel()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session or session.status == Shatter.Constants.MAIL_STATE.CLOSED then return false end
+    self:LoadLaunchOptionsFromSession()
     if IsMailboxOpen() then
         Shatter.MailSession:SetMailboxOpen(true)
     end
     Shatter.MailSession:Log("info", "Mail session resumed from mailbox panel.")
-    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
-    if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
-        Shatter.MainFrame:Update()
+    self:ScanInbox("SESSION_RESUME")
+    if Shatter.MainFrame then
+        Shatter.MainFrame:Show()
+        Shatter.MainFrame:SetActiveView("mail")
     end
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
     return true
 end
 

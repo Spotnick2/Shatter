@@ -72,6 +72,21 @@ local function ReadAttachment(mailIndex, attachmentIndex)
     return item
 end
 
+local function MailMatchesSelection(session, mailIndex, header)
+    local selection = session and session.mailSelection or nil
+    local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    local mode = selection and selection.mode or selectionModes.ALL or "ALL"
+    if mode == (selectionModes.SENDER or "SENDER") then
+        local sender = selection and selection.sender
+        return sender and header and header.sender and sender == header.sender or false
+    end
+    if mode == (selectionModes.POSTAL_SELECTED or "POSTAL_SELECTED") then
+        local selected = selection and selection.selectedMailIndices
+        return type(selected) == "table" and selected[mailIndex] == true
+    end
+    return true
+end
+
 local function Fingerprint(header, attachments)
     local parts = { header.sender or "", header.subject or "", tostring(header.money or 0), tostring(header.cod or 0), tostring(header.itemCount or 0) }
     for _, attachment in ipairs(attachments or {}) do
@@ -130,7 +145,7 @@ function InboxScanner:Scan()
     local eligibleAttachments = 0
     for mailIndex = 1, count do
         local header = GetHeader(mailIndex)
-        if header then
+        if header and MailMatchesSelection(session, mailIndex, header) then
             local attachments = {}
             local disenchantable = false
             for attachmentIndex = 1, math.min(header.itemCount or 0, 12) do

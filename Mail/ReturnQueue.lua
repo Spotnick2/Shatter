@@ -10,8 +10,12 @@ local function AddMaterial(bucket, itemID, count)
 end
 
 function ReturnQueue:GetRecipientForSender(session, sender)
-    if session.recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL and session.funnelRecipient and session.funnelRecipient ~= "" then
+    local modes = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    if session.recipientMode == modes.FUNNEL and session.funnelRecipient and session.funnelRecipient ~= "" then
         return session.funnelRecipient
+    end
+    if session.recipientMode == modes.KEEP then
+        return session.keepRecipient or UnitName and UnitName("player") or "Self"
     end
     return sender or UNKNOWN or "Unknown"
 end

@@ -53,6 +53,11 @@ local function ApplyButtonState(button, enabled)
     end
 end
 
+local function SetShown(frame, shown)
+    if not frame then return end
+    if shown then frame:Show() else frame:Hide() end
+end
+
 local function CreateActionButton(parent, text, width)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(width or 200, 24)
@@ -73,6 +78,33 @@ local function CreateActionButton(parent, text, width)
             self:SetBackdropColor(0.10, 0.10, 0.10, 1)
         end
     end)
+    return button
+end
+
+local function CreateRadioButton(parent, label)
+    local button = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    button:SetSize(22, 22)
+    button.label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    button.label:SetPoint("LEFT", button, "RIGHT", 2, 0)
+    button.label:SetJustifyH("LEFT")
+    button.label:SetText(label or "")
+    return button
+end
+
+local function CreateValueButton(parent, text, width)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetSize(width or 130, 20)
+    Shatter.ApplyBackdrop(button, 0.08, 0.08, 0.08, 1)
+    button.text = button:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    button.text:SetPoint("LEFT", button, "LEFT", 6, 0)
+    button.text:SetPoint("RIGHT", button, "RIGHT", -14, 0)
+    button.text:SetJustifyH("LEFT")
+    button.text:SetText(text or "")
+    button.arrow = button:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    button.arrow:SetPoint("RIGHT", button, "RIGHT", -4, 0)
+    button.arrow:SetText("v")
+    button:SetScript("OnEnter", function(self) self:SetBackdropColor(0.12, 0.12, 0.12, 1) end)
+    button:SetScript("OnLeave", function(self) self:SetBackdropColor(0.08, 0.08, 0.08, 1) end)
     return button
 end
 
@@ -166,42 +198,108 @@ function MailLaunchPanel:Create()
     Shatter.SetTextColor(processTitle, Shatter.C.ACCENT)
     self.processTitle = processTitle
 
-    local processAll = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    processAll:SetPoint("TOPLEFT", processTitle, "BOTTOMLEFT", 0, -6)
-    processAll:SetText("(o) All Mail")
+    local processAll = CreateRadioButton(frame, "All Mail")
+    processAll:SetPoint("TOPLEFT", processTitle, "BOTTOMLEFT", -2, -4)
+    processAll:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.ALL)
+        end
+    end)
     self.processAll = processAll
 
-    local processSender = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local processSender = CreateRadioButton(frame, "Mail from:")
     processSender:SetPoint("TOPLEFT", processAll, "BOTTOMLEFT", 0, -4)
-    processSender:SetText("( ) Mail from: Select Sender (Pass 2)")
+    processSender:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
+        end
+    end)
     self.processSender = processSender
 
+    local senderButton = CreateValueButton(frame, "Select Sender", 132)
+    senderButton:SetPoint("LEFT", processSender.label, "RIGHT", 4, 0)
+    senderButton:SetScript("OnClick", function()
+        if not Shatter.MailMode then return end
+        local senders = Shatter.MailMode:GetLaunchSenders() or {}
+        if #senders == 0 then return end
+        local current = (Shatter.MailMode:GetLaunchContext() or {}).selectedSender
+        local index = 0
+        for i, sender in ipairs(senders) do
+            if sender == current then
+                index = i
+                break
+            end
+        end
+        index = (index % #senders) + 1
+        Shatter.MailMode:SetLaunchSender(senders[index])
+    end)
+    self.senderButton = senderButton
+
+    local processPostal = CreateRadioButton(frame, "Selected mails (Postal)")
+    processPostal:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -4)
+    processPostal:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+        end
+    end)
+    self.processPostal = processPostal
+
+    local postalCount = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    postalCount:SetPoint("LEFT", processPostal.label, "RIGHT", 6, 0)
+    postalCount:SetJustifyH("LEFT")
+    self.postalCount = postalCount
+
     local returnTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    returnTitle:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -14)
+    returnTitle:SetPoint("TOPLEFT", processPostal, "BOTTOMLEFT", 0, -14)
     returnTitle:SetText("Return Mats")
     Shatter.SetTextColor(returnTitle, Shatter.C.ACCENT)
     self.returnTitle = returnTitle
 
-    local returnOriginal = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    returnOriginal:SetPoint("TOPLEFT", returnTitle, "BOTTOMLEFT", 0, -6)
-    returnOriginal:SetText("(o) Original Sender")
+    local returnOriginal = CreateRadioButton(frame, "Send to original sender")
+    returnOriginal:SetPoint("TOPLEFT", returnTitle, "BOTTOMLEFT", -2, -4)
+    returnOriginal:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS)
+        end
+    end)
     self.returnOriginal = returnOriginal
 
-    local returnFunnel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local returnFunnel = CreateRadioButton(frame, "Funnel to:")
     returnFunnel:SetPoint("TOPLEFT", returnOriginal, "BOTTOMLEFT", 0, -4)
-    returnFunnel:SetText("( ) Funnel to: Select Recipient (Pass 2)")
+    returnFunnel:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
+        end
+    end)
     self.returnFunnel = returnFunnel
 
-    local keepMats = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    local funnelEdit = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    funnelEdit:SetSize(132, 20)
+    funnelEdit:SetPoint("LEFT", returnFunnel.label, "RIGHT", 4, 0)
+    funnelEdit:SetAutoFocus(false)
+    funnelEdit:SetScript("OnEnterPressed", function(self)
+        self:ClearFocus()
+        if Shatter.MailMode then Shatter.MailMode:SetLaunchFunnelRecipient(self:GetText()) end
+    end)
+    funnelEdit:SetScript("OnEditFocusLost", function(self)
+        if Shatter.MailMode then Shatter.MailMode:SetLaunchFunnelRecipient(self:GetText()) end
+    end)
+    self.funnelEdit = funnelEdit
+
+    local keepMats = CreateRadioButton(frame, "Keep materials")
     keepMats:SetPoint("TOPLEFT", returnFunnel, "BOTTOMLEFT", 0, -4)
-    keepMats:SetText("( ) Keep Materials (Pass 2)")
+    keepMats:SetScript("OnClick", function()
+        if Shatter.MailMode then
+            Shatter.MailMode:SetLaunchRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.KEEP)
+        end
+    end)
     self.keepMats = keepMats
 
     local sep2 = frame:CreateTexture(nil, "ARTWORK")
     sep2:SetTexture("Interface\\Buttons\\WHITE8X8")
     sep2:SetColorTexture(0.22, 0.22, 0.22, 1)
-    sep2:SetPoint("TOPLEFT", keepMats, "BOTTOMLEFT", 0, -10)
-    sep2:SetPoint("TOPRIGHT", keepMats, "BOTTOMRIGHT", 0, -10)
+    sep2:SetPoint("TOPLEFT", keepMats, "BOTTOMLEFT", 2, -10)
+    sep2:SetPoint("TOPRIGHT", keepMats, "BOTTOMRIGHT", 190, -10)
     sep2:SetHeight(1)
 
     local foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -243,8 +341,13 @@ end
 
 function MailLaunchPanel:Refresh()
     if not self.frame then return end
-    local mailboxOpen = IsMailboxOpen()
-    local hasSession = Shatter.MailSession and Shatter.MailSession:HasActiveSession()
+    local context = Shatter.MailMode and Shatter.MailMode:GetLaunchContext() or {}
+    local mailboxOpen = context.mailboxOpen and true or false
+    local hasSession = context.hasSession and true or false
+    local selectionMode = context.selectionMode
+    local recipientMode = context.recipientMode
+    local sender = context.selectedSender
+    local funnelRecipient = context.funnelRecipient or ""
 
     if mailboxOpen then
         self.mailboxStatus:SetText("Mailbox ready")
@@ -264,6 +367,57 @@ function MailLaunchPanel:Refresh()
 
     ApplyButtonState(self.startButton, mailboxOpen)
     ApplyButtonState(self.continueButton, mailboxOpen and hasSession)
+
+    if self.processAll then
+        self.processAll:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.ALL)
+        self.processSender:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
+        self.processPostal:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+    end
+
+    if self.senderButton and self.senderButton.text then
+        self.senderButton.text:SetText(sender or "Select Sender")
+        self.senderButton:Enable()
+        if not mailboxOpen then
+            self.senderButton:Disable()
+        end
+    end
+    SetShown(self.senderButton, selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
+
+    if self.postalCount then
+        if context.postalAvailable then
+            self.postalCount:SetText(string.format("(%d selected)", context.postalSelectedCount or 0))
+            self.postalCount:SetTextColor(unpack(Shatter.C.TEXT_DIM))
+            self.processPostal:Show()
+            self.postalCount:Show()
+        else
+            self.processPostal:Hide()
+            self.postalCount:Hide()
+            if selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED and Shatter.MailMode then
+                Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.ALL)
+            end
+        end
+    end
+
+    if self.returnOriginal then
+        self.returnOriginal:SetChecked(recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS)
+        self.returnFunnel:SetChecked(recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
+        self.keepMats:SetChecked(recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.KEEP)
+    end
+
+    if self.funnelEdit and not self.funnelEdit:HasFocus() then
+        self.funnelEdit:SetText(funnelRecipient)
+    end
+    if self.funnelEdit then
+        if recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL then
+            if self.funnelEdit.Enable then self.funnelEdit:Enable() end
+            self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_NORM))
+        else
+            if self.funnelEdit.Disable then self.funnelEdit:Disable() end
+            self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_DIM))
+        end
+    end
+    SetShown(self.funnelEdit, recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
+
     self:UpdateToggleVisual()
 end
 

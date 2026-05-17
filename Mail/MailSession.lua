@@ -9,6 +9,7 @@ local function Now()
 end
 
 local function NewSession()
+    local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
     return {
         sessionId = string.format("MAIL:%s:%s", Shatter.Database and Shatter.Database:GetCharacterKey() or "Unknown", Now()),
         mode = Shatter.Constants.MODES.MAIL,
@@ -18,6 +19,12 @@ local function NewSession()
         mailboxOpen = false,
         recipientMode = Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS,
         funnelRecipient = "",
+        keepRecipient = UnitName and UnitName("player") or "Self",
+        mailSelection = {
+            mode = selectionModes.ALL or "ALL",
+            sender = nil,
+            selectedMailIndices = nil,
+        },
         sourceMails = {},
         inputItems = {},
         outputRecipients = {},
@@ -190,11 +197,37 @@ end
 
 function MailSession:SetRecipientMode(mode, funnelRecipient)
     local session = self:Ensure()
-    if mode ~= Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL then
+    local recipientModes = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    if mode ~= recipientModes.FUNNEL and mode ~= recipientModes.KEEP then
         mode = Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS
     end
     session.recipientMode = mode
     if funnelRecipient ~= nil then session.funnelRecipient = funnelRecipient end
+    session.updatedAt = Now()
+end
+
+function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
+    local session = self:Ensure()
+    local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    local normalized = mode
+    if normalized ~= selectionModes.SENDER and normalized ~= selectionModes.POSTAL_SELECTED then
+        normalized = selectionModes.ALL or "ALL"
+    end
+    session.mailSelection = session.mailSelection or {}
+    session.mailSelection.mode = normalized
+    session.mailSelection.sender = sender and tostring(sender) or nil
+    if type(selectedMailIndices) == "table" then
+        local map = {}
+        for index, selected in pairs(selectedMailIndices) do
+            if selected then
+                local n = tonumber(index)
+                if n and n > 0 then map[n] = true end
+            end
+        end
+        session.mailSelection.selectedMailIndices = next(map) and map or nil
+    else
+        session.mailSelection.selectedMailIndices = nil
+    end
     session.updatedAt = Now()
 end
 

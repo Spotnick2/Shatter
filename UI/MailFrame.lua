@@ -190,7 +190,13 @@ function MailFrame:Refresh()
     end
 
     local mode = session and session.recipientMode or Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS
-    self.outputTitle:SetText(mode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL and "Output Queue (Funnel)" or "Output Queue")
+    if mode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL then
+        self.outputTitle:SetText("Output Queue (Funnel)")
+    elseif mode == Shatter.Constants.MAIL_RECIPIENT_MODE.KEEP then
+        self.outputTitle:SetText("Output Queue (Keep)")
+    else
+        self.outputTitle:SetText("Output Queue")
+    end
     SetShown(self.funnelLabel, mode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
     SetShown(self.funnelEdit, mode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
     if session and self.funnelEdit and not self.funnelEdit:HasFocus() then

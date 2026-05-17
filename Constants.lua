@@ -99,6 +99,13 @@ Constants.MAIL_STATE = {
 Constants.MAIL_RECIPIENT_MODE = {
     ORIGINAL_SENDERS = "ORIGINAL_SENDERS",
     FUNNEL = "FUNNEL",
+    KEEP = "KEEP",
+}
+
+Constants.MAIL_SELECTION_MODE = {
+    ALL = "ALL",
+    SENDER = "SENDER",
+    POSTAL_SELECTED = "POSTAL_SELECTED",
 }
 
 Constants.STATUS = {
