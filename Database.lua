@@ -33,7 +33,9 @@ local DEFAULTS = {
     },
     sessions = {
         active = nil,
+        activeMail = nil,
         history = {},
+        mailHistory = {},
     },
     debugLog = {},
     characterSettings = {},
@@ -141,6 +143,9 @@ function Database:Initialize()
     ShatterDB.version = DEFAULTS.version
     ShatterDB.characterSettings = type(ShatterDB.characterSettings) == "table" and ShatterDB.characterSettings or {}
     ShatterDB.profileScopeByCharacter = type(ShatterDB.profileScopeByCharacter) == "table" and ShatterDB.profileScopeByCharacter or {}
+    ShatterDB.sessions = type(ShatterDB.sessions) == "table" and ShatterDB.sessions or {}
+    ShatterDB.sessions.history = type(ShatterDB.sessions.history) == "table" and ShatterDB.sessions.history or {}
+    ShatterDB.sessions.mailHistory = type(ShatterDB.sessions.mailHistory) == "table" and ShatterDB.sessions.mailHistory or {}
     NormalizeSettings(ShatterDB.settings)
     for _, settings in pairs(ShatterDB.characterSettings) do
         if type(settings) == "table" then

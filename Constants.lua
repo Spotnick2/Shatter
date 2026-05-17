@@ -81,6 +81,26 @@ Constants.MODES = {
     RAID = "RAID",
 }
 
+Constants.MAIL_STATE = {
+    NO_SESSION = "NoSession",
+    CREATING = "MailboxOpenCreatingSession",
+    SCANNING = "ScanningInbox",
+    SELECTING = "SelectingInput",
+    TAKING = "TakingAttachments",
+    READY_TO_DISENCHANT = "ReadyToDisenchant",
+    DISENCHANTING = "Disenchanting",
+    READY_TO_RETURN = "ReadyToReturn",
+    SENDING = "SendingReturns",
+    COMPLETE = "Complete",
+    CLOSED = "Closed",
+    ERROR_PAUSED = "ErrorPaused",
+}
+
+Constants.MAIL_RECIPIENT_MODE = {
+    ORIGINAL_SENDERS = "ORIGINAL_SENDERS",
+    FUNNEL = "FUNNEL",
+}
+
 Constants.STATUS = {
     READY = "Ready",
     NO_ITEMS = "No eligible items",

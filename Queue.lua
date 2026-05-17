@@ -20,7 +20,9 @@ local function SortBagSlot(a, b)
 end
 
 local function SortQueueItems(items)
-    local order = Shatter.Database and Shatter.Database:GetQueueOrder("solo") or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
+    local mode = items and items[1] and items[1].mode
+    local modeKey = mode == Shatter.Constants.MODES.MAIL and "mail" or "solo"
+    local order = Shatter.Database and Shatter.Database:GetQueueOrder(modeKey) or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
     for _, item in ipairs(items or {}) do
         if Shatter.Session then Shatter.Session:AssignQueueSequence(item) end
     end
@@ -91,7 +93,11 @@ function Queue:SkipSelected()
         Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.ITEM_SKIPPED, false, 2)
         Shatter.MainFrame:Update()
     end
-    if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("ITEM_SKIPPED", 0.05) end
+    if item.mode == Shatter.Constants.MODES.MAIL and Shatter.MailMode then
+        Shatter.MailMode:SkipQueueItem(item)
+    elseif Shatter.SoloMode then
+        Shatter.SoloMode:ScheduleScan("ITEM_SKIPPED", 0.05)
+    end
 end
 
 function Queue:IgnoreSelected()

@@ -257,7 +257,9 @@ function Disenchant:Simulate(item)
         end
         self.pending = nil
         self.finalizing = false
-        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SIMULATION_RESULT", 0.1) end
+        if item.mode ~= Shatter.Constants.MODES.MAIL and Shatter.SoloMode then
+            Shatter.SoloMode:ScheduleScan("SIMULATION_RESULT", 0.1)
+        end
         if Shatter.MainFrame then
             Shatter.MainFrame:HideCastBar()
             Shatter.MainFrame:SetStatus("Simulated result recorded.", false)
@@ -292,7 +294,9 @@ function Disenchant:Finish()
             Shatter.Debug:Log("trace", "Disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
         end
 
-        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("DISENCHANT_RESOLVED", 0.1) end
+        if pending.item.mode ~= Shatter.Constants.MODES.MAIL and Shatter.SoloMode then
+            Shatter.SoloMode:ScheduleScan("DISENCHANT_RESOLVED", 0.1)
+        end
         if Shatter.MainFrame then
             Shatter.MainFrame:HideCastBar()
             Shatter.MainFrame:SetStatus("Disenchanted: " .. (pending.item.itemLink or pending.item.itemName or "item"), false, 3)

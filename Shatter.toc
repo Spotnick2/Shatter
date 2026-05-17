@@ -18,10 +18,17 @@ Data\DisenchantTables.lua
 ItemScanner.lua
 Queue.lua
 Session.lua
+Mail\MailSession.lua
+Mail\InboxScanner.lua
+Mail\AttachmentQueue.lua
+Mail\ReturnQueue.lua
+Mail\MailSender.lua
 Disenchant.lua
 UI\Rows.lua
+UI\MailRows.lua
 UI\Settings.lua
 UI\Summary.lua
+UI\MailFrame.lua
 UI\MainFrame.lua
 UI\Minimap.lua
 Modes\SoloMode.lua

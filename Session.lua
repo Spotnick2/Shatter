@@ -96,6 +96,10 @@ function Session:RecordResult(item, result, options)
     for itemID, count in pairs(result or {}) do
         session.summary.materialsGenerated[itemID] = (session.summary.materialsGenerated[itemID] or 0) + count
     end
+
+    if item and item.mode == Shatter.Constants.MODES.MAIL and Shatter.MailMode then
+        Shatter.MailMode:OnDisenchantResult(item, result or {}, options)
+    end
 end
 
 function Session:IsQueueItemSimulated(queueId)
@@ -138,11 +142,15 @@ function Session:ResetSkippedItems()
 end
 
 function Session:FailPending(reason)
-    local session = self:Ensure(Shatter.Constants.MODES.SOLO)
+    local pending = self.active and self.active.pendingAction
+    local session = self:Ensure(pending and pending.mode or Shatter.Constants.MODES.SOLO)
     session.state = "ERROR"
     session.summary.itemsFailed = session.summary.itemsFailed + 1
     if session.pendingAction then
         session.pendingAction.failureReason = reason
+    end
+    if pending and pending.mode == Shatter.Constants.MODES.MAIL and Shatter.MailMode then
+        Shatter.MailMode:OnDisenchantFailed(pending, reason)
     end
     session.pendingAction = nil
 end

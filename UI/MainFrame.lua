@@ -372,6 +372,7 @@ function MainFrame:Layout()
         self.castBar:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -30, 48)
         self.castBar:SetHeight(14)
     end
+    if Shatter.MailFrame then Shatter.MailFrame:Layout() end
     self.layouting = false
 end
 
@@ -530,22 +531,29 @@ function MainFrame:Create()
     tabSolo:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
     tabSolo:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
     Shatter.SetTextColor(tabSolo.text, Shatter.C.ACCENT)
+    tabSolo:SetScript("OnClick", function() self:SetActiveView("solo") end)
     self.tabSolo = tabSolo
 
     local tabMail = CreateButton(frame, "Mail", 68)
     tabMail:SetPoint("LEFT", tabSolo, "RIGHT", 6, 0)
     tabMail:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
     Shatter.SetTextColor(tabMail.text, Shatter.C.TEXT_DIM)
-    tabMail:SetScript("OnClick", function() self:SetStatus("Mail Mode is planned for Phase 3.", false) end)
+    tabMail:SetScript("OnClick", function()
+        if Shatter.MailMode and Shatter.MailMode:IsAvailable() then
+            self:SetActiveView("mail")
+        else
+            self:SetStatus("Open the mailbox to start Mail Mode.", false, 3)
+        end
+    end)
     tabMail:SetScript("OnEnter", function(selfButton)
         selfButton:SetBackdropColor(0.10, 0.10, 0.10, 0.9)
         GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
         GameTooltip:SetText("Mail Mode", 1, 0.82, 0)
-        GameTooltip:AddLine("Planned for Phase 3. Disabled in the Phase 1 Solo MVP.", 0.82, 0.82, 0.82, true)
+        GameTooltip:AddLine("Opens automatically at the mailbox. Sessions stay active until you close them.", 0.82, 0.82, 0.82, true)
         GameTooltip:Show()
     end)
     tabMail:SetScript("OnLeave", function(selfButton)
-        selfButton:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+        MainFrame:UpdateTabs()
         GameTooltip:Hide()
     end)
 
@@ -562,7 +570,7 @@ function MainFrame:Create()
         GameTooltip:Show()
     end)
     tabRaid:SetScript("OnLeave", function(selfButton)
-        selfButton:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+        MainFrame:UpdateTabs()
         GameTooltip:Hide()
     end)
 
@@ -802,8 +810,12 @@ function MainFrame:Create()
     local settings = CreateButton(footer, "Settings", 78)
     settings:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
     settings:SetScript("OnClick", function()
-        if self.activeView ~= "solo" then
-            self:SetActiveView("solo")
+        if self.activeView == "settings" or self.activeView == "summary" then
+            if Shatter.MailMode and Shatter.MailMode:IsAvailable() then
+                self:SetActiveView("mail")
+            else
+                self:SetActiveView("solo")
+            end
         elseif Shatter.SettingsUI then
             Shatter.SettingsUI:Toggle()
         end
@@ -837,9 +849,25 @@ function MainFrame:Create()
     primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
     primary:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
     primary:SetScript("PreClick", function(button)
-        if Shatter.Disenchant then Shatter.Disenchant:BeginSecureClick(button) end
+        if self.activeView == "mail" then
+            local label = Shatter.MailMode and Shatter.MailMode:GetPrimaryState()
+            if label == "Shatter Next" and Shatter.Disenchant then
+                Shatter.Disenchant:BeginSecureClick(button)
+            else
+                button:SetAttribute("*type1", "macro")
+                button:SetAttribute("*macrotext1", "")
+            end
+        elseif Shatter.Disenchant then
+            Shatter.Disenchant:BeginSecureClick(button)
+        end
     end)
     primary:SetScript("PostClick", function()
+        if self.activeView == "mail" and Shatter.MailMode then
+            local label = Shatter.MailMode:GetPrimaryState()
+            if label ~= "Shatter Next" then
+                Shatter.MailMode:HandlePrimaryClick()
+            end
+        end
         self:Update()
     end)
     self.primary = primary
@@ -847,6 +875,7 @@ function MainFrame:Create()
 
     self.resizeGrip = self:CreateResizeGrip(frame)
 
+    if Shatter.MailFrame then Shatter.MailFrame:Create(frame) end
     if Shatter.SettingsUI then Shatter.SettingsUI:Create(frame) end
     if Shatter.SummaryUI then Shatter.SummaryUI:Create(frame) end
 
@@ -910,17 +939,20 @@ function MainFrame:SetActiveView(view)
     local summaryOpen = self.activeView == "summary"
     local settings = Shatter.Database and Shatter.Database:GetSettings()
     local simulation = settings and settings.debug and settings.simulateDisenchant
+    local isSolo = self.activeView == "solo"
+    local isMail = self.activeView == "mail"
 
-    SetShown(self.queuePanel, self.activeView == "solo")
-    SetShown(self.detailPanel, self.activeView == "solo")
-    SetShown(self.primary, self.activeView == "solo")
-    SetShown(self.ignoreButton, self.activeView == "solo")
-    SetShown(self.skipButton, self.activeView == "solo")
+    SetShown(self.queuePanel, isSolo)
+    SetShown(self.detailPanel, isSolo)
+    SetShown(Shatter.MailFrame and Shatter.MailFrame.frame, isMail)
+    SetShown(self.primary, isSolo or isMail)
+    SetShown(self.ignoreButton, isSolo or isMail)
+    SetShown(self.skipButton, isSolo or isMail)
     SetShown(self.summaryButton, self.activeView ~= "settings")
     SetShown(self.status, self.activeView ~= "settings")
 
     if self.settingsButton and self.settingsButton.text then
-        self.settingsButton.text:SetText(self.activeView == "solo" and "Settings" or "Back")
+        self.settingsButton.text:SetText((isSolo or isMail) and "Settings" or "Back")
     end
     if Shatter.SettingsUI and Shatter.SettingsUI.frame then
         SetShown(Shatter.SettingsUI.frame, self.activeView == "settings")
@@ -930,7 +962,12 @@ function MainFrame:SetActiveView(view)
         if summaryOpen then Shatter.SummaryUI:Refresh() end
     end
 
-    if simulation then
+    self:UpdateTabs()
+
+    if isMail then
+        if Shatter.MailFrame then Shatter.MailFrame:Refresh() end
+        self:Update()
+    elseif simulation then
         self:SetStatus("Simulation mode enabled - no items will be disenchanted.", false)
     elseif self.settingsOpen then
         self:SetStatus("", false)
@@ -941,7 +978,32 @@ function MainFrame:SetActiveView(view)
     end
 end
 
+function MainFrame:UpdateTabs()
+    local function Style(button, active, disabled)
+        if not button then return end
+        if active then
+            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            button:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
+            Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        elseif disabled then
+            button:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+            button:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_DIM)
+        else
+            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            button:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
+        end
+    end
+    Style(self.tabSolo, self.activeView == "solo", false)
+    Style(self.tabMail, self.activeView == "mail", not (Shatter.MailMode and Shatter.MailMode:IsAvailable()))
+    Style(self.tabRaid, false, true)
+end
+
 function MainFrame:GetBaseStatus()
+    if self.activeView == "mail" and Shatter.MailMode then
+        return Shatter.MailMode:GetStatus()
+    end
     local settings = Shatter.Database and Shatter.Database:GetSettings()
     settings = settings or {}
     local simulation = settings.debug and settings.simulateDisenchant
@@ -966,6 +1028,45 @@ function MainFrame:Update()
     settings = settings or {}
     local simulation = settings.debug and settings.simulateDisenchant
     SetShown(self.simBadge, simulation)
+    self:UpdateTabs()
+
+    if self.activeView == "mail" then
+        if Shatter.MailFrame then Shatter.MailFrame:Refresh() end
+        local now = GetTime and GetTime() or 0
+        local status, isError = self:GetBaseStatus()
+        if self.stickyStatus and now < (self.stickyStatusUntil or 0) then
+            status, isError = self.stickyStatus, self.stickyStatusIsError
+        else
+            self.stickyStatus = nil
+            if self.statusOverride then
+                status, isError = self.statusOverride, self.statusIsError
+            end
+        end
+        self:SetStatus(status, isError)
+        self.statusOverride = nil
+        self.statusIsError = false
+
+        local label, enabled = Shatter.MailMode and Shatter.MailMode:GetPrimaryState()
+        local pending = Shatter.Disenchant and Shatter.Disenchant:HasPending()
+        if pending then
+            label, enabled = "Waiting...", false
+        end
+        if self.primary then
+            self.primary.text:SetText(label or "Scan Inbox")
+            if enabled then
+                self.primary:Enable()
+                Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
+                self.primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
+            else
+                self.primary:Disable()
+                Shatter.SetTextColor(self.primary.text, Shatter.C.TEXT_DIM)
+                self.primary:SetBackdropColor(0.10, 0.10, 0.10, 1)
+            end
+        end
+        SetShown(self.ignoreButton, false)
+        SetShown(self.skipButton, label == "Shatter Next" and not pending)
+        return
+    end
 
     if self.activeView ~= "solo" then
         if simulation then

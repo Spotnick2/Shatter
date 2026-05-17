@@ -37,6 +37,8 @@ function Shatter.Initialize()
     if Shatter.MaterialTracker then SafeCall("MaterialTracker", Shatter.MaterialTracker.Initialize, Shatter.MaterialTracker) end
     if Shatter.Queue then SafeCall("Queue", Shatter.Queue.Initialize, Shatter.Queue) end
     if Shatter.Session then SafeCall("Session", Shatter.Session.Initialize, Shatter.Session) end
+    if Shatter.MailSession then SafeCall("MailSession", Shatter.MailSession.Initialize, Shatter.MailSession) end
+    if Shatter.MailSender then SafeCall("MailSender", Shatter.MailSender.Initialize, Shatter.MailSender) end
     if Shatter.Disenchant then SafeCall("Disenchant", Shatter.Disenchant.Initialize, Shatter.Disenchant) end
     if Shatter.MainFrame then SafeCall("MainFrame", Shatter.MainFrame.Initialize, Shatter.MainFrame) end
     if Shatter.MinimapButton then SafeCall("MinimapButton", Shatter.MinimapButton.Initialize, Shatter.MinimapButton) end
