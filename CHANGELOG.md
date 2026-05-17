@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a Settings profile selector with Global as the default and per-character Personal profiles.
 - Reduced normal debug chat noise by moving routine disenchant flow and scan details to trace logging.
 - Added explanatory tooltips to Settings controls.
 - Restored the right-side inspection panel layout with compact Session and Generated sections.

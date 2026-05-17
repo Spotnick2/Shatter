@@ -63,7 +63,7 @@ function SettingsUI:Create(parent)
     self.scroll = scroll
 
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(1, 340)
+    content:SetSize(1, 390)
     scroll:SetScrollChild(content)
     scroll:SetScript("OnSizeChanged", function(self)
         content:SetWidth(math.max(1, self:GetWidth()))
@@ -82,7 +82,41 @@ function SettingsUI:Create(parent)
     Shatter.SetTextColor(title, Shatter.C.ACCENT)
 
     local maxLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    maxLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+    local profileLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    profileLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+    profileLabel:SetText("Settings profile")
+
+    local globalProfile = CreatePanelButton(content, "Global", 82)
+    globalProfile:SetPoint("TOPLEFT", profileLabel, "BOTTOMLEFT", 0, -8)
+    local personalProfile = CreatePanelButton(content, "Personal", 82)
+    personalProfile:SetPoint("LEFT", globalProfile, "RIGHT", 6, 0)
+
+    local function SetProfile(scope)
+        if Shatter.Database then Shatter.Database:SetProfileScope(scope) end
+        self:Refresh()
+        if Shatter.MainFrame then
+            Shatter.MainFrame:ApplyPosition()
+            Shatter.MainFrame:Update()
+        end
+        if Shatter.MinimapButton then Shatter.MinimapButton:Refresh() end
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_PROFILE", 0.05) end
+    end
+    globalProfile:SetScript("OnClick", function() SetProfile(Shatter.Constants.PROFILE_SCOPE.GLOBAL) end)
+    personalProfile:SetScript("OnClick", function() SetProfile(Shatter.Constants.PROFILE_SCOPE.PERSONAL) end)
+    AddTooltip(globalProfile, "Global profile", "Use one shared Shatter settings profile for all characters. This is the default.")
+    AddTooltip(personalProfile, "Personal profile", "Use this character's own Shatter settings profile. The first time it is selected, it starts as a copy of your current Global profile.")
+    self.profileButtons = {
+        [Shatter.Constants.PROFILE_SCOPE.GLOBAL] = globalProfile,
+        [Shatter.Constants.PROFILE_SCOPE.PERSONAL] = personalProfile,
+    }
+
+    local profileHelp = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    profileHelp:SetPoint("TOPLEFT", globalProfile, "BOTTOMLEFT", 0, -6)
+    profileHelp:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+    profileHelp:SetJustifyH("LEFT")
+    profileHelp:SetText("Global is shared by all characters. Personal only changes this character.")
+
+    maxLabel:SetPoint("TOPLEFT", profileHelp, "BOTTOMLEFT", 0, -10)
     maxLabel:SetText("Maximum quality")
 
     local uncommon = CreatePanelButton(content, "Uncommon", 82)
@@ -285,6 +319,16 @@ function SettingsUI:Refresh()
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end
+    local profileScope = Shatter.Database and Shatter.Database:GetProfileScope() or Shatter.Constants.PROFILE_SCOPE.GLOBAL
+    for scope, button in pairs(self.profileButtons or {}) do
+        if scope == profileScope then
+            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
+        else
+            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
+        end
+    end
     SetShown(self.trace, settings.debug or settings.traceDebug)
     SetShown(self.trace and self.trace.label, settings.debug or settings.traceDebug)
     SetShown(self.simulate, settings.debug or settings.simulateDisenchant)

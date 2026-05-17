@@ -36,6 +36,8 @@ local DEFAULTS = {
         history = {},
     },
     debugLog = {},
+    characterSettings = {},
+    profileScopeByCharacter = {},
 }
 
 local function Clamp(value, minValue, maxValue)
@@ -97,6 +99,38 @@ local function CopyDefaults(defaults, target)
     end
 end
 
+local function CopyTable(source)
+    local copy = {}
+    for key, value in pairs(source or {}) do
+        if type(value) == "table" then
+            copy[key] = CopyTable(value)
+        else
+            copy[key] = value
+        end
+    end
+    return copy
+end
+
+local function NormalizeSettings(settings)
+    settings = settings or {}
+    CopyDefaults(DEFAULTS.settings, settings)
+    if not settings.debug then
+        settings.traceDebug = false
+        settings.simulateDisenchant = false
+    end
+    NormalizeQueueOrder(settings)
+    NormalizeWindow(settings.window)
+    return settings
+end
+
+function Database:GetCharacterKey()
+    local name = UnitName and UnitName("player") or nil
+    local realm = GetRealmName and GetRealmName() or nil
+    name = name and name ~= "" and name or "Unknown"
+    realm = realm and realm ~= "" and realm or "Realm"
+    return name .. "-" .. realm
+end
+
 function Database:Initialize()
     ShatterDB = ShatterDB or {}
     local previousVersion = tonumber(ShatterDB.version) or 0
@@ -105,12 +139,14 @@ function Database:Initialize()
         ShatterDB.settings.minimap.hide = false
     end
     ShatterDB.version = DEFAULTS.version
-    if ShatterDB.settings and not ShatterDB.settings.debug then
-        ShatterDB.settings.traceDebug = false
-        ShatterDB.settings.simulateDisenchant = false
+    ShatterDB.characterSettings = type(ShatterDB.characterSettings) == "table" and ShatterDB.characterSettings or {}
+    ShatterDB.profileScopeByCharacter = type(ShatterDB.profileScopeByCharacter) == "table" and ShatterDB.profileScopeByCharacter or {}
+    NormalizeSettings(ShatterDB.settings)
+    for _, settings in pairs(ShatterDB.characterSettings) do
+        if type(settings) == "table" then
+            NormalizeSettings(settings)
+        end
     end
-    NormalizeQueueOrder(ShatterDB.settings)
-    NormalizeWindow(ShatterDB.settings.window)
 end
 
 function Database:GetQueueOrder(mode)
@@ -133,9 +169,54 @@ function Database:Get()
     return ShatterDB
 end
 
+function Database:GetProfileScope()
+    self:Initialize()
+    local scopes = ShatterDB.profileScopeByCharacter
+    local key = self:GetCharacterKey()
+    local scope = scopes[key]
+    local constants = Shatter.Constants and Shatter.Constants.PROFILE_SCOPE or {}
+    if scope ~= (constants.PERSONAL or "PERSONAL") then
+        scope = constants.GLOBAL or "GLOBAL"
+    end
+    return scope
+end
+
+function Database:GetGlobalSettings()
+    self:Initialize()
+    return NormalizeSettings(ShatterDB.settings)
+end
+
+function Database:GetPersonalSettings()
+    self:Initialize()
+    local key = self:GetCharacterKey()
+    ShatterDB.characterSettings = type(ShatterDB.characterSettings) == "table" and ShatterDB.characterSettings or {}
+    if type(ShatterDB.characterSettings[key]) ~= "table" then
+        ShatterDB.characterSettings[key] = CopyTable(self:GetGlobalSettings())
+    end
+    return NormalizeSettings(ShatterDB.characterSettings[key])
+end
+
 function Database:GetSettings()
     self:Initialize()
-    return ShatterDB.settings
+    local constants = Shatter.Constants and Shatter.Constants.PROFILE_SCOPE or {}
+    if self:GetProfileScope() == (constants.PERSONAL or "PERSONAL") then
+        return self:GetPersonalSettings()
+    end
+    return self:GetGlobalSettings()
+end
+
+function Database:SetProfileScope(scope)
+    self:Initialize()
+    local constants = Shatter.Constants and Shatter.Constants.PROFILE_SCOPE or {}
+    local global = constants.GLOBAL or "GLOBAL"
+    local personal = constants.PERSONAL or "PERSONAL"
+    if scope ~= personal then scope = global end
+    local key = self:GetCharacterKey()
+    ShatterDB.profileScopeByCharacter[key] = scope
+    if scope == personal then
+        self:GetPersonalSettings()
+    end
+    return scope
 end
 
 function Database:IsIgnored(itemID)

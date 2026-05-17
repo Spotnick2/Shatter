@@ -23,6 +23,11 @@ Constants.QUEUE_ORDER_LABELS = {
     LIFO = "Last In, First Out",
 }
 
+Constants.PROFILE_SCOPE = {
+    GLOBAL = "GLOBAL",
+    PERSONAL = "PERSONAL",
+}
+
 Constants.WINDOW = {
     DEFAULT_WIDTH = 660,
     DEFAULT_HEIGHT = 440,
