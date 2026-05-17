@@ -38,6 +38,16 @@ local function FindBagSlotForItem(itemID)
     end
 end
 
+local function IsMailboxOpen()
+    local function visible(frame)
+        if not frame then return false end
+        if frame.IsVisible and frame:IsVisible() then return true end
+        if frame.IsShown and frame:IsShown() then return true end
+        return false
+    end
+    return visible(_G.MailFrame) or visible(_G.InboxFrame) or visible(_G.OpenMailFrame) or visible(_G.SendMailFrame)
+end
+
 function AttachmentQueue:GetNext()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return nil end
@@ -50,6 +60,7 @@ end
 
 function AttachmentQueue:TakeNext()
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    if session then session.mailboxOpen = IsMailboxOpen() end
     if not session or not session.mailboxOpen then
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
         return false

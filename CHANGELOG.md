@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Kept Mail Mode's `Take Attachments` action clickable when selected item rows exist and made mailbox-frame detection more defensive.
 - Clarified Mail Mode's first action by showing `Open Mailbox` when attachment intake is paused and the Blizzard mailbox is not open.
 - Refined Phase 3 Mail Mode so the Input Queue is item-based while preserving source mail metadata internally.
 - Started Phase 3 Mail Mode on a dedicated branch with durable mail sessions, mailbox auto-activation, Input/Output Queue UI scaffolding, read-only inbox scans, and guided attachment intake.

@@ -8,7 +8,13 @@ Shatter.MailMode = MailMode
 Shatter.RegisterModule("MailMode", MailMode)
 
 local function IsMailboxOpen()
-    return MailFrame and MailFrame:IsShown()
+    local function visible(frame)
+        if not frame then return false end
+        if frame.IsVisible and frame:IsVisible() then return true end
+        if frame.IsShown and frame:IsShown() then return true end
+        return false
+    end
+    return visible(_G.MailFrame) or visible(_G.InboxFrame) or visible(_G.OpenMailFrame) or visible(_G.SendMailFrame)
 end
 
 local function SyncMailboxState(session)
@@ -240,9 +246,7 @@ function MailMode:GetPrimaryState()
         return "Done", false
     end
     if Shatter.AttachmentQueue and Shatter.AttachmentQueue:GetNext() then
-        if not mailboxOpen then
-            return "Open Mailbox", false
-        end
+        session.mailboxOpen = mailboxOpen
         return "Take Attachments", true
     end
     return mailboxOpen and "Scan Inbox" or "Open Mailbox", mailboxOpen
@@ -263,7 +267,10 @@ function MailMode:GetStatus()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return "Open the mailbox to start Mail Mode.", false end
     local mailboxOpen = SyncMailboxState(session)
-    if not mailboxOpen then return "Open the mailbox to take selected attachments.", true end
+    if not mailboxOpen and Shatter.AttachmentQueue and Shatter.AttachmentQueue:GetNext() then
+        return "Mailbox not detected. Click Take Attachments to retry, or reopen the mailbox.", true
+    end
+    if not mailboxOpen then return "Open the mailbox to continue Mail Mode.", true end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT then return "Mail items ready to disenchant.", false end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_RETURN then return "Materials ready to return.", false end
     if session.status == Shatter.Constants.MAIL_STATE.COMPLETE then return "Mail session complete.", false end
