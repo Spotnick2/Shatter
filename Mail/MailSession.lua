@@ -32,34 +32,84 @@ local function NewSession()
     }
 end
 
+local function GetBucket(db, create)
+    if not db then return nil end
+    db.sessions = type(db.sessions) == "table" and db.sessions or {}
+    db.sessions.byCharacter = type(db.sessions.byCharacter) == "table" and db.sessions.byCharacter or {}
+    local key = Shatter.Database and Shatter.Database:GetCharacterKey() or "Unknown-Realm"
+    local bucket = db.sessions.byCharacter[key]
+    if create and type(bucket) ~= "table" then
+        bucket = { activeMail = nil, mailHistory = {} }
+        db.sessions.byCharacter[key] = bucket
+    end
+    if type(bucket) == "table" then
+        bucket.mailHistory = type(bucket.mailHistory) == "table" and bucket.mailHistory or {}
+    end
+    return bucket
+end
+
 function MailSession:Initialize()
     if not Shatter.Database then return end
     local db = Shatter.Database:Get()
     db.sessions = type(db.sessions) == "table" and db.sessions or {}
-    db.sessions.mailHistory = type(db.sessions.mailHistory) == "table" and db.sessions.mailHistory or {}
+    db.sessions.byCharacter = type(db.sessions.byCharacter) == "table" and db.sessions.byCharacter or {}
+
+    local bucket = GetBucket(db, true)
+    if type(db.sessions.activeMail) == "table" and type(bucket.activeMail) ~= "table" then
+        bucket.activeMail = db.sessions.activeMail
+    end
+    db.sessions.activeMail = nil
+
+    if type(db.sessions.mailHistory) == "table" and #db.sessions.mailHistory > 0 then
+        for _, entry in ipairs(db.sessions.mailHistory) do
+            table.insert(bucket.mailHistory, entry)
+        end
+        db.sessions.mailHistory = {}
+    end
 end
 
 function MailSession:Get()
     local db = Shatter.Database and Shatter.Database:Get()
-    return db and db.sessions and db.sessions.activeMail
+    local bucket = GetBucket(db, false)
+    return bucket and bucket.activeMail or nil
+end
+
+function MailSession:HasActiveSession()
+    local session = self:Get()
+    return type(session) == "table" and session.status ~= Shatter.Constants.MAIL_STATE.CLOSED
+end
+
+function MailSession:StartNew()
+    self:Initialize()
+    local db = Shatter.Database:Get()
+    local bucket = GetBucket(db, true)
+    bucket.activeMail = NewSession()
+    table.insert(bucket.activeMail.sessionLog, {
+        timestamp = Now(),
+        level = "info",
+        message = "Mail session created.",
+    })
+    return bucket.activeMail
 end
 
 function MailSession:Ensure()
     self:Initialize()
     local db = Shatter.Database:Get()
-    if type(db.sessions.activeMail) ~= "table" or db.sessions.activeMail.status == Shatter.Constants.MAIL_STATE.CLOSED then
-        db.sessions.activeMail = NewSession()
-        table.insert(db.sessions.activeMail.sessionLog, {
+    local bucket = GetBucket(db, true)
+    if type(bucket.activeMail) ~= "table" or bucket.activeMail.status == Shatter.Constants.MAIL_STATE.CLOSED then
+        bucket.activeMail = NewSession()
+        table.insert(bucket.activeMail.sessionLog, {
             timestamp = Now(),
             level = "info",
             message = "Mail session created.",
         })
     end
-    return db.sessions.activeMail
+    return bucket.activeMail
 end
 
 function MailSession:SetMailboxOpen(open)
-    local session = self:Ensure()
+    local session = self:Get()
+    if not session then return nil end
     session.mailboxOpen = open and true or false
     session.updatedAt = Now()
     if open and session.status == Shatter.Constants.MAIL_STATE.ERROR_PAUSED then
@@ -132,9 +182,9 @@ function MailSession:Close(force)
     session.endedAt = Now()
     session.updatedAt = Now()
     local db = Shatter.Database:Get()
-    db.sessions.mailHistory = type(db.sessions.mailHistory) == "table" and db.sessions.mailHistory or {}
-    table.insert(db.sessions.mailHistory, session)
-    db.sessions.activeMail = nil
+    local bucket = GetBucket(db, true)
+    table.insert(bucket.mailHistory, session)
+    bucket.activeMail = nil
     return true
 end
 

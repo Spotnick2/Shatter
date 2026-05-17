@@ -29,6 +29,7 @@ UI\MailRows.lua
 UI\Settings.lua
 UI\Summary.lua
 UI\MailFrame.lua
+UI\MailLaunchPanel.lua
 UI\MainFrame.lua
 UI\Minimap.lua
 Modes\SoloMode.lua

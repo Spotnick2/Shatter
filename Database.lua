@@ -30,12 +30,16 @@ local DEFAULTS = {
             height = 440,
             scale = 1.0,
         },
+        mail = {
+            launchPanelVisible = true,
+        },
     },
     sessions = {
         active = nil,
         activeMail = nil,
         history = {},
         mailHistory = {},
+        byCharacter = {},
     },
     debugLog = {},
     characterSettings = {},
@@ -146,6 +150,7 @@ function Database:Initialize()
     ShatterDB.sessions = type(ShatterDB.sessions) == "table" and ShatterDB.sessions or {}
     ShatterDB.sessions.history = type(ShatterDB.sessions.history) == "table" and ShatterDB.sessions.history or {}
     ShatterDB.sessions.mailHistory = type(ShatterDB.sessions.mailHistory) == "table" and ShatterDB.sessions.mailHistory or {}
+    ShatterDB.sessions.byCharacter = type(ShatterDB.sessions.byCharacter) == "table" and ShatterDB.sessions.byCharacter or {}
     NormalizeSettings(ShatterDB.settings)
     for _, settings in pairs(ShatterDB.characterSettings) do
         if type(settings) == "table" then

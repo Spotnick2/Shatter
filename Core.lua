@@ -41,6 +41,7 @@ function Shatter.Initialize()
     if Shatter.MailSender then SafeCall("MailSender", Shatter.MailSender.Initialize, Shatter.MailSender) end
     if Shatter.Disenchant then SafeCall("Disenchant", Shatter.Disenchant.Initialize, Shatter.Disenchant) end
     if Shatter.MainFrame then SafeCall("MainFrame", Shatter.MainFrame.Initialize, Shatter.MainFrame) end
+    if Shatter.MailLaunchPanel then SafeCall("MailLaunchPanel", Shatter.MailLaunchPanel.Initialize, Shatter.MailLaunchPanel) end
     if Shatter.MinimapButton then SafeCall("MinimapButton", Shatter.MinimapButton.Initialize, Shatter.MinimapButton) end
     if Shatter.SummaryUI then SafeCall("SummaryUI", Shatter.SummaryUI.Initialize, Shatter.SummaryUI) end
     if Shatter.SoloMode then SafeCall("SoloMode", Shatter.SoloMode.Initialize, Shatter.SoloMode) end

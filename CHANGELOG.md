@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Started the storyboard Mail Mode refactor with a mailbox-attached Shatter Mail launch panel and expand/collapse toggle button.
+- Stopped auto-opening the large Mail session window on mailbox open; mailbox now shows the launch panel first.
+- Scoped active Mail sessions by character instead of account-wide shared `activeMail`.
 - Kept pending Mail Mode input items visible across mailbox refreshes when the client temporarily stops exposing attachment metadata.
 - Fixed Mail Mode primary button enablement so `Take Attachments` receives both label and enabled state correctly.
 - Kept Mail Mode's `Take Attachments` action clickable when selected item rows exist and made mailbox-frame detection more defensive.

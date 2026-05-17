@@ -35,8 +35,8 @@ function MailMode:Initialize()
 end
 
 function MailMode:IsAvailable()
-    local session = Shatter.MailSession and Shatter.MailSession:Get()
-    return IsMailboxOpen() or session ~= nil
+    local hasSession = Shatter.MailSession and Shatter.MailSession:HasActiveSession()
+    return IsMailboxOpen() or hasSession
 end
 
 function MailMode:OnEvent(event, ...)
@@ -44,11 +44,19 @@ function MailMode:OnEvent(event, ...)
         self:ActivateFromMailbox()
     elseif event == "MAIL_CLOSED" then
         if Shatter.MailSession then Shatter.MailSession:SetMailboxOpen(false) end
+        if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:HideForMailboxClose() end
         if Shatter.MainFrame then Shatter.MainFrame:Update() end
     elseif event == "MAIL_INBOX_UPDATE" then
-        self:ScheduleScan("MAIL_INBOX_UPDATE", 0.2)
+        if Shatter.MailSession and Shatter.MailSession:HasActiveSession() then
+            self:ScheduleScan("MAIL_INBOX_UPDATE", 0.2)
+        end
+        if Shatter.MailLaunchPanel and IsMailboxOpen() then
+            Shatter.MailLaunchPanel:Refresh()
+        end
     elseif event == "BAG_UPDATE_DELAYED" then
-        if Shatter.AttachmentQueue then Shatter.AttachmentQueue:ResolvePending("BAG_UPDATE_DELAYED") end
+        if Shatter.MailSession and Shatter.MailSession:HasActiveSession() and Shatter.AttachmentQueue then
+            Shatter.AttachmentQueue:ResolvePending("BAG_UPDATE_DELAYED")
+        end
     elseif event == "MAIL_SEND_SUCCESS" then
         if Shatter.MailSession then Shatter.MailSession:Log("info", "Mail send succeeded.") end
         if Shatter.MainFrame then Shatter.MainFrame:Update() end
@@ -62,20 +70,49 @@ function MailMode:OnEvent(event, ...)
 end
 
 function MailMode:ActivateFromMailbox()
-    local session = Shatter.MailSession and Shatter.MailSession:SetMailboxOpen(true)
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if session then
+        Shatter.MailSession:SetMailboxOpen(true)
         session.status = Shatter.Constants.MAIL_STATE.CREATING
         Shatter.MailSession:Log("info", "Mailbox opened; Mail Mode active.")
     end
-    if Shatter.MainFrame then
-        Shatter.MainFrame:Show()
-        Shatter.MainFrame:SetActiveView("mail")
+    if Shatter.MailLaunchPanel then
+        Shatter.MailLaunchPanel:ShowForMailbox()
     end
-    self:ScheduleScan("MAIL_SHOW", 0.15)
-    if Shatter.Events then
-        Shatter.Events:After(0.5, function() self:ScheduleScan("MAIL_SHOW_DELAYED", 0) end)
-        Shatter.Events:After(1.0, function() self:ScheduleScan("MAIL_SHOW_DELAYED", 0) end)
+    if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
+        Shatter.MainFrame:Update()
     end
+end
+
+function MailMode:StartNewSessionFromLaunchPanel()
+    if not IsMailboxOpen() then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
+        return false
+    end
+    local session = Shatter.MailSession and Shatter.MailSession:StartNew()
+    if not session then return false end
+    Shatter.MailSession:SetMailboxOpen(true)
+    session.status = Shatter.Constants.MAIL_STATE.CREATING
+    Shatter.MailSession:Log("info", "New mail session started from mailbox panel.")
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+    if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
+        Shatter.MainFrame:Update()
+    end
+    return true
+end
+
+function MailMode:ContinueSessionFromLaunchPanel()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
+    if not session or session.status == Shatter.Constants.MAIL_STATE.CLOSED then return false end
+    if IsMailboxOpen() then
+        Shatter.MailSession:SetMailboxOpen(true)
+    end
+    Shatter.MailSession:Log("info", "Mail session resumed from mailbox panel.")
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
+    if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
+        Shatter.MainFrame:Update()
+    end
+    return true
 end
 
 function MailMode:ScheduleScan(reason, delay)
@@ -96,14 +133,19 @@ function MailMode:ScanInbox(reason)
     if not IsMailboxOpen() then
         if Shatter.MailSession then
             local session = Shatter.MailSession:SetMailboxOpen(false)
-            session.status = Shatter.Constants.MAIL_STATE.ERROR_PAUSED
+            if session then
+                session.status = Shatter.Constants.MAIL_STATE.ERROR_PAUSED
+            end
         end
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
         return
     end
-    if Shatter.MailSession then Shatter.MailSession:SetMailboxOpen(true) end
+    if Shatter.MailSession and Shatter.MailSession:Get() then
+        Shatter.MailSession:SetMailboxOpen(true)
+    end
     local session = Shatter.InboxScanner and Shatter.InboxScanner:Scan()
     if Shatter.Debug then Shatter.Debug:Log("debug", "Mail scan completed. Reason: %s.", tostring(reason or "UNKNOWN")) end
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
     if Shatter.MainFrame then
         Shatter.MainFrame:SetStatus("Mail inbox scanned.", false, 2)
         Shatter.MainFrame:Update()
@@ -288,5 +330,6 @@ function MailMode:CloseSession(force)
         Shatter.MainFrame:SetActiveView("solo")
         Shatter.MainFrame:SetStatus("Mail session closed.", false, 3)
     end
+    if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
     return true
 end
