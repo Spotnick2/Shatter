@@ -7,6 +7,7 @@ Shatter.ADDON_NAME = ADDON_NAME
 Shatter.VERSION = GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version") or "dev"
 Shatter.modules = Shatter.modules or {}
 Shatter.isReady = false
+Shatter.disabledNoEnchanting = false
 
 local PREFIX = "|cffffd200Shatter|r"
 
@@ -30,7 +31,36 @@ local function SafeCall(label, fn, ...)
     return ok
 end
 
+local function HasEnchantingProfession()
+    if Shatter.ItemScanner and Shatter.ItemScanner.HasDisenchantSpell and Shatter.ItemScanner:HasDisenchantSpell() then
+        return true
+    end
+
+    if not GetProfessions or not GetProfessionInfo then
+        return false
+    end
+    local enchantingName = GetSpellInfo and GetSpellInfo(7411) or "Enchanting"
+    local first, second = GetProfessions()
+    local professionIndexes = { first, second }
+    for _, index in ipairs(professionIndexes) do
+        if index then
+            local name, _, _, _, _, _, skillLine = GetProfessionInfo(index)
+            if skillLine == 333 or (enchantingName and name == enchantingName) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function Shatter.Initialize()
+    if not HasEnchantingProfession() then
+        Shatter.disabledNoEnchanting = true
+        Shatter.isReady = true
+        return
+    end
+
+    Shatter.disabledNoEnchanting = false
     if Shatter.Database then SafeCall("Database", Shatter.Database.Initialize, Shatter.Database) end
     if Shatter.Debug then SafeCall("Debug", Shatter.Debug.Initialize, Shatter.Debug) end
     if Shatter.Events then SafeCall("Events", Shatter.Events.Initialize, Shatter.Events) end
@@ -56,12 +86,20 @@ function Shatter.Toggle()
         Shatter.Print("Addon is still loading.")
         return
     end
+    if Shatter.disabledNoEnchanting then
+        Shatter.Print("Disabled on this character: Enchanting is not trained.")
+        return
+    end
     if Shatter.MainFrame then
         Shatter.MainFrame:Toggle()
     end
 end
 
 function Shatter.Rescan()
+    if Shatter.disabledNoEnchanting then
+        Shatter.Print("Cannot scan: Enchanting is not trained on this character.")
+        return
+    end
     if Shatter.SoloMode then
         Shatter.SoloMode:ScheduleScan("MANUAL", 0)
     end
@@ -75,6 +113,9 @@ SlashCmdList.SHATTER = function(message)
 
     if message == "help" or message == "?" then
         Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset")
+        return
+    elseif Shatter.disabledNoEnchanting then
+        Shatter.Print("Disabled on this character: Enchanting is not trained.")
         return
     elseif message == "scan" then
         Shatter.Rescan()
