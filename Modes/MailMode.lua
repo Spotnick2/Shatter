@@ -11,6 +11,13 @@ local function IsMailboxOpen()
     return MailFrame and MailFrame:IsShown()
 end
 
+local function SyncMailboxState(session)
+    if not session then return false end
+    local open = IsMailboxOpen() and true or false
+    session.mailboxOpen = open
+    return open
+end
+
 function MailMode:Initialize()
     if not Shatter.Events then return end
     Shatter.Events:Register("MAIL_SHOW", self, self.OnEvent)
@@ -219,6 +226,7 @@ end
 function MailMode:GetPrimaryState()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return "Scan Inbox", true end
+    local mailboxOpen = SyncMailboxState(session)
     if session.status == Shatter.Constants.MAIL_STATE.SCANNING or session.status == Shatter.Constants.MAIL_STATE.TAKING then
         return "Waiting...", false
     end
@@ -232,9 +240,12 @@ function MailMode:GetPrimaryState()
         return "Done", false
     end
     if Shatter.AttachmentQueue and Shatter.AttachmentQueue:GetNext() then
-        return "Take Attachments", session.mailboxOpen
+        if not mailboxOpen then
+            return "Open Mailbox", false
+        end
+        return "Take Attachments", true
     end
-    return "Scan Inbox", session.mailboxOpen
+    return mailboxOpen and "Scan Inbox" or "Open Mailbox", mailboxOpen
 end
 
 function MailMode:HandlePrimaryClick()
@@ -251,7 +262,8 @@ end
 function MailMode:GetStatus()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return "Open the mailbox to start Mail Mode.", false end
-    if not session.mailboxOpen then return "Mailbox closed - Mail session paused.", true end
+    local mailboxOpen = SyncMailboxState(session)
+    if not mailboxOpen then return "Open the mailbox to take selected attachments.", true end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT then return "Mail items ready to disenchant.", false end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_RETURN then return "Materials ready to return.", false end
     if session.status == Shatter.Constants.MAIL_STATE.COMPLETE then return "Mail session complete.", false end

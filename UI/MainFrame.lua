@@ -52,8 +52,18 @@ local function CreateButton(parent, text, width, secure)
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
-    button:SetScript("OnEnter", function(self) if self:IsEnabled() then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end end)
-    button:SetScript("OnLeave", function(self) self:SetBackdropColor(0.12, 0.12, 0.12, 1) end)
+    button:SetScript("OnEnter", function(self)
+        if self:IsEnabled() then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end
+        if self.mailDisabledReason and GameTooltip then
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(self.mailDisabledReason, 1, 0.82, 0, true)
+            GameTooltip:Show()
+        end
+    end)
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(0.12, 0.12, 0.12, 1)
+        if self.mailDisabledReason and GameTooltip then GameTooltip:Hide() end
+    end)
     return button
 end
 
@@ -1053,6 +1063,7 @@ function MainFrame:Update()
         end
         if self.primary then
             self.primary.text:SetText(label or "Scan Inbox")
+            self.primary.mailDisabledReason = label == "Open Mailbox" and "Open the Blizzard mailbox to take the selected attachments." or nil
             if enabled then
                 self.primary:Enable()
                 Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
