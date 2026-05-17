@@ -94,11 +94,26 @@ end
 local function ShouldCarryForward(item)
     if not item then return false end
     if item.bag and item.slot then return true end
+    if item.selected and item.disenchantable and item.status ~= "disenchanted" and item.status ~= "failed" and item.status ~= "skipped" then
+        return true
+    end
     return item.status == "taken"
         or item.status == "queued for disenchant"
         or item.status == "disenchanted"
         or item.status == "failed"
         or item.status == "skipped"
+end
+
+local function RefreshCarriedForwardSource(item, sourceMails)
+    if not item then return end
+    for _, mail in ipairs(sourceMails or {}) do
+        if mail.sender == item.sourceSender and mail.subject == item.mailSubject then
+            item.sourceMailId = mail.sourceMailId
+            item.lastKnownMailIndex = mail.mailIndex
+            item.daysLeft = mail.daysLeft or item.daysLeft
+            return
+        end
+    end
 end
 
 function InboxScanner:Scan()
@@ -188,6 +203,7 @@ function InboxScanner:Scan()
         if previous.__shatterSeen then
             previous.__shatterSeen = nil
         elseif ShouldCarryForward(previous) then
+            RefreshCarriedForwardSource(previous, session.sourceMails)
             table.insert(session.inputItems, previous)
         end
     end

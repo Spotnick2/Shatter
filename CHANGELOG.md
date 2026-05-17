@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Kept pending Mail Mode input items visible across mailbox refreshes when the client temporarily stops exposing attachment metadata.
 - Fixed Mail Mode primary button enablement so `Take Attachments` receives both label and enabled state correctly.
 - Kept Mail Mode's `Take Attachments` action clickable when selected item rows exist and made mailbox-frame detection more defensive.
 - Clarified Mail Mode's first action by showing `Open Mailbox` when attachment intake is paused and the Blizzard mailbox is not open.
