@@ -80,7 +80,7 @@ function MailMode:ActivateFromMailbox()
         Shatter.MailLaunchPanel:ShowForMailbox()
     end
     if Shatter.MainFrame and Shatter.MainFrame.frame and Shatter.MainFrame.frame:IsShown() then
-        Shatter.MainFrame:Update()
+        Shatter.MainFrame:SetActiveView("mail")
     end
 end
 
