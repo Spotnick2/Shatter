@@ -150,7 +150,7 @@ function MailLaunchPanel:Create()
     if self.frame then return self.frame end
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(250, 324)
+    frame:SetSize(250, 336)
     Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_PANEL))
     frame:SetFrameStrata("MEDIUM")
     frame:Hide()
@@ -264,7 +264,7 @@ function MailLaunchPanel:Create()
     self.postalCount = postalCount
 
     local returnTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    returnTitle:SetPoint("TOPLEFT", processPostal, "BOTTOMLEFT", 0, -10)
+    returnTitle:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -10)
     returnTitle:SetText("Return Mats")
     Shatter.SetTextColor(returnTitle, Shatter.C.ACCENT)
     self.returnTitle = returnTitle
@@ -337,13 +337,13 @@ function MailLaunchPanel:Create()
     local sep2 = frame:CreateTexture(nil, "ARTWORK")
     sep2:SetTexture("Interface\\Buttons\\WHITE8X8")
     sep2:SetColorTexture(0.22, 0.22, 0.22, 1)
-    sep2:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 30)
-    sep2:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 30)
+    sep2:SetPoint("TOPLEFT", keepMats, "BOTTOMLEFT", 2, -6)
+    sep2:SetPoint("TOPRIGHT", keepMats, "BOTTOMRIGHT", 190, -6)
     sep2:SetHeight(1)
 
     local foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    foot:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 10)
-    foot:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 10)
+    foot:SetPoint("TOPLEFT", sep2, "BOTTOMLEFT", 0, -6)
+    foot:SetPoint("TOPRIGHT", sep2, "BOTTOMRIGHT", 0, -6)
     foot:SetJustifyH("CENTER")
     foot:SetText("Session remains active until you close it.")
     self.footnote = foot
@@ -433,12 +433,25 @@ function MailLaunchPanel:Refresh()
             self.postalCount:SetTextColor(unpack(Shatter.C.TEXT_DIM))
             self.processPostal:Show()
             self.postalCount:Show()
+            if not context.postalSelectionReady then
+                self.postalCount:SetText("(Select module inactive)")
+                self.postalCount:SetTextColor(unpack(Shatter.C.BAD))
+            end
         else
             self.processPostal:Hide()
             self.postalCount:Hide()
             if selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED and Shatter.MailMode then
                 Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.ALL)
             end
+        end
+    end
+
+    if self.returnTitle then
+        self.returnTitle:ClearAllPoints()
+        if context.postalAvailable then
+            self.returnTitle:SetPoint("TOPLEFT", self.processPostal, "BOTTOMLEFT", 0, -10)
+        else
+            self.returnTitle:SetPoint("TOPLEFT", self.processSender, "BOTTOMLEFT", 0, -10)
         end
     end
 
@@ -470,7 +483,7 @@ function MailLaunchPanel:Refresh()
             self.funnelEdit:SetTextColor(unpack(Shatter.C.TEXT_DIM))
         end
     end
-    SetShown(self.funnelEdit, recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL)
+    SetShown(self.funnelEdit, true)
 
     self:UpdateToggleVisual()
 end

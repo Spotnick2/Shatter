@@ -63,6 +63,47 @@ local function CopyMap(source)
     return next(copy) and copy or nil
 end
 
+local function IsAddOnLoadedSafe(name)
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, name)
+        if ok and loaded then return true end
+    end
+    if IsAddOnLoaded then
+        local ok, loaded = pcall(IsAddOnLoaded, name)
+        if ok and loaded then return true end
+    end
+    return false
+end
+
+local function IsAddOnInstalledSafe(name)
+    if C_AddOns and C_AddOns.GetAddOnInfo then
+        local ok, addonName = pcall(C_AddOns.GetAddOnInfo, name)
+        if ok and addonName and addonName ~= "" then
+            return true
+        end
+    end
+    if GetAddOnInfo then
+        local ok, addonName = pcall(GetAddOnInfo, name)
+        if ok and addonName and addonName ~= "" and addonName ~= "MISSING" then
+            return true
+        end
+    end
+    return false
+end
+
+local function TryLoadAddOnSafe(name)
+    if IsAddOnLoadedSafe(name) then return true end
+    if C_AddOns and C_AddOns.LoadAddOn then
+        local ok, loaded = pcall(C_AddOns.LoadAddOn, name)
+        return ok and loaded and true or false
+    end
+    if LoadAddOn then
+        local ok, loaded = pcall(LoadAddOn, name)
+        return ok and loaded and true or false
+    end
+    return false
+end
+
 function MailMode:Initialize()
     local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
     local recipients = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
@@ -88,13 +129,26 @@ function MailMode:IsAvailable()
 end
 
 function MailMode:IsPostalAvailable()
-    return IsAddOnLoaded and IsAddOnLoaded("Postal")
+    if _G.Postal or _G.Postal_Select or _G.PostalInboxCB1 then
+        return true
+    end
+    if IsAddOnLoadedSafe("Postal") then
+        return true
+    end
+    return IsAddOnInstalledSafe("Postal")
+end
+
+function MailMode:IsPostalSelectionReady()
+    return _G.PostalInboxCB1 ~= nil
 end
 
 function MailMode:GetPostalSelectedMailIndices()
     local selected = {}
     if not self:IsPostalAvailable() then
         return selected
+    end
+    if IsMailboxOpen() and not self:IsPostalSelectionReady() then
+        TryLoadAddOnSafe("Postal")
     end
     local pageNum = InboxFrame and InboxFrame.pageNum or 1
     local base = math.max(0, ((pageNum or 1) - 1) * 7)
@@ -206,6 +260,7 @@ function MailMode:GetLaunchContext()
         hasSession = Shatter.MailSession and Shatter.MailSession:HasActiveSession() or false,
         senders = self:GetLaunchSenders(),
         postalAvailable = self:IsPostalAvailable(),
+        postalSelectionReady = self:IsPostalSelectionReady(),
         postalSelectedCount = CountEntries(postalSelected),
         selectionMode = selectionMode,
         selectedSender = self.launchOptions and self.launchOptions.sender or nil,
