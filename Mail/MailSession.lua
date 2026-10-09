@@ -39,11 +39,12 @@ local function NewSession()
     }
 end
 
-local function GetBucket(db, create)
+-- The bucket of one character (this one unless `key` says otherwise).
+local function GetBucket(db, create, key)
     if not db then return nil end
     db.sessions = type(db.sessions) == "table" and db.sessions or {}
     db.sessions.byCharacter = type(db.sessions.byCharacter) == "table" and db.sessions.byCharacter or {}
-    local key = Shatter.Database and Shatter.Database:GetCharacterKey() or "Unknown-Realm"
+    key = key or Shatter.Database and Shatter.Database:GetCharacterKey() or "Unknown-Realm"
     local bucket = db.sessions.byCharacter[key]
     if create and type(bucket) ~= "table" then
         bucket = { activeMail = nil, mailHistory = {} }
@@ -55,23 +56,44 @@ local function GetBucket(db, create)
     return bucket
 end
 
+-- "MAIL:<characterKey>:<time>" -> the character that started the session.
+local function CharacterKeyOf(session)
+    local id = type(session) == "table" and session.sessionId
+    return type(id) == "string" and id:match("^MAIL:(.+):%d+$") or nil
+end
+
+-- Sessions used to be account-wide. Each old one goes to the character that
+-- started it, whoever logs in first; one that names no character stays where
+-- it is rather than land on the wrong one.
 function MailSession:Initialize()
     if not Shatter.Database then return end
     local db = Shatter.Database:Get()
     db.sessions = type(db.sessions) == "table" and db.sessions or {}
     db.sessions.byCharacter = type(db.sessions.byCharacter) == "table" and db.sessions.byCharacter or {}
 
-    local bucket = GetBucket(db, true)
-    if type(db.sessions.activeMail) == "table" and type(bucket.activeMail) ~= "table" then
-        bucket.activeMail = db.sessions.activeMail
+    local legacy = db.sessions.activeMail
+    local legacyKey = CharacterKeyOf(legacy)
+    if legacyKey then
+        local bucket = GetBucket(db, true, legacyKey)
+        if type(bucket.activeMail) ~= "table" then
+            bucket.activeMail = legacy
+        else
+            table.insert(bucket.mailHistory, legacy)
+        end
+        db.sessions.activeMail = nil
     end
-    db.sessions.activeMail = nil
 
     if type(db.sessions.mailHistory) == "table" and #db.sessions.mailHistory > 0 then
+        local unattributed = {}
         for _, entry in ipairs(db.sessions.mailHistory) do
-            table.insert(bucket.mailHistory, entry)
+            local key = CharacterKeyOf(entry)
+            if key then
+                table.insert(GetBucket(db, true, key).mailHistory, entry)
+            else
+                table.insert(unattributed, entry)
+            end
         end
-        db.sessions.mailHistory = {}
+        db.sessions.mailHistory = unattributed
     end
 end
 

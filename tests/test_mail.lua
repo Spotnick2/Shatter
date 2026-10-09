@@ -543,4 +543,30 @@ H.check(history[#history] == first, "closing archives it to the history")
 H.eq(Shatter.MailMode:StartNewSessionFromLaunchPanel(), true, "then a new session starts")
 H.check(Shatter.MailSession:Get() ~= first, "a different session")
 
+
+-- 29. Old account-wide sessions go to the character that started them (the
+-- character key in the sessionId), not to whoever logs in first.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+local me = WoW.player.name .. "-" .. WoW.player.realm
+local other = "Other Person-" .. WoW.player.realm
+WoW.loadAddon({ savedDB = { sessions = {
+    activeMail = { sessionId = "MAIL:" .. other .. ":100", status = "SELECTING", inputItems = {} },
+    mailHistory = {
+        { sessionId = "MAIL:" .. me .. ":50", status = "CLOSED" },
+        { sessionId = "MAIL:" .. other .. ":60", status = "CLOSED" },
+        { status = "CLOSED" },                          -- names no character
+    },
+} } })
+Shatter.MailSession:Initialize()
+local byChar = ShatterDB.sessions.byCharacter
+H.eq(Shatter.MailSession:Get(), nil, "this character does not inherit another's active session")
+H.eq(byChar[other].activeMail.sessionId, "MAIL:" .. other .. ":100", "the other character gets its active session back")
+H.eq(#byChar[me].mailHistory, 1, "this character gets only its own history")
+H.eq(byChar[me].mailHistory[1].sessionId, "MAIL:" .. me .. ":50", "...the right entry")
+H.eq(#byChar[other].mailHistory, 1, "the other character gets its history")
+H.eq(ShatterDB.sessions.activeMail, nil, "the old account-wide slot is emptied")
+H.eq(#ShatterDB.sessions.mailHistory, 1, "an entry naming no character stays where it was")
+
 H.done("test_mail")
