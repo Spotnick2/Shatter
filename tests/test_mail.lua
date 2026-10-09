@@ -604,7 +604,7 @@ H.eq(Shatter.MailSession:HasUnresolvedWork(), false, "nothing unresolved")
 
 
 -- 32. Postal "Selected mails" survives inbox shifts: the selection is
--- captured at session start, not kept as inbox indices.
+-- read at session start and kept as the session's rows, not as inbox indices.
 local function installPostal(checkedRows)
     WoW.addons.Postal = { loaded = true }
     for row = 1, 7 do
@@ -730,5 +730,98 @@ cb2:SetChecked(true)
 cb2:Click()
 H.eq(Shatter.MailLaunchPanel.postalCount:GetText(), "(1 selected)", "a Postal checkbox click updates the count")
 removePostal()
+
+
+-- 36. Postal "Selected mails" with an unchecked identical twin: a rescan
+-- never hands the selected row to the twin (the take pauses as ambiguous);
+-- and once the selected item is received, a newly arrived identical mail
+-- does not join the selection.
+local function postalSession(inbox, checkedRows)
+    WoW.reset()
+    dofile("tests/wow_stubs.lua")
+    WoW.enchanter()
+    WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+    WoW.AddItem(BLADE, { name = "Blue Blade", quality = 3, itemLevel = 40, classID = 2, subclassID = 7, equipLoc = "INVTYPE_WEAPON" })
+    WoW.inbox = inbox
+    WoW.loadAddon()
+    WoW.flushTimers()
+    SlashCmdList.SHATTER("mailtest")
+    installPostal(checkedRows)
+    MailFrame:Show()
+    WoW.fire("MAIL_SHOW")
+    WoW.flushTimers()
+    Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+    Shatter.MailMode:StartNewSessionFromLaunchPanel()
+    WoW.flushTimers()
+    return Shatter.MailSession:Get()
+end
+local function twin() return { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } } end
+session = postalSession({ twin(), twin() }, { [2] = true })   -- only the second is checked
+H.eq(#inputs(session), 1, "one row: the checked mail's vest")
+Shatter.MailMode:ScanInbox("TEST")                  -- any later rescan (every MAIL_INBOX_UPDATE)
+H.eq(#inputs(Shatter.MailSession:Get()), 1, "still one row after the rescan")
+Shatter.AttachmentQueue:TakeNext()
+local wrongTake = false
+for _, t in ipairs(takes()) do if t.index == 1 then wrongTake = true end end
+H.eq(wrongTake, false, "the unchecked twin (mail 1) is never taken")
+H.eq(inputs(Shatter.MailSession:Get())[1].status, "unresolved", "the take pauses: identical mails, take that one by hand")
+removePostal()
+
+session = postalSession({ twin() }, { [1] = true })
+Shatter.AttachmentQueue:TakeNext()
+deliver(1, 1, 0, 2)
+WoW.flushTimers()
+table.insert(WoW.inbox, twin())                     -- an identical mail arrives later
+Shatter.MailMode:ScanInbox("TEST")
+H.eq(#inputs(Shatter.MailSession:Get()), 1, "the new identical mail does not join (only the received row)")
+H.eq(Shatter.AttachmentQueue:GetNext(), nil, "nothing left to take")
+removePostal()
+
+-- 37. Continue with a narrower mail filter narrows intake: rows outside it
+-- that were never taken are dropped; a received item stays.
+session = setup({ inbox = {
+    { sender = "Beta Jones", subject = "more", items = { [1] = { itemID = BLADE } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+    { sender = "Beta Jones", subject = "boots", items = { [1] = { itemID = BOOTS } } },
+} })
+Shatter.AttachmentQueue:TakeNext()                  -- Beta's blade is received
+deliver(1, 1, 0, 2)
+WoW.flushTimers()
+Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
+Shatter.MailMode:SetLaunchSender("Alpha Smith")
+H.eq(Shatter.MailMode:ContinueSessionFromLaunchPanel(), true, "Continue with Mail from Alpha")
+local listed = {}
+for _, r in ipairs(inputs(Shatter.MailSession:Get())) do listed[#listed + 1] = r.itemID end
+table.sort(listed)
+H.eq(table.concat(listed, ","), table.concat({ math.min(BLADE, VEST), math.max(BLADE, VEST) }, ","), "Alpha's vest plus the received blade; Beta's untaken boots are gone")
+local nextItem = Shatter.AttachmentQueue:GetNext()
+H.eq(nextItem and nextItem.sourceSender, "Alpha Smith", "the next pickup is Alpha's")
+
+-- 38. Continue switching to Postal "Selected mails" uses the mails checked
+-- now (from All Mail, and from a sender filter).
+local function toPostal(fromSender)
+    session = setup({ inbox = {
+        { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+        { sender = "Alpha Smith", subject = "more", items = { [1] = { itemID = BLADE } } },
+    } })
+    if fromSender then
+        Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
+        Shatter.MailMode:SetLaunchSender("Alpha Smith")
+        Shatter.MailMode:ContinueSessionFromLaunchPanel()
+    end
+    installPostal({ [2] = true })
+    Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+    H.eq(Shatter.MailMode:ContinueSessionFromLaunchPanel(), true, "Continue with Selected mails")
+    local ids = {}
+    for _, r in ipairs(inputs(Shatter.MailSession:Get())) do ids[#ids + 1] = r.itemID end
+    H.eq(table.concat(ids, ","), tostring(BLADE), (fromSender and "sender" or "All Mail") .. " -> Postal: only the checked mail's blade")
+    Shatter.MailMode:ScanInbox("TEST")
+    ids = {}
+    for _, r in ipairs(inputs(Shatter.MailSession:Get())) do ids[#ids + 1] = r.itemID end
+    H.eq(table.concat(ids, ","), tostring(BLADE), "...and still after a rescan")
+    removePostal()
+end
+toPostal(false)
+toPostal(true)
 
 H.done("test_mail")

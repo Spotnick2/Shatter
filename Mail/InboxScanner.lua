@@ -93,7 +93,8 @@ local function IsPostalSelection(session)
     return selection and selection.mode == (selectionModes.POSTAL_SELECTED or "POSTAL_SELECTED") or false
 end
 
--- Identity of one attachment that does not depend on the mail's inbox index.
+-- What an attachment is, without its mail's inbox index: identical
+-- attachments in identical mails share it.
 local function AttachmentKey(sender, subject, attachmentIndex, itemID)
     return table.concat({ sender or "", subject or "", tostring(attachmentIndex or 0), tostring(itemID or 0) }, "\031")
 end
@@ -107,11 +108,14 @@ local function MailMatchesSelection(session, mailIndex, header)
         return sender and header and header.sender and sender == header.sender or false
     end
     if mode == (selectionModes.POSTAL_SELECTED or "POSTAL_SELECTED") then
-        -- Once captured, every mail is looked at and the captured attachments
-        -- decide (Postal's indices shift as soon as mail is removed).
-        if type(selection.capturedAttachments) == "table" then return true end
-        local selected = selection and selection.selectedMailIndices
-        return type(selected) == "table" and selected[mailIndex] == true
+        -- Just chosen: the mails Postal has checked now. After that scan the
+        -- selection is the session's own rows (Postal's indices shift as soon
+        -- as mail is removed), decided per attachment in Scan.
+        if selection.changed then
+            local selected = selection.selectedMailIndices
+            return type(selected) == "table" and selected[mailIndex] == true
+        end
+        return true
     end
     return true
 end
@@ -144,6 +148,11 @@ local function FindPreviousItem(previousItems, mail, attachment)
             return existing
         end
     end
+end
+
+-- Only ever listed by a scan: never taken, nothing in progress.
+local function IsUntouched(item)
+    return not IsReceived(item) and (item.status == "selected" or item.status == "unresolved" or item.status == "missing")
 end
 
 local function ShouldCarryForward(item)
@@ -180,24 +189,23 @@ function InboxScanner:Scan()
     session.inputItems = {}
     session.updatedAt = time and time() or 0
 
-    -- Postal "Selected mails": the checked rows' indices are only right for
-    -- the scan at session start. That scan captures WHICH attachments were
-    -- selected; later scans keep only those (each once), wherever they are.
-    -- A session saved before captures existed captures its current rows.
-    local selection = session.mailSelection
-    local capture, remaining
-    if IsPostalSelection(session) then
-        if type(selection.capturedAttachments) ~= "table" and #previousItems > 0 then
-            selection.capturedAttachments = {}
-            for _, row in ipairs(previousItems) do
-                table.insert(selection.capturedAttachments, AttachmentKey(row.sourceSender, row.mailSubject, row.sourceAttachmentIndex, row.itemID))
+    -- `changed`: the selection was just set (session start, or changed on
+    -- Continue), and this scan applies it.
+    local selection = session.mailSelection or {}
+    local reset = selection.changed
+    -- Postal "Selected mails" after the scan that read Postal's checks: an
+    -- attachment belongs only while a listed, not yet received row matches
+    -- it. Each row matches once; an identical attachment in an unchecked
+    -- mail never joins, nor does one arriving after the row was received.
+    local remaining, members, matches
+    if IsPostalSelection(session) and not reset then
+        remaining, members, matches = {}, {}, {}
+        for _, row in ipairs(previousItems) do
+            if not IsReceived(row) then
+                local key = AttachmentKey(row.sourceSender, row.mailSubject, row.sourceAttachmentIndex, row.itemID)
+                remaining[key] = (remaining[key] or 0) + 1
+                members[key] = remaining[key]
             end
-        end
-        if type(selection.capturedAttachments) == "table" then
-            remaining = {}
-            for _, key in ipairs(selection.capturedAttachments) do remaining[key] = (remaining[key] or 0) + 1 end
-        else
-            capture = {}
         end
     end
 
@@ -214,11 +222,12 @@ function InboxScanner:Scan()
             -- them once some have been taken.
             for attachmentIndex = 1, ATTACHMENTS_MAX or 16 do
                 local attachment = ReadAttachment(mailIndex, attachmentIndex)
-                if attachment then
+                if attachment and remaining then
                     local key = AttachmentKey(header.sender, header.subject, attachmentIndex, attachment.itemID)
-                    if capture then
-                        table.insert(capture, key)
-                    elseif remaining then
+                    if header.isGM or (header.cod or 0) > 0 then
+                        attachment = nil          -- never a row, so never a member
+                    else
+                        matches[key] = (matches[key] or 0) + 1
                         if (remaining[key] or 0) > 0 then
                             remaining[key] = remaining[key] - 1
                         else
@@ -290,17 +299,30 @@ function InboxScanner:Scan()
             end
         end
     end
-    if capture then
-        selection.capturedAttachments = capture
-        selection.selectedMailIndices = nil
+    if members then
+        -- More matching attachments than selected rows: an unchecked twin is
+        -- in the inbox and no scan can tell which mail is which. No known
+        -- index, so the take re-finds the mail and pauses on the ambiguity.
+        for _, item in ipairs(session.inputItems) do
+            local key = AttachmentKey(item.sourceSender, item.mailSubject, item.sourceAttachmentIndex, item.itemID)
+            if (matches[key] or 0) > (members[key] or 0) then item.lastKnownMailIndex = nil end
+        end
     end
     for _, previous in ipairs(previousItems or {}) do
         if previous.__shatterSeen then
             previous.__shatterSeen = nil
+        elseif reset and IsUntouched(previous) then
+            -- Outside the new selection and never taken: no longer listed.
+            -- Received items and everything after them stay.
         elseif ShouldCarryForward(previous) then
             RefreshCarriedForwardSource(previous, session.sourceMails)
             table.insert(session.inputItems, previous)
         end
+    end
+    if reset then
+        selection.changed = nil
+        -- Postal's indices are spent: from here on the rows are the selection.
+        if IsPostalSelection(session) then selection.selectedMailIndices = nil end
     end
     session.status = Shatter.Constants.MAIL_STATE.SELECTING
     if Shatter.MailSession then

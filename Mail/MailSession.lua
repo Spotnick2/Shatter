@@ -243,10 +243,11 @@ function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
             end
         end
         session.mailSelection.selectedMailIndices = next(map) and map or nil
-        session.mailSelection.capturedAttachments = nil
     else
         session.mailSelection.selectedMailIndices = nil
     end
+    -- The next scan applies it: rows outside it that were never taken go.
+    session.mailSelection.changed = true
     session.updatedAt = Now()
 end
 
