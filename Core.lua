@@ -240,10 +240,13 @@ SlashCmdList.SHATTER = function(message)
         end
         return
     elseif message == "yields" then
-        Shatter.Print("Measured disenchants (" .. Shatter.DisenchantTables.MIN_YIELD_SAMPLES .. " per bracket replace the built-in table):")
-        for _, line in ipairs(Shatter.DisenchantTables:FormatYields()) do Shatter.Print("  " .. line) end
+        if Shatter.DisenchantTables then
+            Shatter.Print("Measured disenchants (from " .. Shatter.DisenchantTables.MIN_YIELD_SAMPLES .. " per bracket they adjust the built-in table):")
+            for _, line in ipairs(Shatter.DisenchantTables:FormatYields()) do Shatter.Print("  " .. line) end
+        end
         return
     elseif message == "yields reset" then
+        if not Shatter.Database then return end
         Shatter.Database:ResetYields()
         -- A Mail queue keeps its owner; a Solo scan would skip it.
         if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and Shatter.MailMode then

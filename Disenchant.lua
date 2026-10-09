@@ -410,8 +410,15 @@ function Disenchant:OnEvent(event, ...)
     self:Trace("Event received while pending: %s", tostring(event))
 
     if event == "LOOT_OPENED" or event == "LOOT_READY" then
+        -- Autoloot can empty slots between LOOT_READY and LOOT_OPENED, so a
+        -- later read may miss what an earlier one saw: keep the most seen
+        -- of each item rather than the last read.
         if Shatter.MaterialTracker then
-            self.pending.loot = Shatter.MaterialTracker:ReadLoot()
+            local loot = self.pending.loot or {}
+            for itemID, count in pairs(Shatter.MaterialTracker:ReadLoot()) do
+                loot[itemID] = math.max(loot[itemID] or 0, count)
+            end
+            self.pending.loot = loot
         end
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false) end
         return

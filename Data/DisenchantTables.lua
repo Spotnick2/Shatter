@@ -14,8 +14,9 @@ local WEAPON = C.ITEM_CLASS_WEAPON
 -- Brackets per (quality, class) are contiguous and never overlap
 -- (tests/test_tables.lua checks both). The top brackets are open-ended up to
 -- TOP; Vanilla content ends at item level VANILLA_MAX_ITEM_LEVEL, so an item
--- above it gets the top bracket's estimate marked uncertain. None of these
--- rates has been measured on Forever yet. Expected amounts use the midpoint of
+-- above it gets the top bracket's estimate marked uncertain. These are the
+-- Vanilla rates, not Forever's; measured yields (below) correct them per
+-- bracket as the player disenchants. Expected amounts use the midpoint of
 -- each min-max range, an approximation: the real spread is not always uniform
 -- (an epic's 1-2 Nexus Crystals lean towards 2), so values read slightly low.
 local TOP = 1000
@@ -74,27 +75,55 @@ Tables.RULES = RULES
 
 -- Measured yields (ShatterDB.yields): real disenchants counted per rule
 -- bucket, so a few dozen casts cover a whole bracket. From
--- MIN_YIELD_SAMPLES on, a bucket's measured odds replace the table's.
+-- MIN_YIELD_SAMPLES on, a bucket's estimate blends its measurements with the
+-- table, weighted as YIELD_PRIOR_WEIGHT disenchants: a rare material the
+-- player has not seen yet (a 5% shard, a 0.5% Nexus Crystal) keeps a share
+-- instead of vanishing, and the measurements dominate as they grow.
 Tables.MIN_YIELD_SAMPLES = 20
+Tables.YIELD_PRIOR_WEIGHT = 20
+
+local function RuleMatches(rule, item)
+    local quality, classID, low, high = rule[1], rule[2], rule[3], rule[4]
+    return item.quality == quality and item.itemLevel >= low and item.itemLevel <= high and (not classID or classID == item.classID)
+end
+
+-- A saved bucket in the shape RecordYield writes; anything else (a
+-- hand-edited or future SavedVariables) is ignored rather than trusted.
+local function IsValidBucket(bucket)
+    if type(bucket) ~= "table" or type(bucket.materials) ~= "table" then return false end
+    if type(bucket.quality) ~= "number" or type(bucket.n) ~= "number"
+        or type(bucket.minLevel) ~= "number" or type(bucket.maxLevel) ~= "number" then return false end
+    for _, m in pairs(bucket.materials) do
+        if type(m) ~= "table" or type(m.drops) ~= "number" or type(m.total) ~= "number" then return false end
+    end
+    return true
+end
 
 local QUALITY_NAMES = { [2] = "Uncommon", [3] = "Rare", [4] = "Epic" }
 local CLASS_NAMES = { [ARMOR] = "armor", [WEAPON] = "weapon" }
 
 -- The rule bucket an item falls in: quality, class (only where the rules
 -- tell classes apart) and the item-level band every matching rule shares.
+-- The open-ended top band is split at VANILLA_MAX_ITEM_LEVEL, so items
+-- beyond Vanilla neither borrow nor skew Vanilla's measurements.
 -- Returns the key and the bucket's description, or nil without a rule.
 function Tables:GetBucket(item)
     if not item or not item.quality or not item.itemLevel then return nil end
     local minLevel, maxLevel, classed
     for _, rule in ipairs(RULES) do
-        local quality, classID, low, high = rule[1], rule[2], rule[3], rule[4]
-        if item.quality == quality and item.itemLevel >= low and item.itemLevel <= high and (not classID or classID == item.classID) then
+        if RuleMatches(rule, item) then
+            local low, high = rule[3], rule[4]
             minLevel = math.max(minLevel or low, low)
             maxLevel = math.min(maxLevel or high, high)
-            if classID then classed = true end
+            if rule[2] then classed = true end
         end
     end
     if not minLevel then return nil end
+    if item.itemLevel > self.VANILLA_MAX_ITEM_LEVEL then
+        minLevel = math.max(minLevel, self.VANILLA_MAX_ITEM_LEVEL + 1)
+    else
+        maxLevel = math.min(maxLevel, self.VANILLA_MAX_ITEM_LEVEL)
+    end
     local classID = classed and item.classID or nil
     return string.format("%d:%s:%d-%d", item.quality, tostring(classID or "any"), minLevel, maxLevel),
         { quality = item.quality, classID = classID, minLevel = minLevel, maxLevel = maxLevel }
@@ -112,12 +141,11 @@ function Tables:RecordYield(item, loot)
     if not key then return false end
     local yields = Shatter.Database:GetYields(true)
     local bucket = yields[key]
-    if type(bucket) ~= "table" then
-        bucket = { quality = info.quality, classID = info.classID, minLevel = info.minLevel, maxLevel = info.maxLevel, n = 0 }
+    if not IsValidBucket(bucket) then
+        bucket = { quality = info.quality, classID = info.classID, minLevel = info.minLevel, maxLevel = info.maxLevel, n = 0, materials = {} }
         yields[key] = bucket
     end
-    bucket.materials = type(bucket.materials) == "table" and bucket.materials or {}
-    bucket.n = (tonumber(bucket.n) or 0) + 1
+    bucket.n = bucket.n + 1
     for itemID, count in pairs(loot) do
         local m = bucket.materials[itemID] or { drops = 0, total = 0 }
         m.drops = m.drops + 1
@@ -130,19 +158,34 @@ function Tables:RecordYield(item, loot)
 end
 
 -- How many disenchants the item's bucket has measured, plus (from
--- MIN_YIELD_SAMPLES on) its measured odds as estimate entries.
-function Tables:GetMeasured(item)
+-- MIN_YIELD_SAMPLES on) the table's estimate entries blended with them:
+-- (measured + weight * table) / (n + weight), per material in either.
+function Tables:GetMeasured(item, tableResults)
     local key = self:GetBucket(item)
     local yields = key and Shatter.Database and Shatter.Database:GetYields()
     local bucket = yields and yields[key]
-    local n = type(bucket) == "table" and tonumber(bucket.n) or 0
-    if n < self.MIN_YIELD_SAMPLES or type(bucket.materials) ~= "table" then return n, nil end
+    if not IsValidBucket(bucket) then return 0, nil end
+    local n = bucket.n
+    if n < self.MIN_YIELD_SAMPLES then return n, nil end
+    local weight = self.YIELD_PRIOR_WEIGHT
     local results = {}
-    for itemID, m in pairs(bucket.materials) do
+    for itemID, entry in pairs(tableResults or {}) do
         results[itemID] = {
-            itemID = itemID, chance = m.drops / n, expectedAmount = m.total / n,
-            minAmount = m.minAmount or 1, maxAmount = m.maxAmount or 1,
+            itemID = itemID, chance = weight * entry.chance / (n + weight),
+            expectedAmount = weight * entry.expectedAmount / (n + weight),
+            minAmount = entry.minAmount, maxAmount = entry.maxAmount,
         }
+    end
+    for itemID, m in pairs(bucket.materials) do
+        local entry = results[itemID]
+        if not entry then
+            entry = { itemID = itemID, chance = 0, expectedAmount = 0 }
+            results[itemID] = entry
+        end
+        entry.chance = entry.chance + m.drops / (n + weight)
+        entry.expectedAmount = entry.expectedAmount + m.total / (n + weight)
+        entry.minAmount = math.min(entry.minAmount or m.minAmount or 1, m.minAmount or entry.minAmount or 1)
+        entry.maxAmount = math.max(entry.maxAmount or m.maxAmount or 1, m.maxAmount or entry.maxAmount or 1)
     end
     return n, results
 end
@@ -152,7 +195,7 @@ function Tables:FormatYields()
     local yields = Shatter.Database and Shatter.Database:GetYields()
     local keys = {}
     for key, bucket in pairs(yields or {}) do
-        if type(bucket) == "table" and (tonumber(bucket.n) or 0) > 0 then keys[#keys + 1] = key end
+        if IsValidBucket(bucket) and bucket.n > 0 then keys[#keys + 1] = key end
     end
     if #keys == 0 then return { "No disenchants measured yet." } end
     table.sort(keys, function(a, b)
@@ -204,15 +247,14 @@ function Tables:GetExpected(item)
     local results = {}
     local found = false
     for _, rule in ipairs(RULES) do
-        local quality, classID, minLevel, maxLevel, itemID, chance, minAmount, maxAmount = unpack(rule)
-        if item.quality == quality and item.itemLevel >= minLevel and item.itemLevel <= maxLevel and (not classID or classID == item.classID) then
-            AddEstimate(results, itemID, chance, minAmount, maxAmount)
+        if RuleMatches(rule, item) then
+            AddEstimate(results, rule[5], rule[6], rule[7], rule[8])
             found = true
         end
     end
     if not found then return nil end
     local uncertain = item.itemLevel > Tables.VANILLA_MAX_ITEM_LEVEL
-    local samples, measured = self:GetMeasured(item)
+    local samples, measured = self:GetMeasured(item, results)
     if measured then
         results = measured
         uncertain = false
