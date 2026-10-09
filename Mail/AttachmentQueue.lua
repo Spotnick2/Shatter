@@ -223,6 +223,9 @@ function AttachmentQueue:ResolvePending(reason, action)
         item.status = "taken"
         item.bag = bag
         item.slot = slot
+        -- The instance's identity, so a later move or a personal copy put in
+        -- this slot cannot be mistaken for it.
+        item.itemGUID = Shatter.API.GetBagItemGUID(bag, slot)
         item.disenchantStatus = "waiting"
         if Shatter.MailSession then Shatter.MailSession:Log("info", "Attachment ready in Bag %d, Slot %d.", bag, slot) end
     end

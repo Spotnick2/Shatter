@@ -290,6 +290,11 @@ function MailMode:OnEvent(event, ...)
     elseif event == "BAG_UPDATE_DELAYED" then
         if Shatter.MailSession and Shatter.MailSession:HasActiveSession() and Shatter.AttachmentQueue then
             Shatter.AttachmentQueue:ResolvePending("BAG_UPDATE_DELAYED")
+            -- The player may have moved or sorted received items: follow
+            -- them (by GUID) so the Mail queue targets where they are now.
+            if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and not (Shatter.Disenchant and Shatter.Disenchant.pending) then
+                self:PrepareDisenchantQueue()
+            end
         end
     elseif event == "MAIL_SEND_SUCCESS" then
         if Shatter.MailSession then Shatter.MailSession:Log("info", "Mail send succeeded.") end
@@ -480,6 +485,7 @@ end
 function MailMode:PrepareDisenchantQueue()
     local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     if not session then return end
+    Shatter.MailSession:LocateReceived()
     local items = {}
     for _, input in ipairs(session.inputItems or {}) do
         if input.disenchantStatus == "waiting" and input.bag and input.slot and Shatter.ItemScanner then
@@ -489,6 +495,7 @@ function MailMode:PrepareDisenchantQueue()
                 item.sourceId = input.inputItemId
                 item.sourceSender = input.sourceSender
                 item.sourceMailId = input.sourceMailId
+                item.itemGUID = input.itemGUID
                 item.queueId = string.format("mail:%s:%d:%d:%d", input.inputItemId, item.bag or 0, item.slot or 0, item.itemID or 0)
                 if Shatter.DisenchantTables then
                     local estimate = Shatter.DisenchantTables:GetExpected(item)
@@ -506,8 +513,14 @@ function MailMode:PrepareDisenchantQueue()
         end
     end
     if Shatter.Queue then
+        -- Background callers (inbox rescans, take timers) refresh a Mail
+        -- queue but never take the queue from the Solo view; selecting the
+        -- Mail view claims it (MainFrame:SetActiveView).
+        local view = Shatter.MainFrame and Shatter.MainFrame.activeView
         if #items > 0 then
-            Shatter.Queue:SetItems(items, "mail")
+            if view == "mail" or Shatter.Queue:GetOwner() == "mail" then
+                Shatter.Queue:SetItems(items, "mail")
+            end
         else
             Shatter.Queue:ReleaseToSolo("MAIL_QUEUE_EMPTY")
         end

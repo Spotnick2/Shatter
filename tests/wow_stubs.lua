@@ -123,10 +123,26 @@ function WoW.AddItem(itemID, info)
     WoW.items[itemID] = info
 end
 
+-- Each item placed in the bags is a new instance with its own GUID.
+local nextItemGUID = 0
 function WoW.SetBagItem(bag, slot, info)
     local b = WoW.bags[bag]
     if slot > b.size then b.size = slot end
+    if info and not info.guid then
+        nextItemGUID = nextItemGUID + 1
+        info.guid = string.format("Item-1-0-%016X", nextItemGUID)
+    end
     b[slot] = info
+end
+
+-- The player drags an item to another slot: same instance, same GUID. An
+-- occupied destination swaps, as the client does.
+function WoW.MoveBagItem(fromBag, fromSlot, toBag, toSlot)
+    local moving = WoW.bags[fromBag][fromSlot]
+    local other = WoW.bags[toBag][toSlot]
+    WoW.bags[fromBag][fromSlot] = other
+    if toSlot > WoW.bags[toBag].size then WoW.bags[toBag].size = toSlot end
+    WoW.bags[toBag][toSlot] = moving
 end
 
 function WoW.actionsOf(kind)
@@ -672,6 +688,27 @@ function C_Item.GetItemCount(item, includeBank, includeUses, includeReagentBank,
         end
     end
     return n
+end
+-- ItemLocation as Blizzard_ObjectAPI/Mainline/ItemLocation.lua builds it
+-- (the C side reads bagID/slotIndex).
+ItemLocation = {}
+local ItemLocationMixin = {}
+ItemLocationMixin.__index = ItemLocationMixin
+function ItemLocation:CreateFromBagAndSlot(bagID, slotIndex)
+    return setmetatable({ bagID = bagID, slotIndex = slotIndex }, ItemLocationMixin)
+end
+function ItemLocationMixin:GetBagAndSlot() return self.bagID, self.slotIndex end
+function ItemLocationMixin:IsBagAndSlot() return self.bagID ~= nil and self.slotIndex ~= nil end
+local function bagItemAt(location)
+    local b = location and location.bagID and WoW.bags[location.bagID]
+    return b and location.slotIndex and b[location.slotIndex]
+end
+function C_Item.DoesItemExist(location) return bagItemAt(location) ~= nil end
+-- dump 2232: non-optional WOWGUID; an empty location is a usage error.
+function C_Item.GetItemGUID(location)
+    local s = bagItemAt(location)
+    if not s then error("C_Item.GetItemGUID: invalid item location", 2) end
+    return s.guid
 end
 function C_Item.GetItemIconByID(item) local i = WoW.items[itemIDFrom(item)] return i and (i.icon or 134400) end
 function C_Item.GetItemQualityColor(q)

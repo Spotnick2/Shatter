@@ -301,4 +301,112 @@ Shatter.AttachmentQueue:TakeNext()                  -- moves on to B
 local t2 = takes()[1]
 H.check(t2 and t2.index == 2, "the next selected attachment is taken")
 
+-- Helpers for the ownership-across-moves cases.
+local function soloSlotsOf(itemID)
+    local out = {}
+    for _, it in ipairs(Shatter.Queue:GetItems()) do
+        if it.itemID == itemID then out[#out + 1] = it.bag .. ":" .. it.slot end
+    end
+    table.sort(out)
+    return table.concat(out, ",")
+end
+local function receiveVest(opts, bag, slot)
+    local s = setup(opts)
+    Shatter.AttachmentQueue:TakeNext()
+    deliver(1, 1, bag or 0, slot or 2)
+    WoW.flushTimers()
+    return s
+end
+local function mailClick()
+    Shatter.MainFrame:SetActiveView("mail")
+    WoW.actions = {}
+    WoW.click(Shatter.MainFrame.primary, "LeftButton")
+    return WoW.actionsOf("use")[1]
+end
+
+-- 18. A received item the player moves stays the sender's: the Solo view
+-- does not pick it up at its new slot, and Mail targets it there.
+session = receiveVest()
+WoW.MoveBagItem(0, 2, 0, 9)
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+Shatter.MainFrame:SetActiveView("solo")
+WoW.flushTimers()
+H.eq(soloSlotsOf(VEST), "", "a moved mail vest is still reserved (not in the Solo queue)")
+use = mailClick()
+H.check(use and use.bag == 0 and use.slot == 9, "Mail Shatter Next follows the vest to 0/9")
+
+-- 19. A personal copy and the mail copy swap slots: Solo gets the personal
+-- one (now in the mail copy's old slot), Mail gets the received one.
+session = receiveVest({ bags = { { 0, 1, VEST } } }, 0, 5)
+WoW.MoveBagItem(0, 5, 0, 1)                         -- swaps the two vests
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+Shatter.MainFrame:SetActiveView("solo")
+WoW.flushTimers()
+H.eq(soloSlotsOf(VEST), "0:5", "Solo holds only the personal vest, at its new slot")
+use = mailClick()
+H.check(use and use.bag == 0 and use.slot == 1, "Mail targets the received vest at 0/1, not the personal one")
+
+-- 20. A stale Mail queue never hits a personal copy moved into its slot:
+-- refused until the bags settle, then it follows the received vest.
+session = receiveVest({ bags = { { 0, 1, VEST } } }, 0, 2)
+Shatter.MainFrame:SetActiveView("mail")
+WoW.MoveBagItem(0, 2, 0, 9)                         -- mail vest away...
+WoW.MoveBagItem(0, 1, 0, 2)                         -- ...personal vest into its slot
+WoW.runTimers(3)                                    -- let the sticky "inbox scanned" status lapse
+WoW.actions = {}
+WoW.click(Shatter.MainFrame.primary, "LeftButton")
+H.eq(#WoW.actionsOf("use"), 0, "the personal vest in the old slot is not disenchanted")
+H.check(Shatter.MainFrame.status:GetText():find("moved", 1, true), "status says the mail item moved")
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+use = mailClick()
+H.check(use and use.bag == 0 and use.slot == 9, "after the bag update, Mail targets the received vest")
+
+-- 21. A received item that leaves the bags is no longer reserved or queued.
+session = receiveVest()
+WoW.bags[0][2] = nil                                -- sold / deleted
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+item = inputs(session)[1]
+H.eq(item.status, "unresolved", "an item gone from the bags is left for the player")
+H.eq(item.bag, nil, "and holds no slot")
+
+-- 22. Without an item GUID (API unavailable), ownership is conservative:
+-- every copy is held back from Solo, and Mail refuses while a personal
+-- copy makes the received one ambiguous.
+local savedGUID = C_Item.GetItemGUID
+session = receiveVest({ bags = { { 0, 1, VEST } } }, 0, 5)
+C_Item.GetItemGUID = nil
+inputs(session)[1].itemGUID = nil                   -- as if receipt had found no GUID
+Shatter.MainFrame:SetActiveView("solo")
+WoW.flushTimers()
+H.eq(soloSlotsOf(VEST), "", "no GUID: no copy of the item reaches the Solo queue")
+WoW.runTimers(3)
+use = mailClick()
+H.eq(use, nil, "no GUID and a personal copy: Mail refuses")
+H.check(Shatter.MainFrame.status:GetText():find("tell them apart", 1, true), "status explains the ambiguity")
+WoW.bags[0][1] = nil                                -- the personal copy goes
+use = mailClick()
+H.check(use and use.bag == 0 and use.slot == 5, "with only the received copy left, Mail proceeds")
+C_Item.GetItemGUID = savedGUID
+
+-- 23. A background inbox rescan never takes the queue from the Solo view,
+-- including a scan scheduled before the switch; Mail reclaims it.
+session = receiveVest({ bags = { { 1, 1, BOOTS } } })
+WoW.bags[1].size = 4
+WoW.fire("MAIL_INBOX_UPDATE")                       -- schedules a scan (0.2 s)
+Shatter.MainFrame:SetActiveView("solo")
+WoW.flushTimers()
+H.eq(Shatter.Queue:GetOwner(), "solo", "a scan scheduled before the switch leaves Solo the owner")
+WoW.fire("MAIL_INBOX_UPDATE")
+WoW.flushTimers()
+H.eq(Shatter.Queue:GetOwner(), "solo", "a later inbox rescan leaves Solo the owner")
+H.eq(soloSlotsOf(BOOTS), "1:1", "Solo still shows its own items")
+Shatter.MainFrame:SetActiveView("mail")
+H.eq(Shatter.Queue:GetOwner(), "mail", "selecting Mail reclaims the queue")
+local mq = Shatter.Queue:GetItems()
+H.check(#mq == 1 and mq[1].itemID == VEST, "with the mail vest")
+
 H.done("test_mail")

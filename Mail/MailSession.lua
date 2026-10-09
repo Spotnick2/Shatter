@@ -231,19 +231,73 @@ function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
     session.updatedAt = Now()
 end
 
--- Bag slots holding items received for this session and not yet
--- disenchanted: { ["bag:slot"] = itemID }. The Solo scan leaves them out, so
--- a sender's item can never be destroyed as if it were the player's own.
-function MailSession:GetReservedSlots()
-    local reserved = {}
+local function IsHeld(item)
+    return item.bag and item.slot and item.status ~= "disenchanted"
+end
+
+-- Follows received items that the player moved or sorted, by item GUID: the
+-- slot saved at receipt says nothing once the bags change. An item whose
+-- GUID is no longer in the bags (sold, banked, traded, deleted) stops being
+-- held and is left for the player as unresolved. Items received without a
+-- GUID (the API failed) keep their slot; callers treat them conservatively.
+function MailSession:LocateReceived()
     local session = self:Get()
-    if not session or not self:HasActiveSession() then return reserved end
+    if not session or not self:HasActiveSession() then return end
+    -- A disenchant in flight consumes its item before the result is
+    -- recorded; that is not the item leaving the bags.
+    if Shatter.Disenchant and Shatter.Disenchant.pending then return end
+    local where
     for _, item in ipairs(session.inputItems or {}) do
-        if item.bag and item.slot and item.status ~= "disenchanted" then
-            reserved[item.bag .. ":" .. item.slot] = item.itemID
+        if IsHeld(item) and item.itemGUID then
+            if not where then
+                where = {}
+                for bag = 0, NUM_BAG_SLOTS do
+                    for slot = 1, Shatter.API.GetContainerNumSlots(bag) do
+                        local guid = Shatter.API.GetBagItemGUID(bag, slot)
+                        if guid then where[guid] = { bag = bag, slot = slot } end
+                    end
+                end
+            end
+            local found = where[item.itemGUID]
+            if not found then
+                self:Log("warn", "%s from %s left the bags; not tracked any more.", item.itemLink or item.itemName or "?", item.sourceSender or "?")
+                item.bag, item.slot = nil, nil
+                item.status = "unresolved"
+                item.disenchantStatus = "unresolved"
+            elseif found.bag ~= item.bag or found.slot ~= item.slot then
+                item.bag, item.slot = found.bag, found.slot
+            end
         end
     end
-    return reserved
+end
+
+-- What the Solo scan must leave out, so a sender's item can never be
+-- destroyed as if it were the player's own:
+--   slots   { ["bag:slot"] = itemID } for received items, located by GUID
+--   itemIDs { [itemID] = true } for received items with no GUID: their slot
+--           proves nothing after a move, so every copy is held back
+function MailSession:GetReservedSlots()
+    local reserved, reservedIDs = {}, {}
+    local session = self:Get()
+    if not session or not self:HasActiveSession() then return reserved, reservedIDs end
+    self:LocateReceived()
+    for _, item in ipairs(session.inputItems or {}) do
+        if IsHeld(item) then
+            reserved[item.bag .. ":" .. item.slot] = item.itemID
+            if not item.itemGUID then reservedIDs[item.itemID] = true end
+        end
+    end
+    return reserved, reservedIDs
+end
+
+-- Held items received without a GUID, for one itemID.
+function MailSession:CountUnverifiedHeld(itemID)
+    local session = self:Get()
+    local n = 0
+    for _, item in ipairs(session and session.inputItems or {}) do
+        if IsHeld(item) and not item.itemGUID and item.itemID == itemID then n = n + 1 end
+    end
+    return n
 end
 
 function MailSession:FindInputItem(inputItemId)

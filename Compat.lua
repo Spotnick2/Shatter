@@ -78,6 +78,21 @@ function API.GetContainerItemID(bag, slot)
     return C_Container.GetContainerItemID(bag, slot)
 end
 
+-- The item instance's GUID: it follows the item when the player moves or
+-- sorts it, unlike the slot or the itemID. ItemLocation is Blizzard_ObjectAPI
+-- (loaded on every game type); C_Item.GetItemGUID is in the dump but not yet
+-- measured here, so any failure is nil and callers fall back conservatively.
+function API.GetBagItemGUID(bag, slot)
+    if not (C_Item.GetItemGUID and C_Item.DoesItemExist and ItemLocation) then return nil end
+    local ok, guid = pcall(function()
+        local location = ItemLocation:CreateFromBagAndSlot(bag, slot)
+        if not C_Item.DoesItemExist(location) then return nil end
+        return C_Item.GetItemGUID(location)
+    end)
+    if ok and type(guid) == "string" and guid ~= "" then return guid end
+    return nil
+end
+
 -- The version from the TOC. An unpackaged copy still carries the packager's
 -- token; assemble it at runtime, because the packager rewrites the whole token
 -- wherever it appears in shipped files.
