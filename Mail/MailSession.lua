@@ -235,11 +235,27 @@ local function IsHeld(item)
     return item.bag and item.slot and item.status ~= "disenchanted"
 end
 
--- Follows received items that the player moved or sorted, by item GUID: the
--- slot saved at receipt says nothing once the bags change. An item whose
--- GUID is no longer in the bags (sold, banked, traded, deleted) stops being
--- held and is left for the player as unresolved. Items received without a
--- GUID (the API failed) keep their slot; callers treat them conservatively.
+-- GUID -> { bag, slot } for every bag item, or nil if any occupied slot gave
+-- no GUID: a partial picture must not be read as "the item left".
+local function MapBagGUIDs()
+    local where = {}
+    for bag = 0, NUM_BAG_SLOTS do
+        for slot = 1, Shatter.API.GetContainerNumSlots(bag) do
+            if Shatter.API.GetContainerItemID(bag, slot) then
+                local guid = Shatter.API.GetBagItemGUID(bag, slot)
+                if not guid then return nil end
+                where[guid] = { bag = bag, slot = slot }
+            end
+        end
+    end
+    return where
+end
+
+-- Follows received items by item GUID: the slot saved at receipt says
+-- nothing once the player moves or sorts. Ownership does not depend on
+-- location: an item whose GUID left the bags (banked, traded) is marked
+-- away and still searched for, and is held again the moment it returns.
+-- Items received without a GUID keep their slot; callers refuse them.
 function MailSession:LocateReceived()
     local session = self:Get()
     if not session or not self:HasActiveSession() then return end
@@ -248,24 +264,30 @@ function MailSession:LocateReceived()
     if Shatter.Disenchant and Shatter.Disenchant.pending then return end
     local where
     for _, item in ipairs(session.inputItems or {}) do
-        if IsHeld(item) and item.itemGUID then
+        if item.itemGUID and item.status ~= "disenchanted" then
             if not where then
-                where = {}
-                for bag = 0, NUM_BAG_SLOTS do
-                    for slot = 1, Shatter.API.GetContainerNumSlots(bag) do
-                        local guid = Shatter.API.GetBagItemGUID(bag, slot)
-                        if guid then where[guid] = { bag = bag, slot = slot } end
-                    end
-                end
+                where = MapBagGUIDs()
+                if not where then return end
             end
             local found = where[item.itemGUID]
-            if not found then
-                self:Log("warn", "%s from %s left the bags; not tracked any more.", item.itemLink or item.itemName or "?", item.sourceSender or "?")
+            if found then
+                item.bag, item.slot = found.bag, found.slot
+                if item.away then
+                    item.status, item.disenchantStatus = item.away.status, item.away.disenchantStatus
+                    item.away = nil
+                    -- Work again for the Mail view, even if the session had
+                    -- run out of items while this one was away.
+                    if item.disenchantStatus == "waiting" then
+                        session.status = Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT
+                    end
+                    self:Log("info", "%s from %s is back in the bags.", item.itemLink or item.itemName or "?", item.sourceSender or "?")
+                end
+            elseif not item.away then
+                self:Log("warn", "%s from %s left the bags; held again if it returns.", item.itemLink or item.itemName or "?", item.sourceSender or "?")
+                item.away = { status = item.status, disenchantStatus = item.disenchantStatus }
                 item.bag, item.slot = nil, nil
                 item.status = "unresolved"
                 item.disenchantStatus = "unresolved"
-            elseif found.bag ~= item.bag or found.slot ~= item.slot then
-                item.bag, item.slot = found.bag, found.slot
             end
         end
     end
@@ -288,16 +310,6 @@ function MailSession:GetReservedSlots()
         end
     end
     return reserved, reservedIDs
-end
-
--- Held items received without a GUID, for one itemID.
-function MailSession:CountUnverifiedHeld(itemID)
-    local session = self:Get()
-    local n = 0
-    for _, item in ipairs(session and session.inputItems or {}) do
-        if IsHeld(item) and not item.itemGUID and item.itemID == itemID then n = n + 1 end
-    end
-    return n
 end
 
 function MailSession:FindInputItem(inputItemId)

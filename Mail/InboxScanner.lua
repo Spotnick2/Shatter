@@ -110,11 +110,19 @@ local function Fingerprint(header, attachments)
     return table.concat(parts, "|")
 end
 
+-- Taken from the mail: in the bags (or away from them), no longer an inbox
+-- attachment. Rows saved before this flag existed have only the slot.
+local function IsReceived(item)
+    return item.received or item.bag ~= nil
+end
+
 local function FindPreviousItem(previousItems, mail, attachment)
     for _, existing in ipairs(previousItems or {}) do
         -- One-to-one: a previous row already matched this scan is not reused
-        -- for an identical attachment in another identical mail.
-        if not existing.__shatterSeen
+        -- for an identical attachment in another identical mail. A received
+        -- row is never matched to an attachment still in the inbox; it
+        -- carries forward whole, GUID and all.
+        if not existing.__shatterSeen and not IsReceived(existing)
             and existing.itemID == attachment.itemID
             and existing.sourceSender == mail.sender
             and existing.mailSubject == mail.subject
@@ -126,7 +134,7 @@ end
 
 local function ShouldCarryForward(item)
     if not item then return false end
-    if item.bag and item.slot then return true end
+    if IsReceived(item) then return true end
     if item.selected and item.disenchantable and item.status ~= "disenchanted" and item.status ~= "failed" and item.status ~= "skipped" then
         return true
     end

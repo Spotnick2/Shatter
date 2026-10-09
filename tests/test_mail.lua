@@ -373,9 +373,10 @@ item = inputs(session)[1]
 H.eq(item.status, "unresolved", "an item gone from the bags is left for the player")
 H.eq(item.bag, nil, "and holds no slot")
 
--- 22. Without an item GUID (API unavailable), ownership is conservative:
--- every copy is held back from Solo, and Mail refuses while a personal
--- copy makes the received one ambiguous.
+-- 22. Without an item GUID (API unavailable) nothing proves which copy is
+-- the sender's: every copy is held back from Solo, and Mail refuses -
+-- whether the personal copy goes, or the received one goes and a personal
+-- copy takes its slot (counts match there, identity does not).
 local savedGUID = C_Item.GetItemGUID
 session = receiveVest({ bags = { { 0, 1, VEST } } }, 0, 5)
 C_Item.GetItemGUID = nil
@@ -385,11 +386,20 @@ WoW.flushTimers()
 H.eq(soloSlotsOf(VEST), "", "no GUID: no copy of the item reaches the Solo queue")
 WoW.runTimers(3)
 use = mailClick()
-H.eq(use, nil, "no GUID and a personal copy: Mail refuses")
-H.check(Shatter.MainFrame.status:GetText():find("tell them apart", 1, true), "status explains the ambiguity")
+H.eq(use, nil, "no GUID: Mail refuses")
+H.check(Shatter.MainFrame.status:GetText():find("no item GUID", 1, true), "status explains why")
 WoW.bags[0][1] = nil                                -- the personal copy goes
 use = mailClick()
-H.check(use and use.bag == 0 and use.slot == 5, "with only the received copy left, Mail proceeds")
+H.eq(use, nil, "no GUID, only one copy left: still refused")
+C_Item.GetItemGUID = savedGUID
+session = receiveVest({ bags = { { 0, 1, VEST } } }, 0, 5)
+C_Item.GetItemGUID = nil
+inputs(session)[1].itemGUID = nil
+Shatter.MailMode:PrepareDisenchantQueue()           -- the queued item loses its GUID too
+WoW.bags[0][5] = nil                                -- the received vest is banked...
+WoW.MoveBagItem(0, 1, 0, 5)                         -- ...and the personal one takes its slot
+use = mailClick()
+H.eq(use, nil, "no GUID: a personal copy in the received slot is refused")
 C_Item.GetItemGUID = savedGUID
 
 -- 23. A background inbox rescan never takes the queue from the Solo view,
@@ -408,5 +418,61 @@ Shatter.MainFrame:SetActiveView("mail")
 H.eq(Shatter.Queue:GetOwner(), "mail", "selecting Mail reclaims the queue")
 local mq = Shatter.Queue:GetItems()
 H.check(#mq == 1 and mq[1].itemID == VEST, "with the mail vest")
+
+-- 24. A received item that leaves the bags (banked) and comes back is the
+-- sender's again: reserved before Solo can see it, and queued for Mail.
+session = receiveVest({ bags = { { 1, 1, BOOTS } } })
+local vestInstance = WoW.bags[0][2]
+WoW.bags[0][2] = nil                                -- to the bank
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+H.eq(inputs(session)[1].status, "unresolved", "away from the bags: unresolved")
+WoW.bags[0][7] = vestInstance                       -- back from the bank, same GUID
+WoW.fire("BAG_UPDATE_DELAYED")
+Shatter.MainFrame:SetActiveView("solo")
+Shatter.SoloMode:ScheduleScan("TEST", 0)
+WoW.flushTimers()
+H.eq(soloSlotsOf(BOOTS), "1:1", "Solo scanned the bags")
+H.eq(soloSlotsOf(VEST), "", "the returning vest is reserved before Solo exposes it")
+item = inputs(session)[1]
+H.check(item.bag == 0 and item.slot == 7, "found again at 0/7")
+H.eq(item.disenchantStatus, "waiting", "and waiting to be disenchanted again")
+use = mailClick()
+H.check(use and use.bag == 0 and use.slot == 7, "Mail targets it where it came back")
+
+-- 25. A GUID lookup that fails for a moment is not "the item left".
+session = receiveVest()
+local workingGUID = C_Item.GetItemGUID
+C_Item.GetItemGUID = function() error("lookup failed") end
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+item = inputs(session)[1]
+H.check(item.bag == 0 and item.slot == 2 and item.status ~= "unresolved", "a failed lookup keeps the item held where it was")
+C_Item.GetItemGUID = workingGUID
+
+-- 26. Two identical mails, take / rescan / take: the received row is never
+-- matched to the attachment still in the inbox, and both keep their GUIDs.
+session = setup({ inbox = {
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+} })
+Shatter.AttachmentQueue:TakeNext()
+deliver(1, 1, 0, 2)
+WoW.flushTimers()                                   -- includes the inbox rescan
+Shatter.MailMode:ScanInbox("TEST")
+Shatter.AttachmentQueue:TakeNext()
+deliver(2, 1, 0, 3)
+WoW.flushTimers()
+local guids, slotsSeen = {}, {}
+for _, r in ipairs(inputs(Shatter.MailSession:Get())) do
+    if r.itemGUID then guids[#guids + 1] = r.itemGUID end
+    if r.bag then slotsSeen[#slotsSeen + 1] = r.bag .. ":" .. r.slot end
+end
+table.sort(slotsSeen)
+H.eq(#guids, 2, "both received vests keep their GUIDs")
+H.check(guids[1] ~= guids[2], "two distinct instances")
+H.eq(table.concat(slotsSeen, ","), "0:2,0:3", "each row in its own slot")
+use = mailClick()
+H.check(use and use.bag == 0 and (use.slot == 2 or use.slot == 3), "Mail disenchants a received vest")
 
 H.done("test_mail")

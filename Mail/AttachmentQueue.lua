@@ -221,6 +221,7 @@ function AttachmentQueue:ResolvePending(reason, action)
     end
     if item then
         item.status = "taken"
+        item.received = true
         item.bag = bag
         item.slot = slot
         -- The instance's identity, so a later move or a personal copy put in

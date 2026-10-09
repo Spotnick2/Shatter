@@ -164,15 +164,14 @@ function Disenchant:ValidateItem(item)
         return false, Shatter.Constants.STATUS.ITEM_MISSING
     end
     -- A mail item must be the very instance received: a personal copy moved
-    -- into its slot has the same itemID. Without a GUID that cannot be proven
-    -- while the bags hold more copies than the session received.
+    -- into its slot has the same itemID. Without a GUID nothing proves which
+    -- copy is there, so the mail action is refused.
     if item.mode == Shatter.Constants.MODES.MAIL then
-        if item.itemGUID then
-            if Shatter.API.GetBagItemGUID(item.bag, item.slot) ~= item.itemGUID then
-                return false, Shatter.Constants.STATUS.MAIL_ITEM_MOVED
-            end
-        elseif Shatter.MailSession and Shatter.API.GetItemCount(item.itemID) > Shatter.MailSession:CountUnverifiedHeld(item.itemID) then
-            return false, Shatter.Constants.STATUS.MAIL_ITEM_AMBIGUOUS
+        if not item.itemGUID then
+            return false, Shatter.Constants.STATUS.MAIL_ITEM_UNVERIFIED
+        end
+        if Shatter.API.GetBagItemGUID(item.bag, item.slot) ~= item.itemGUID then
+            return false, Shatter.Constants.STATUS.MAIL_ITEM_MOVED
         end
     end
     if current.isLocked then
