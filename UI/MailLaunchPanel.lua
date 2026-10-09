@@ -405,8 +405,9 @@ function MailLaunchPanel:Refresh()
     end
 
     if hasSession then
+        -- One session at a time: close the active one to start another.
         ApplyButtonState(self.continueButton, mailboxOpen and hasSession, "primary")
-        ApplyButtonState(self.startButton, mailboxOpen, "secondary")
+        ApplyButtonState(self.startButton, false, "secondary")
     else
         ApplyButtonState(self.startButton, mailboxOpen, "primary")
         ApplyButtonState(self.continueButton, mailboxOpen and hasSession, "secondary")

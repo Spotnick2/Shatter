@@ -355,8 +355,11 @@ function MailMode:StartNewSessionFromLaunchPanel()
         return false
     end
 
-    local session = Shatter.MailSession and Shatter.MailSession:StartNew()
-    if not session then return false end
+    local session, why = Shatter.MailSession:StartNew()
+    if not session then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(why, true, 4) end
+        return false
+    end
     Shatter.MailSession:SetMailboxOpen(true)
     session.status = Shatter.Constants.MAIL_STATE.CREATING
     Shatter.MailSession:SetRecipientMode(options.recipientMode, options.funnelRecipient)

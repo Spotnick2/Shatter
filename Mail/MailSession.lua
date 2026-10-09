@@ -86,7 +86,12 @@ function MailSession:HasActiveSession()
     return type(session) == "table" and session.status ~= Shatter.Constants.MAIL_STATE.CLOSED
 end
 
+-- Never over an active session: its owed-materials ledger would be lost.
+-- The player continues it, or closes it (which archives it) first.
 function MailSession:StartNew()
+    if self:HasActiveSession() then
+        return nil, "A mail session is already active: continue it, or close it first."
+    end
     self:Initialize()
     local db = Shatter.Database:Get()
     local bucket = GetBucket(db, true)

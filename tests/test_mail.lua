@@ -526,4 +526,21 @@ WoW.flushTimers()
 H.eq(Shatter.MailSession:Get(), nil, "Scan Inbox without a session creates none")
 H.check(Shatter.MainFrame.status:GetText():find("Start a mail session", 1, true), "and says how to start one")
 
+
+-- 28. Start New Session never replaces an active session (its ledger would
+-- be lost): refused, and the panel's button is disabled; closing archives
+-- it, and then a new one starts.
+session = setup()
+local first = Shatter.MailSession:Get()
+H.eq(Shatter.MailMode:StartNewSessionFromLaunchPanel(), false, "Start New is refused while a session is active")
+H.check(Shatter.MailSession:Get() == first, "the active session is untouched")
+Shatter.MailLaunchPanel:Refresh()
+H.eq(Shatter.MailLaunchPanel.startButton:IsEnabled(), false, "the panel disables Start New Session")
+H.eq(Shatter.MailLaunchPanel.continueButton:IsEnabled(), true, "and offers Continue")
+H.check(Shatter.MailSession:Close(true), "the session closes")
+local history = ShatterDB.sessions.byCharacter[Shatter.Database:GetCharacterKey()].mailHistory
+H.check(history[#history] == first, "closing archives it to the history")
+H.eq(Shatter.MailMode:StartNewSessionFromLaunchPanel(), true, "then a new session starts")
+H.check(Shatter.MailSession:Get() ~= first, "a different session")
+
 H.done("test_mail")
