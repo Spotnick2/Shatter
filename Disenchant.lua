@@ -366,6 +366,11 @@ function Disenchant:Finish()
         if Shatter.Session then
             Shatter.Session:RecordResult(pending.item, result or {})
         end
+        -- Measured yields learn only from this cast's loot window, with the
+        -- item gone: a bag diff can include anything else that arrived.
+        if itemDisappeared and Shatter.DisenchantTables then
+            Shatter.DisenchantTables:RecordYield(pending.item, pending.loot)
+        end
 
         self.pending = nil
         self.finalizing = false

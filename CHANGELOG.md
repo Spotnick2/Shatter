@@ -2,6 +2,7 @@
 
 ## Forever port (unreleased)
 
+- Expected materials learn from your disenchants: each real disenchant read from the loot window is counted for its quality, armor/weapon and item-level bracket, and from 20 disenchants a bracket uses the measured odds instead of the built-in table (shown as "measured"). `/shatter yields` lists them, `/shatter yields reset` clears them.
 - Shatter now targets World of Warcraft: Forever (Interface 16001). This repository was forked with full history from the TBC Anniversary addon at `Spotnick2/Shatter@25886ea`; the TBC entries below are that addon's history.
 - Ported item, spell, container and addon calls to the Forever (Retail) APIs through a `Shatter.API` adapter; the bag scan no longer errors on the removed `GetItemInfo`.
 - The Enchanting gate now asks the spellbook for Disenchant directly, so real enchanters are no longer switched off; learning or unlearning Enchanting mid-session takes effect without a reload.

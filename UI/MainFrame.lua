@@ -259,7 +259,13 @@ local function UpdateDetailSections(detail, selected)
         local materials = estimate and estimate.materials
         local hasMaterials = materials and #materials > 0
         if detail.materialLabel then
-            detail.materialLabel:SetText(estimate and estimate.uncertain and "Expected Materials (unverified)" or "Expected Materials")
+            local label = "Expected Materials"
+            if estimate and estimate.measured then
+                label = string.format("Expected Materials (measured, %d)", estimate.samples)
+            elseif estimate and estimate.uncertain then
+                label = "Expected Materials (unverified)"
+            end
+            detail.materialLabel:SetText(label)
         end
         if detail.materialEmpty then
             detail.materialEmpty:SetText(hasMaterials and "" or "No estimate for this item.")
