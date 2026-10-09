@@ -152,14 +152,9 @@ Constants.MATERIAL_ITEM_IDS = {
     [16203] = true, -- Greater Eternal Essence
     [16204] = true, -- Illusion Dust
     [20725] = true, -- Nexus Crystal
-    [22445] = true, -- Arcane Dust
-    [22446] = true, -- Greater Planar Essence
-    [22447] = true, -- Lesser Planar Essence
-    [22448] = true, -- Small Prismatic Shard
-    [22449] = true, -- Large Prismatic Shard
-    [22450] = true, -- Void Crystal
 }
 
 Constants.NON_DISENCHANTABLE = {
-    -- Phase 0/2 should expand this denylist with verified TBC exceptions.
+    -- Equipment that cannot be disenchanted despite its class and slot.
+    -- Add entries only when the client has refused one in game.
 }

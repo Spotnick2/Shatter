@@ -7,7 +7,7 @@ local MinimapButton = {
 Shatter.MinimapButton = MinimapButton
 Shatter.RegisterModule("MinimapButton", MinimapButton)
 
-local ICON = "Interface\\Icons\\INV_Enchant_ShardPrismaticLarge"
+local ICON = "Interface\\Icons\\INV_Enchant_ShardBrilliantLarge"
 local DEFAULT_ANGLE = 225
 
 local function GetSettings()

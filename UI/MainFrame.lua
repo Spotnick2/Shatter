@@ -258,8 +258,11 @@ local function UpdateDetailSections(detail, selected)
         local estimate = selected.expectedEstimate
         local materials = estimate and estimate.materials
         local hasMaterials = materials and #materials > 0
+        if detail.materialLabel then
+            detail.materialLabel:SetText(estimate and estimate.uncertain and "Expected Materials (unverified)" or "Expected Materials")
+        end
         if detail.materialEmpty then
-            detail.materialEmpty:SetText(hasMaterials and "" or "Unavailable until disenchant tables are added.")
+            detail.materialEmpty:SetText(hasMaterials and "" or "No estimate for this item.")
             SetShown(detail.materialEmpty, not hasMaterials)
         end
         for i, row in ipairs(detail.materialRows or {}) do
@@ -668,7 +671,7 @@ function MainFrame:Create()
     local headerIcon = iconReserve:CreateTexture(nil, "ARTWORK")
     headerIcon:SetPoint("CENTER", iconReserve, "CENTER", 0, 0)
     headerIcon:SetSize(18, 18)
-    headerIcon:SetTexture("Interface\\Icons\\INV_Enchant_ShardPrismaticLarge")
+    headerIcon:SetTexture("Interface\\Icons\\INV_Enchant_ShardBrilliantLarge")
     headerIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     local close = CreateButton(titleBar, "x", 22)

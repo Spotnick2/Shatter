@@ -9,7 +9,18 @@ local C = Shatter.Constants
 local ARMOR = C.ITEM_CLASS_ARMOR
 local WEAPON = C.ITEM_CLASS_WEAPON
 
+-- Vanilla disenchanting, as Shatter's own compact rules:
+-- { quality, classID or nil (any), minItemLevel, maxItemLevel, materialID, chance, minAmount, maxAmount }
+-- Brackets per (quality, class) are contiguous and never overlap
+-- (tests/test_tables.lua checks both). The top brackets are open-ended up to
+-- TOP; Vanilla content ends at item level VANILLA_MAX_ITEM_LEVEL, so an item
+-- above it gets the top bracket's estimate marked uncertain. None of these
+-- rates has been measured on Forever yet.
+local TOP = 1000
+Tables.VANILLA_MAX_ITEM_LEVEL = 92
+
 local RULES = {
+    -- Uncommon: dust (armor-heavy), essence (weapon-heavy), and a small shard chance.
     { 2, ARMOR, 5, 15, 10940, 0.80, 1, 2 }, { 2, WEAPON, 5, 15, 10940, 0.20, 1, 2 },
     { 2, ARMOR, 16, 20, 10940, 0.75, 2, 3 }, { 2, WEAPON, 16, 20, 10940, 0.20, 2, 3 },
     { 2, ARMOR, 21, 25, 10940, 0.75, 4, 6 }, { 2, WEAPON, 21, 25, 10940, 0.15, 4, 6 },
@@ -20,10 +31,7 @@ local RULES = {
     { 2, ARMOR, 46, 50, 11176, 0.75, 1, 2 }, { 2, WEAPON, 46, 50, 11176, 0.20, 1, 2 },
     { 2, ARMOR, 51, 55, 11176, 0.75, 2, 5 }, { 2, WEAPON, 51, 55, 11176, 0.22, 2, 5 },
     { 2, ARMOR, 56, 60, 16204, 0.75, 1, 2 }, { 2, WEAPON, 56, 60, 16204, 0.22, 1, 2 },
-    { 2, ARMOR, 61, 65, 16204, 0.75, 2, 5 }, { 2, WEAPON, 61, 65, 16204, 0.22, 2, 5 },
-    { 2, ARMOR, 66, 79, 22445, 0.75, 1, 3 }, { 2, WEAPON, 66, 79, 22445, 0.22, 1, 3 },
-    { 2, ARMOR, 80, 99, 22445, 0.75, 2, 3 }, { 2, WEAPON, 80, 99, 22445, 0.22, 2, 3 },
-    { 2, ARMOR, 100, 120, 22445, 0.75, 2, 5 }, { 2, WEAPON, 100, 120, 22445, 0.22, 2, 5 },
+    { 2, ARMOR, 61, TOP, 16204, 0.75, 2, 5 }, { 2, WEAPON, 61, TOP, 16204, 0.22, 2, 5 },
 
     { 2, ARMOR, 5, 15, 10938, 0.20, 1, 2 }, { 2, WEAPON, 5, 15, 10938, 0.80, 1, 2 },
     { 2, ARMOR, 16, 20, 10939, 0.20, 1, 2 }, { 2, WEAPON, 16, 20, 10939, 0.75, 1, 2 },
@@ -35,10 +43,7 @@ local RULES = {
     { 2, ARMOR, 46, 50, 11175, 0.20, 1, 2 }, { 2, WEAPON, 46, 50, 11175, 0.75, 1, 2 },
     { 2, ARMOR, 51, 55, 16202, 0.20, 1, 2 }, { 2, WEAPON, 51, 55, 16202, 0.75, 1, 2 },
     { 2, ARMOR, 56, 60, 16203, 0.20, 1, 2 }, { 2, WEAPON, 56, 60, 16203, 0.75, 1, 2 },
-    { 2, ARMOR, 61, 65, 16203, 0.20, 2, 3 }, { 2, WEAPON, 61, 65, 16203, 0.75, 2, 3 },
-    { 2, ARMOR, 66, 79, 22447, 0.22, 1, 3 }, { 2, WEAPON, 66, 79, 22447, 0.75, 1, 3 },
-    { 2, ARMOR, 80, 99, 22447, 0.22, 2, 3 }, { 2, WEAPON, 80, 99, 22447, 0.75, 2, 3 },
-    { 2, ARMOR, 100, 120, 22446, 0.22, 1, 2 }, { 2, WEAPON, 100, 120, 22446, 0.75, 1, 2 },
+    { 2, ARMOR, 61, TOP, 16203, 0.20, 2, 3 }, { 2, WEAPON, 61, TOP, 16203, 0.75, 2, 3 },
 
     { 2, ARMOR, 16, 25, 10978, 0.07, 1, 1 }, { 2, WEAPON, 16, 25, 10978, 0.07, 1, 1 },
     { 2, ARMOR, 26, 30, 11084, 0.05, 1, 1 }, { 2, WEAPON, 26, 30, 11084, 0.05, 1, 1 },
@@ -47,19 +52,23 @@ local RULES = {
     { 2, ARMOR, 41, 45, 11177, 0.05, 1, 1 }, { 2, WEAPON, 41, 45, 11177, 0.05, 1, 1 },
     { 2, ARMOR, 46, 50, 11178, 0.05, 1, 1 }, { 2, WEAPON, 46, 50, 11178, 0.05, 1, 1 },
     { 2, ARMOR, 51, 55, 14343, 0.04, 1, 1 }, { 2, WEAPON, 51, 55, 14343, 0.03, 1, 1 },
-    { 2, ARMOR, 56, 65, 14344, 0.04, 1, 1 }, { 2, WEAPON, 56, 65, 14344, 0.03, 1, 1 },
-    { 2, ARMOR, 66, 99, 22448, 0.03, 1, 1 }, { 2, WEAPON, 66, 99, 22448, 0.03, 1, 1 },
-    { 2, ARMOR, 100, 120, 22449, 0.03, 1, 1 }, { 2, WEAPON, 100, 120, 22449, 0.03, 1, 1 },
+    { 2, ARMOR, 56, TOP, 14344, 0.04, 1, 1 }, { 2, WEAPON, 56, TOP, 14344, 0.03, 1, 1 },
 
+    -- Rare: one shard; from 56 a small Nexus Crystal chance.
     { 3, nil, 1, 25, 10978, 1.00, 1, 1 }, { 3, nil, 26, 30, 11084, 1.00, 1, 1 },
     { 3, nil, 31, 35, 11138, 1.00, 1, 1 }, { 3, nil, 36, 40, 11139, 1.00, 1, 1 },
     { 3, nil, 41, 45, 11177, 1.00, 1, 1 }, { 3, nil, 46, 50, 11178, 1.00, 1, 1 },
-    { 3, nil, 51, 55, 14343, 1.00, 1, 1 }, { 3, nil, 56, 65, 14344, 1.00, 1, 1 },
-    { 3, nil, 66, 99, 22448, 0.995, 1, 1 }, { 3, nil, 66, 99, 20725, 0.005, 1, 1 },
-    { 3, nil, 100, 120, 22449, 0.995, 1, 1 }, { 3, nil, 100, 120, 22450, 0.005, 1, 1 },
-    { 4, nil, 1, 40, 11139, 1.00, 1, 2 }, { 4, nil, 41, 55, 14344, 1.00, 2, 4 },
-    { 4, nil, 56, 94, 20725, 1.00, 1, 2 }, { 4, nil, 95, 120, 22450, 1.00, 1, 2 },
+    { 3, nil, 51, 55, 14343, 1.00, 1, 1 },
+    { 3, nil, 56, 60, 14344, 0.995, 1, 1 }, { 3, nil, 56, 60, 20725, 0.005, 1, 1 },
+    { 3, nil, 61, TOP, 14344, 0.99, 1, 1 }, { 3, nil, 61, TOP, 20725, 0.01, 1, 1 },
+
+    -- Epic: shards in quantity up to 55, Nexus Crystals from 56.
+    { 4, nil, 40, 45, 11177, 1.00, 2, 4 }, { 4, nil, 46, 50, 11178, 1.00, 2, 4 },
+    { 4, nil, 51, 55, 14343, 1.00, 2, 4 },
+    { 4, nil, 56, 60, 20725, 1.00, 1, 1 }, { 4, nil, 61, TOP, 20725, 1.00, 1, 2 },
 }
+Tables.RULES = RULES
+
 
 local function Average(minAmount, maxAmount)
     return ((minAmount or 1) + (maxAmount or minAmount or 1)) / 2
@@ -90,6 +99,7 @@ function Tables:GetExpected(item)
         end
     end
     if not found then return nil end
+    local uncertain = item.itemLevel > Tables.VANILLA_MAX_ITEM_LEVEL
 
     local list = {}
     local expectedValue, valueSource
@@ -105,7 +115,7 @@ function Tables:GetExpected(item)
         table.insert(list, entry)
     end
     table.sort(list, function(a, b) return (a.expectedAmount or 0) > (b.expectedAmount or 0) end)
-    return { materials = list, expectedValueCopper = expectedValue, valueSource = valueSource }
+    return { materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain }
 end
 
 function Tables:FormatMoney(copper)

@@ -69,32 +69,15 @@ local function AddResult(result, itemID, count)
     result[itemID] = (result[itemID] or 0) + count
 end
 
+-- A fake result for /shatter sim, from the same Vanilla rules the estimates
+-- use: the most likely material, at its minimum amount. No rule, no result.
 local function GetSimulatedResult(item)
     local result = {}
-    local itemLevel = item and item.itemLevel or 0
-    local quality = item and item.quality or 2
-    local isOutland = itemLevel >= 80
-
-    if quality >= Shatter.Constants.QUALITY_EPIC then
-        AddResult(result, isOutland and 22450 or 20725, 1)
-    elseif quality >= Shatter.Constants.QUALITY_RARE then
-        AddResult(result, isOutland and 22449 or 14344, 1)
-    else
-        if isOutland then
-            AddResult(result, 22445, math.max(1, math.floor((itemLevel - 80) / 25) + 1))
-        elseif itemLevel >= 56 then
-            AddResult(result, 16204, 2)
-        elseif itemLevel >= 46 then
-            AddResult(result, 11176, 2)
-        elseif itemLevel >= 36 then
-            AddResult(result, 11137, 2)
-        elseif itemLevel >= 26 then
-            AddResult(result, 11083, 2)
-        else
-            AddResult(result, 10940, 2)
-        end
+    local estimate = Shatter.DisenchantTables and Shatter.DisenchantTables:GetExpected(item)
+    local top = estimate and estimate.materials and estimate.materials[1]
+    if top then
+        AddResult(result, top.itemID, top.minAmount or 1)
     end
-
     return result
 end
 
