@@ -74,6 +74,17 @@ end
 -- and the button are protected: under combat lockdown the client refuses to
 -- show, hide, move, resize or rescale them. Such changes are recorded and
 -- applied on PLAYER_REGEN_ENABLED (MainFrame:OnCombatEvent).
+-- Enable/Disable are protected on the secure button too.
+local function SetButtonEnabled(button, enabled)
+    if not button then return end
+    enabled = enabled and true or false
+    if InCombatLockdown() and button:IsProtected() then
+        if button:IsEnabled() ~= enabled then MainFrame.updateAfterCombat = true end
+        return
+    end
+    if enabled then button:Enable() else button:Disable() end
+end
+
 local function SetShown(frame, shown)
     if not frame then return end
     if InCombatLockdown() and frame:IsProtected() then
@@ -582,6 +593,9 @@ function MainFrame:OnCombatEvent(event)
     end
     if self.updateAfterCombat then
         self.updateAfterCombat = nil
+        -- Re-apply the current view: it decides which protected widgets are
+        -- shown (Shatter Next among them), then refreshes their state.
+        self:SetActiveView(self.activeView)
         self:Update()
     end
 end
@@ -986,6 +1000,11 @@ function MainFrame:Create()
         -- Every registered edge and mouse button arrives here; only the one
         -- the secure handler acts on may arm or change state.
         if not Shatter.Disenchant or not Shatter.Disenchant:IsActionEdge(mouseButton, down) then return end
+        -- Only the Solo and Mail views act; Settings and Summary hide the queue.
+        if self.activeView ~= "solo" and self.activeView ~= "mail" then
+            Shatter.Disenchant:Disarm(button)
+            return
+        end
         if self.activeView == "mail" then
             local label = Shatter.MailMode and Shatter.MailMode:GetPrimaryState()
             if label == "Shatter Next" then
@@ -1203,11 +1222,11 @@ function MainFrame:Update()
             self.primary.text:SetText(label or "Scan Inbox")
             self.primary.mailDisabledReason = label == "Open Mailbox" and "Open the Blizzard mailbox to take the selected attachments." or nil
             if enabled then
-                self.primary:Enable()
+                SetButtonEnabled(self.primary, true)
                 Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
                 self.primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
             else
-                self.primary:Disable()
+                SetButtonEnabled(self.primary, false)
                 Shatter.SetTextColor(self.primary.text, Shatter.C.TEXT_DIM)
                 self.primary:SetBackdropColor(0.10, 0.10, 0.10, 1)
             end
@@ -1294,11 +1313,11 @@ function MainFrame:Update()
         local label = simulation and "Simulate Next" or "Shatter Next"
         self.primary.text:SetText(pending and "Waiting..." or label)
         if canAct then
-            self.primary:Enable()
+            SetButtonEnabled(self.primary, true)
             Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
             self.primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
         else
-            self.primary:Disable()
+            SetButtonEnabled(self.primary, false)
             Shatter.SetTextColor(self.primary.text, Shatter.C.TEXT_DIM)
             self.primary:SetBackdropColor(0.10, 0.10, 0.10, 1)
         end

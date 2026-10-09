@@ -10,7 +10,7 @@
 - Shatter Next now casts Disenchant by spell ID and targets the queued bag slot through Blizzard's secure targeting, so it works on non-English clients and a cast that fails to start can no longer use (equip) the item.
 - Shatter Next acts on exactly one left click whatever your "cast on key down" setting is; right clicks and presses released off the button do nothing, and the button is never left armed between clicks.
 - Shatter Next refuses (with a status message) while another spell is waiting for a target, while casting, for a locked item, and in combat.
-- The Shatter window no longer raises blocked-action errors in combat: opening, closing, moving, resizing and Escape wait until combat ends.
+- The Shatter window no longer raises blocked-action errors in combat: opening, closing, moving and resizing wait until combat ends, and Escape does not close it during combat.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
 
 ## TBC Anniversary history (before the fork)

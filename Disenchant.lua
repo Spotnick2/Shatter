@@ -46,11 +46,13 @@ local function ClearButtonAction(button)
     return true
 end
 
+-- "*type1" goes last: until it is set the secure handler has no action, so
+-- an error part-way through leaves nothing to dispatch.
 local function ArmButton(button, bag, slot)
-    button:SetAttribute("*type1", "spell")
-    button:SetAttribute("*spell1", Shatter.Constants.SPELL_DISENCHANT)
     button:SetAttribute("*target-bag1", bag)
     button:SetAttribute("*target-slot1", slot)
+    button:SetAttribute("*spell1", Shatter.Constants.SPELL_DISENCHANT)
+    button:SetAttribute("*type1", "spell")
 end
 
 -- True for the one edge on which the secure button acts: left button, up.
@@ -235,27 +237,42 @@ function Disenchant:BeginSecureClick(button)
         return
     end
 
+    -- Everything that tracks the result is set up BEFORE the button is armed.
+    -- An error in PreClick does not cancel the secure action, so a failure
+    -- here must leave the button disarmed and nothing pending.
+    local ok, err = pcall(function()
+        self.pending = {
+            item = current,
+            before = Shatter.MaterialTracker and Shatter.MaterialTracker:Snapshot() or {},
+            loot = nil,
+            succeeded = false,
+            bagUpdated = false,
+            chatLoot = false,
+            startedAt = GetTime and GetTime() or 0,
+        }
+        self.finalizing = false
+        if Shatter.Session then Shatter.Session:BeginAction(item) end
+        self:StartTimeout()
+    end)
+    if not ok then
+        self.pending = nil
+        self.finalizing = false
+        ClearButtonAction(button)
+        Shatter.Print("|cffff4444Shatter Next was not started:|r " .. tostring(err))
+        return
+    end
+
     ArmButton(button, current.bag, current.slot)
     self:Trace("Armed Disenchant on bag %d slot %d", current.bag, current.slot)
 
-    self.pending = {
-        item = current,
-        before = Shatter.MaterialTracker and Shatter.MaterialTracker:Snapshot() or {},
-        loot = nil,
-        succeeded = false,
-        bagUpdated = false,
-        chatLoot = false,
-        startedAt = GetTime and GetTime() or 0,
-    }
-    self.finalizing = false
-
-    if Shatter.Session then Shatter.Session:BeginAction(item) end
+    -- Presentation only; an error here no longer affects what the click does.
     if Shatter.MainFrame then
-        Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false)
-        Shatter.MainFrame:ShowCastBar("Starting Disenchant...", 0, "pulse")
-        Shatter.MainFrame:Update()
+        pcall(function()
+            Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false)
+            Shatter.MainFrame:ShowCastBar("Starting Disenchant...", 0, "pulse")
+            Shatter.MainFrame:Update()
+        end)
     end
-    self:StartTimeout()
 end
 
 function Disenchant:StartTimeout()

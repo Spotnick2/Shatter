@@ -131,4 +131,36 @@ enterCombat()
 H.ok(function() WoW.fire("MAIL_SHOW") WoW.flushTimers() end, "MAIL_SHOW in combat raises nothing")
 leaveCombat()
 
+-- Enable/Disable are protected on the secure button: the queue emptying in
+-- combat must not disable it there, and the change lands after combat.
+frame = setup()
+Shatter.MainFrame:Show()
+H.eq(Shatter.MainFrame.primary:IsEnabled(), true, "Shatter Next enabled with an item queued")
+enterCombat()
+WoW.bags[0][1] = nil
+H.ok(function() WoW.fire("BAG_UPDATE_DELAYED") WoW.flushTimers() Shatter.MainFrame:Update() end,
+    "queue emptied in combat: no protected Enable/Disable")
+leaveCombat()
+WoW.flushTimers()
+H.eq(Shatter.MainFrame.primary:IsEnabled(), false, "disabled after combat once the queue is empty")
+
+-- View changes across combat are replayed: Settings -> Solo in a fight
+-- brings Shatter Next back after it.
+frame = setup()
+Shatter.MainFrame:Show()
+Shatter.MainFrame:SetActiveView("settings")
+H.eq(Shatter.MainFrame.primary:IsShown(), false, "Settings hides Shatter Next")
+enterCombat()
+Shatter.MainFrame:SetActiveView("solo")
+leaveCombat()
+H.eq(Shatter.MainFrame.primary:IsShown(), true, "Solo chosen in combat: Shatter Next shown after it")
+
+-- Solo -> Settings in a fight: hidden after it, and inert meanwhile.
+frame = setup()
+Shatter.MainFrame:Show()
+enterCombat()
+Shatter.MainFrame:SetActiveView("settings")
+leaveCombat()
+H.eq(Shatter.MainFrame.primary:IsShown(), false, "Settings chosen in combat: Shatter Next hidden after it")
+
 H.done("test_combat")

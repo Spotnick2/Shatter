@@ -145,6 +145,23 @@ local before = #WoW.actions
 WoW.click(button, "LeftButton")
 H.eq(#WoW.actions, before, "nothing queued: the click does nothing (never left armed)")
 
+-- Settings and Summary hide the queue: Shatter Next does nothing there, even
+-- if the button is still shown (e.g. a view change deferred by combat).
+button = setup()
+Shatter.MainFrame.activeView = "settings"
+WoW.click(button, "LeftButton")
+H.eq(#WoW.actions, 0, "settings view: no action")
+
+-- A failure while preparing result tracking must leave the button disarmed:
+-- an error in PreClick does NOT cancel the secure action that follows.
+button = setup()
+Shatter.MaterialTracker.Snapshot = function() error("injected snapshot failure") end
+WoW.click(button, "LeftButton")
+H.eq(#WoW.actions, 0, "preparation failed: no cast, no item used")
+H.eq(Shatter.Disenchant:HasPending(), false, "preparation failed: nothing pending")
+H.eq(armed(button), false, "preparation failed: disarmed")
+H.check(WoW.chat():find("was not started", 1, true), "the failure is reported")
+
 -- Simulation never touches the game.
 button = setup()
 local settings = Shatter.Database:GetSettings()

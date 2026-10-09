@@ -63,6 +63,7 @@ function WoW.reset()
     WoW.actions       = {}  -- gameplay actions the client performed: { kind, ... }
     WoW.macroRuns     = {}  -- macro text the secure handler executed
     WoW.globalWrites  = {}  -- [name] = true for every global the addon assigned
+    WoW.scriptErrors  = {}  -- errors raised by click scripts (the client reports and continues)
     for bag = 0, 4 do WoW.bags[bag] = { size = bag == 0 and 16 or 0 } end
 end
 WoW.reset()
@@ -309,9 +310,10 @@ function Widget:GetAttribute(k) return self.attrs[k] end
 function Widget:RegisterForClicks(...) guard(self, "RegisterForClicks") self.clicks = { ... } end
 
 -- Buttons
-function Widget:Enable() self.enabled = true end
-function Widget:Disable() self.enabled = false end
-function Widget:SetEnabled(v) self.enabled = v and true or false end
+-- Protected (SimpleButtonAPIDocumentation: IsProtectedFunction).
+function Widget:Enable() guard(self, "Enable") self.enabled = true end
+function Widget:Disable() guard(self, "Disable") self.enabled = false end
+function Widget:SetEnabled(v) guard(self, "SetEnabled") self.enabled = v and true or false end
 function Widget:IsEnabled() return self.enabled end
 function Widget:SetNormalTexture(t) self.normalTexture = t end
 function Widget:SetPushedTexture(t) self.pushedTexture = t end
@@ -442,7 +444,12 @@ end
 function WoW.clickEdge(w, button, down)
     if not w:IsVisible() or not w.enabled then return false end
     if not registeredFor(w, button, down) then return false end
-    if w.scripts.PreClick then w.scripts.PreClick(w, button, down) end
+    -- A script error is reported and the click carries on: an error in
+    -- PreClick does not cancel the secure action that follows it.
+    if w.scripts.PreClick then
+        local ok, err = pcall(w.scripts.PreClick, w, button, down)
+        if not ok then WoW.scriptErrors[#WoW.scriptErrors + 1] = err end
+    end
     -- An ordinary button's OnClick runs on every edge it registered for; the
     -- down == useOnKeyDown filter lives inside SecureActionButton_OnClick.
     if not w.secure then
