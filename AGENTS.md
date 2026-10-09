@@ -3,10 +3,11 @@
 ## Project
 Shatter is a standalone guided-disenchanting addon. **This repository is the World of Warcraft:
 Forever build** (Interface `16001`, Lua 5.1): Vanilla content on Blizzard's Retail (Mainline)
-codebase. It was forked with full history from the TBC Anniversary addon at
-`Spotnick2/Shatter@25886ea` (branch `phase-3-mail-storyboard-refactor`); the TBC addon lives on
-in `C:\Projects\Shatter` and is maintained separately - do not port changes back and forth
-without being asked.
+codebase. `Spotnick2/Shatter` was the TBC Anniversary addon; the Forever version continued its
+history from `25886ea` and replaced it on `main`. The TBC code is frozen on the `tbc` branch (last
+release `v0.1.22-alpha`; `C:\Projects\Shatter` is an old local clone of it). Do not port changes
+to or from the TBC code without being asked. (`Spotnick2/Shatter-Forever`, where the port was
+developed, is archived; its PRs #1-#13 hold the review history.)
 
 It must stay lightweight, native-feeling, and independent of ElvUI, TSM, Postal, Gargul, or other
 heavy runtime dependencies.
@@ -127,7 +128,10 @@ heavy runtime dependencies.
 - **Releases:** tags are `v0.2.<buildnumber>-alpha`, where `<buildnumber>` is the commit count
   after the release metadata commit. (0.2 keeps Forever versions distinct from the TBC addon's
   0.1 line.) Keep `## Version: @project-version@`. Add a top changelog entry, commit, tag, push the
-  branch, then the tag. Never push inherited TBC tags to this repo.
-- No CurseForge project ID yet: the Forever project (flavor `forever`, game version type 88568)
-  and its webhook must be created by the owner before the first release; then add
-  `## X-Curse-Project-ID`. Check the real CurseForge artifact, not only the CI dry run.
+  branch, then the tag. The `v0.1.*` tags are the TBC releases: never move or delete them.
+- CurseForge: project **1545161** (https://www.curseforge.com/wow/addons/shatter), the same project
+  as the TBC releases; `## X-Curse-Project-ID: 1545161` is in the TOC. Files are told apart by
+  flavor (Forever: flavor `forever`, game version type 88568, from `## Interface: 16001`) and by
+  version line (0.2 Forever, 0.1 TBC). This repo's CurseForge webhook fires on every push but
+  packages only tags (the TBC branch pushes made no files), so pushing a tag publishes. Check the
+  real CurseForge artifact, not only the CI dry run: it must be tagged for Forever only, never TBC.
