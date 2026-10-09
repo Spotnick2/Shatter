@@ -580,4 +580,26 @@ H.eq(Shatter.MailMode:IsPostalAvailable(), false, "Postal missing: not offered")
 WoW.addons.Postal = { loaded = false }
 H.eq(Shatter.MailMode:IsPostalAvailable(), true, "Postal installed (not loaded): offered")
 
+
+-- 31. KEEP mode: the materials are recorded as kept, nothing is owed back
+-- (to yourself), and the session completes.
+session = setup()
+Shatter.MailSession:SetRecipientMode(Shatter.Constants.MAIL_RECIPIENT_MODE.KEEP)
+Shatter.AttachmentQueue:TakeNext()
+deliver(1, 1, 0, 2)
+WoW.flushTimers()
+Shatter.MainFrame:SetActiveView("mail")
+WoW.click(Shatter.MainFrame.primary, "LeftButton")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
+WoW.bags[0][2] = nil
+WoW.SetBagItem(0, 7, { itemID = 10940, count = 2 })
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+H.eq(inputs(session)[1].status, "disenchanted", "the mail vest is disenchanted")
+local keptBucket
+for _, b in pairs(session.outputRecipients or {}) do keptBucket = b end
+H.check(keptBucket and keptBucket.status == "kept" and (keptBucket.materialsGenerated[10940] or 0) > 0, "the materials are recorded as kept")
+H.eq(session.status, Shatter.Constants.MAIL_STATE.COMPLETE, "KEEP: the session completes (no return to self)")
+H.eq(Shatter.MailSession:HasUnresolvedWork(), false, "nothing unresolved")
+
 H.done("test_mail")

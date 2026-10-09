@@ -42,6 +42,14 @@ function ReturnQueue:AddResult(sourceSender, result)
     for itemID, count in pairs(result or {}) do
         AddMaterial(bucket, itemID, count)
     end
+    -- KEEP: the player keeps the materials. They are recorded, but nothing
+    -- is owed to anyone, so there is nothing to return (a return to
+    -- yourself could never be sent, and the session would never complete).
+    local modes = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
+    if session.recipientMode == modes.KEEP then
+        bucket.status = "kept"
+        return
+    end
     bucket.status = "ready"
     session.status = Shatter.Constants.MAIL_STATE.READY_TO_RETURN
 end

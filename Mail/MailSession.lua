@@ -188,7 +188,7 @@ function MailSession:HasUnresolvedWork()
         end
     end
     for _, bucket in pairs(session.outputRecipients or {}) do
-        if bucket.status ~= "sent" and bucket.status ~= "waiting" then
+        if bucket.status ~= "sent" and bucket.status ~= "waiting" and bucket.status ~= "kept" then
             return true
         end
     end

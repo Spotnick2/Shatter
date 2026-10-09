@@ -547,7 +547,7 @@ end
 
 function MailMode:HasReturnMaterials(session)
     for _, bucket in pairs(session and session.outputRecipients or {}) do
-        for _, count in pairs(bucket.materialsGenerated or {}) do
+        for _, count in pairs(bucket.status ~= "kept" and bucket.materialsGenerated or {}) do
             if count and count > 0 then return true end
         end
     end
