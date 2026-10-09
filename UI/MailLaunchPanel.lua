@@ -182,6 +182,7 @@ function MailLaunchPanel:Create()
     local startButton = CreateActionButton(frame, "Start New Session", 220)
     startButton:SetPoint("TOPLEFT", self.sessionStatus, "BOTTOMLEFT", 0, -8)
     startButton:SetScript("OnClick", function()
+        MailLaunchPanel:CommitFunnelEdit()
         if Shatter.MailMode then
             Shatter.MailMode:StartNewSessionFromLaunchPanel()
         end
@@ -192,6 +193,7 @@ function MailLaunchPanel:Create()
     local continueButton = CreateActionButton(frame, "Continue Existing Session", 220)
     continueButton:SetPoint("TOPLEFT", startButton, "BOTTOMLEFT", 0, -6)
     continueButton:SetScript("OnClick", function()
+        MailLaunchPanel:CommitFunnelEdit()
         if Shatter.MailMode then
             Shatter.MailMode:ContinueSessionFromLaunchPanel()
         end
@@ -376,6 +378,16 @@ function MailLaunchPanel:Create()
     self:UpdateToggleVisual()
 
     return frame
+end
+
+-- A name typed into the funnel box without Enter is still the player's
+-- choice (clicking a button does not take the box's focus away): commit it
+-- before Start or Continue reads the options.
+function MailLaunchPanel:CommitFunnelEdit()
+    local edit = self.funnelEdit
+    if not edit or edit._isPlaceholder or not Shatter.MailMode then return end
+    Shatter.MailMode:SetLaunchFunnelRecipient(strtrim(edit:GetText() or ""))
+    edit:ClearFocus()
 end
 
 function MailLaunchPanel:Refresh()

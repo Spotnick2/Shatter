@@ -667,4 +667,28 @@ H.eq(session.funnelRecipient, "Bank Alt", "the funnel recipient is kept")
 H.eq(session.mailSelection.mode, SM.SENDER, "the mail filter change is kept")
 H.eq(session.mailSelection.sender, "Alpha Smith", "with its sender")
 
+
+-- 34. A funnel recipient typed without Enter is used by Start New Session.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.inbox = { { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } } }
+WoW.loadAddon()
+WoW.flushTimers()
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+local panel = Shatter.MailLaunchPanel
+panel.returnFunnel:Click()
+local edit = panel.funnelEdit
+edit:SetFocus()
+edit.scripts.OnEditFocusGained(edit)                -- the placeholder clears as the player clicks in
+edit:SetText("Bank Alt ")                           -- typed, no Enter, still focused
+panel.startButton:Click()
+session = Shatter.MailSession:Get()
+H.check(session ~= nil, "Start New Session started a session")
+H.eq(session and session.recipientMode, Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL, "in funnel mode")
+H.eq(session and session.funnelRecipient, "Bank Alt", "with the typed recipient (trimmed)")
+
 H.done("test_mail")
