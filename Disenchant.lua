@@ -363,13 +363,15 @@ function Disenchant:Finish()
         end
         self:Trace("Finish check: disappeared=%s result=%s", tostring(itemDisappeared), Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
 
-        if Shatter.Session then
-            Shatter.Session:RecordResult(pending.item, result or {})
-        end
         -- Measured yields learn only from this cast's loot window, with the
         -- item gone: a bag diff can include anything else that arrived.
+        -- Recorded before the session result, which rebuilds a Mail queue
+        -- (and its estimates) synchronously.
         if itemDisappeared and Shatter.DisenchantTables then
             Shatter.DisenchantTables:RecordYield(pending.item, pending.loot)
+        end
+        if Shatter.Session then
+            Shatter.Session:RecordResult(pending.item, result or {})
         end
 
         self.pending = nil

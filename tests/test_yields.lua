@@ -111,4 +111,70 @@ H.eq(yields(), nil, "reset clears the measurements")
 SlashCmdList.SHATTER("yields")
 H.check(WoW.chat():find("No disenchants measured yet.", 1, true), "an empty list says so")
 
+-- Mail: two vests from one sender, both received and queued by Mail.
+local function mailSetup()
+    WoW.reset()
+    dofile("tests/wow_stubs.lua")
+    WoW.enchanter()
+    WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = ARMOR, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+    WoW.AddItem(DUST, { name = "Strange Dust", quality = 1, itemLevel = 1, classID = 7, subclassID = 12, equipLoc = "" })
+    WoW.inbox = { { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST }, [2] = { itemID = VEST } } } }
+    WoW.loadAddon()
+    WoW.flushTimers()
+    SlashCmdList.SHATTER("mailtest")
+    MailFrame:Show()
+    WoW.fire("MAIL_SHOW")
+    WoW.flushTimers()
+    Shatter.MailMode:StartNewSessionFromLaunchPanel()
+    WoW.flushTimers()
+    for a, slot in ipairs({ 2, 3 }) do
+        Shatter.AttachmentQueue:TakeNext()
+        WoW.inbox[1].items[a] = nil
+        WoW.SetBagItem(0, slot, { itemID = VEST })
+        WoW.fire("BAG_UPDATE_DELAYED")
+        WoW.fire("MAIL_INBOX_UPDATE")
+        WoW.flushTimers()
+    end
+    Shatter.MainFrame:SetActiveView("mail")
+    return Shatter.MainFrame.primary
+end
+local function seedDust(n)
+    ShatterDB.yields = { ["2:4:16-20"] = { quality = 2, classID = ARMOR, minLevel = 16, maxLevel = 20, n = n,
+        materials = { [DUST] = { drops = n, total = 2 * n, minAmount = 2, maxAmount = 2 } } } }
+end
+local function mailEstimates()
+    local out = {}
+    for _, it in ipairs(Shatter.Queue:GetItems()) do
+        out[#out + 1] = it.expectedEstimate and it.expectedEstimate.measured
+    end
+    return out
+end
+
+-- 6. Mail: the disenchant that reaches the threshold already counts for
+-- the next queued item (recorded before Mail rebuilds its queue).
+button = mailSetup()
+seedDust(T.MIN_YIELD_SAMPLES - 1)
+Shatter.MailMode:PrepareDisenchantQueue()
+H.eq(Shatter.Queue:GetOwner(), "mail", "Mail owns the queue")
+H.eq(#Shatter.Queue:GetItems(), 2, "both vests queued")
+H.eq(mailEstimates()[1], false, "one short of the threshold: the table")
+disenchant(button, { { link = WoW.link(DUST), count = 2, name = "Strange Dust" } })
+H.eq(yields()["2:4:16-20"].n, T.MIN_YIELD_SAMPLES, "the mail disenchant is measured")
+local left = Shatter.Queue:GetItems()
+H.eq(#left, 1, "one vest left in the Mail queue")
+H.eq(left[1] and left[1].expectedEstimate and left[1].expectedEstimate.measured, true,
+    "the remaining vest already uses the measured odds")
+
+-- 7. Mail: /shatter yields reset refreshes the Mail queue's estimates and
+-- leaves Mail the owner.
+mailSetup()
+seedDust(T.MIN_YIELD_SAMPLES)
+Shatter.MailMode:PrepareDisenchantQueue()
+H.eq(mailEstimates()[1], true, "measured before the reset")
+SlashCmdList.SHATTER("yields reset")
+WoW.flushTimers()
+H.eq(Shatter.Queue:GetOwner(), "mail", "Mail still owns the queue")
+local after = mailEstimates()
+H.check(#after == 2 and after[1] == false and after[2] == false, "both vests back on the built-in table")
+
 H.done("test_yields")
