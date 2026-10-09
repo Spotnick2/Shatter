@@ -1,0 +1,94 @@
+---
+name: codex-consult
+description: Consult the Codex CLI (OpenAI) non-interactively for an adversarial design review, code/plan critique, or independent second opinion. Use when the user asks to "rubber-duck with Codex", get Codex's take on a design/plan, or run Codex headlessly to double-check work.
+version: 1.0.0
+allowed-tools: [Bash, Write, Read]
+---
+
+# Consult Codex CLI (headless)
+
+Run OpenAI's `codex` CLI non-interactively to get a second opinion (design review, plan
+critique, adversarial check) from a *different model family* than Claude — the point is
+decorrelated blind spots, not raw capability.
+
+> Requires the `codex` CLI installed and OpenAI-authenticated on this machine. If `codex`
+> isn't found, say so and fall back to Fable for the adversarial pass (see `CLAUDE.md`).
+
+## The invocation
+
+1. **Write the prompt to a file** (use the scratchpad dir, not a bash heredoc — more reliable):
+   `…/scratchpad/codex-prompt.txt`
+2. **Run**, feeding the prompt via stdin redirect and capturing the answer with `-o`:
+
+```bash
+timeout 900 codex exec \
+  -m gpt-6-astra \
+  -c model_reasoning_effort=high \
+  --ephemeral \
+  --skip-git-repo-check \
+  -s read-only \
+  -o "<scratchpad>/codex-verdict.md" \
+  < "<scratchpad>/codex-prompt.txt" \
+  > "<scratchpad>/codex-progress.log" 2>&1
+```
+
+3. **Read the answer** from the `-o` file (`codex-verdict.md`). `stdout` is only progress.
+
+## Why each flag (these are the gotchas that will bite you)
+
+- **Prompt via `< promptfile` (stdin), NOT as a bare argument.** In a piped/non-TTY
+  environment, `codex exec "my prompt"` prints *"Reading additional input from stdin…"* and
+  **hangs forever** waiting for EOF. Redirecting a file to stdin gives the EOF.
+- **`--ephemeral`** — no session persistence. Without it, a long or looping run can balloon a
+  session-log JSONL under `~/.codex/sessions/` to **hundreds of MB** and never return.
+- **`-o <file>`** — the final agent message is written here. **Do not parse stdout for the
+  answer** — stdout is progress noise only.
+- **`-s read-only`** — advisory/design use: Codex can read but not edit the tree. Use
+  `-s workspace-write` only when you actually want it to make changes.
+- **`--skip-git-repo-check`** — safe to run regardless of git state.
+- **`-m gpt-6-astra -c model_reasoning_effort=high`** — the owner's standing choice for this repo's
+  adversarial reviews (plan and PR). Add `-c web_search=live` if it needs the web.
+- **`timeout <sec>`** — always wrap it (high effort over a whole repo takes 5-15 minutes; 900s)
+  so a stuck run can't hang forever. Run it in the background.
+
+## Prompt shape — pick the mode
+
+Codex answers a numbered list of specific questions well; a wall of prose less so. Two modes,
+depending on whether the evidence is in the prompt or in the repo:
+
+- **Design-prose mode** (the design/plan is described *inline* in the prompt — nothing to inspect):
+  lead with *"OPINION ONLY — do NOT read files, edit, or run commands. Answer from the description
+  below."* This keeps it fast and stops Codex wandering the tree. (Still run with `-s read-only`.)
+- **Code / repository review mode** (the request references a diff, file paths, or "review the
+  code"): **do NOT forbid reading, and do NOT forbid COMMANDS** — Codex has no file-reading tool of
+  its own, so it reads by running `cat`/`sed`/`grep`. Telling it "do not run commands" is therefore
+  the same instruction as "do not read the code", and it will correctly refuse the whole review:
+
+  > *"I can't complete the code-grounded review under the 'do not run commands' constraint… Local
+  > text-file access is available only through shell commands."*
+
+  That is a wasted round trip of several minutes. Lead with *"Review the code. Read these files:
+  <paths>. Use whatever read-only shell commands you need. The sandbox is read-only, so you cannot
+  edit anything; please also do not try to."* The `-s read-only` sandbox is what actually blocks
+  edits — say so, and let the prompt scope only WHICH files to read.
+
+Never tell Codex to both "review the code" and "do not read files" *or* "do not run commands" -
+reading is done BY running commands, so the two forbid the same thing. That contradiction produces a
+critique of nothing. Match the instruction to the mode.
+
+For Shatter specifically, good things to hand Codex: the secure `Shatter Next` click path
+(`UI/MainFrame.lua` PreClick/PostClick, `Disenchant.lua` BeginSecureClick and the macro text), an
+adapter mapping in `Compat.lua` (struct-vs-tuple), queue ownership between Solo and Mail, mail
+attachment identity, and anything touching `ShatterDB`'s shape. Hand it
+`docs/forever-api-notes.md` and the porting guide alongside the diff: those findings are measured
+on the live client, and a cold reviewer will otherwise argue from Classic-era API behaviour.
+
+The PR review loop in `docs/WORKFLOW.md` is this skill's main use here.
+
+## Concurrency / safety
+
+- The owner may run **their own Codex sessions concurrently**. Multiple sessions on one account
+  can serialize/slow each other.
+- **Never kill Codex processes by pattern/name** — you may terminate the owner's sessions. If you
+  must kill a stuck run, kill **only the exact PID you started** (`taskkill //PID <pid> //F`), and
+  prefer just letting the `timeout` wrapper end it.

@@ -1,49 +1,21 @@
-# Packaged addon archives
+# Packaged addon archives and packager output
 *.zip
 *.tar.gz
+dist/
+.release/
 
-# Compiled Lua sources
+# Compiled Lua
 luac.out
 
-# Local editor and tool state
+# Logs
+*.log
+
+# Probe captures and SavedVariables copies hold real character data
+*.sv.lua
+docs/captures/
+
+# Local agent and editor state (project skills are shared)
+.claude/*
+!.claude/skills/
 .vscode/
 .idea/
-*.log
-AGENTS.md
-SPEC.md
-
-# Luarocks build files
-*.src.rock
-
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
-
-# Precompiled headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
-
-# Shared objects
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex

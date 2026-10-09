@@ -1,5 +1,12 @@
 # Changelog
 
+## Forever port (unreleased)
+
+- Shatter now targets World of Warcraft: Forever (Interface 16001). This repository was forked with full history from the TBC Anniversary addon at `Spotnick2/Shatter@25886ea`; the TBC entries below are that addon's history.
+- Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
+
+## TBC Anniversary history (before the fork)
+
 ## Unreleased
 
 - Improved Mail launch panel UX with tighter layout flow, clearer section spacing, and persistent funnel selector visibility.

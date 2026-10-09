@@ -1,17 +1,26 @@
 package-as: Shatter
 
+# No libraries are embedded yet, so a nolib zip would be identical.
 enable-nolib-creation: no
 
 manual-changelog:
   filename: CHANGELOG.md
   markup-type: markdown
 
+# A YAML list, not markdown bullets: a `*` here silently ignores nothing.
+# Comments on their own lines only - the packager's YAML reader keeps an inline
+# "# ..." as part of the value.
+# CHANGELOG.md is here AND in manual-changelog on purpose: the packager reads it
+# for the release notes, and this keeps the file itself out of the addon.
+# LICENSE deliberately ships: the notice travels with the distribution.
 ignore:
   - .github
+  - .claude
   - docs
-  - screenshots
+  - tests
+  - Tools
   - AGENTS.md
+  - CLAUDE.md
   - SPEC.md
   - README.md
   - CHANGELOG.md
-  - LICENSE

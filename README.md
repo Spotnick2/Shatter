@@ -1,6 +1,8 @@
 # Shatter
 
-**Shatter** is a standalone disenchanting workflow addon for *World of Warcraft: TBC Anniversary*.
+**Shatter** is a standalone disenchanting workflow addon for *World of Warcraft: Forever*.
+
+This is the Forever edition. The TBC Anniversary edition is a separate addon and repository (`Spotnick2/Shatter`).
 
 The MVP is planned as a lightweight replacement for the useful parts of the TradeSkillMaster Destroy UI for disenchanting, without requiring TSM. Shatter will guide enchanters through one safe player-clicked action at a time.
 

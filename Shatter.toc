@@ -1,11 +1,10 @@
-## Interface: 20505
+## Interface: 16001
 ## Title: |cffffd200Shatter|r
-## Notes: Guided disenchanting workflow addon for TBC Classic enchanters. /shatter
+## Notes: Guided disenchanting workflow for World of Warcraft: Forever enchanters. /shatter
 ## Author: Spotnick
 ## Version: @project-version@
 ## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
 ## SavedVariables: ShatterDB
-## X-Curse-Project-ID: 1545161
 
 Core.lua
 Constants.lua
