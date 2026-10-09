@@ -142,9 +142,6 @@ function MailMode:GetPostalSelectedMailIndices()
     if not self:IsPostalAvailable() then
         return selected
     end
-    if IsMailboxOpen() and not self:IsPostalSelectionReady() then
-        TryLoadAddOnSafe("Postal")
-    end
     local pageNum = InboxFrame and InboxFrame.pageNum or 1
     local base = math.max(0, ((pageNum or 1) - 1) * 7)
     for row = 1, 7 do
@@ -319,6 +316,11 @@ function MailMode:ActivateFromMailbox()
         Shatter.MailSession:Log("info", "Mailbox opened; Mail Mode active.")
     end
     self:RefreshLaunchSenders()
+    -- Once per mailbox visit, not on every panel refresh: an installed but
+    -- unloaded Postal gets one chance to provide its selection checkboxes.
+    if self:IsPostalAvailable() and not self:IsPostalSelectionReady() then
+        TryLoadAddOnSafe("Postal")
+    end
     if Shatter.MailLaunchPanel then
         Shatter.MailLaunchPanel:ShowForMailbox()
     end

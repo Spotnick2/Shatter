@@ -380,6 +380,20 @@ function MailLaunchPanel:Create()
     return frame
 end
 
+-- Postal's selection checkboxes change without any event Shatter sees: a
+-- click on one refreshes the panel, so "(n selected)" stays current. Hooked
+-- once per checkbox; HookScript leaves Postal's own handler in place.
+function MailLaunchPanel:HookPostalCheckboxes()
+    self.postalHooked = self.postalHooked or {}
+    for row = 1, 7 do
+        local check = _G["PostalInboxCB" .. row]
+        if check and check.HookScript and not self.postalHooked[check] then
+            self.postalHooked[check] = true
+            check:HookScript("OnClick", function() MailLaunchPanel:Refresh() end)
+        end
+    end
+end
+
 -- A name typed into the funnel box without Enter is still the player's
 -- choice (clicking a button does not take the box's focus away): commit it
 -- before Start or Continue reads the options.
@@ -441,6 +455,7 @@ function MailLaunchPanel:Refresh()
     SetShown(self.senderButton, selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
 
     if self.postalCount then
+        if context.postalSelectionReady then self:HookPostalCheckboxes() end
         if context.postalAvailable then
             self.postalCount:SetText(string.format("(%d selected)", context.postalSelectedCount or 0))
             self.postalCount:SetTextColor(unpack(Shatter.C.TEXT_DIM))

@@ -691,4 +691,44 @@ H.check(session ~= nil, "Start New Session started a session")
 H.eq(session and session.recipientMode, Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL, "in funnel mode")
 H.eq(session and session.funnelRecipient, "Bank Alt", "with the typed recipient (trimmed)")
 
+
+-- 35. Panel refreshes never call LoadAddOn: Postal (installed, not loaded,
+-- here disabled so every load fails) is tried once per mailbox visit; and
+-- the "(n selected)" count follows Postal's checkbox clicks.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.addons.Postal = { loaded = false, loadable = false }
+local loads = 0
+local realLoadAddOn = C_AddOns.LoadAddOn
+C_AddOns.LoadAddOn = function(...) loads = loads + 1 return realLoadAddOn(...) end
+WoW.loadAddon()
+WoW.flushTimers()
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+for _ = 1, 5 do
+    WoW.fire("MAIL_INBOX_UPDATE")
+    WoW.flushTimers()
+end
+Shatter.MailLaunchPanel:Refresh()
+H.eq(loads, 1, "one LoadAddOn('Postal') per mailbox visit, none from refreshes")
+C_AddOns.LoadAddOn = realLoadAddOn
+
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.loadAddon()
+WoW.flushTimers()
+installPostal({})
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+H.eq(Shatter.MailLaunchPanel.postalCount:GetText(), "(0 selected)", "nothing checked yet")
+local cb2 = rawget(_G, "PostalInboxCB2")
+cb2:SetChecked(true)
+cb2:Click()
+H.eq(Shatter.MailLaunchPanel.postalCount:GetText(), "(1 selected)", "a Postal checkbox click updates the count")
+removePostal()
+
 H.done("test_mail")
