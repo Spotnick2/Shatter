@@ -165,6 +165,47 @@ disenchant(button, { { link = WoW.link(DUST), count = 2, name = "Strange Dust" }
 bucket = yields()["2:4:16-20"]
 H.check(bucket.n == 1 and bucket.minLevel == 16 and bucket.materials[DUST].drops == 1, "recording replaces it with a fresh bucket")
 
+-- 5d. One bad material entry costs only that entry: the scan does not
+-- error, the listing skips it, and recording keeps the other samples.
+button = setup()
+ShatterDB.yields = { ["2:4:16-20"] = { quality = 2, classID = ARMOR, minLevel = 16, maxLevel = 20, n = 30,
+    materials = { [DUST] = { drops = 24, total = 60, minAmount = 2, maxAmount = 3 },
+        [ESSENCE] = { drops = 6, total = 6, minAmount = "x" },
+        [SHARD] = { drops = 0, total = 0 } } } }
+local ok, est = pcall(T.GetExpected, T, vest)
+H.check(ok and est.measured and entry(est, DUST) and not entry(est, ESSENCE), "a bad minAmount is skipped, not a Lua error")
+SlashCmdList.SHATTER("yields")
+local chat = WoW.chat()
+H.check(chat:find("Uncommon armor 16-20: 30 - Strange Dust 80% x2.5", 1, true)
+    and not chat:find("Strange Dust 80% x2.5,", 1, true),
+    "the listing shows only the good entry (no zero-drop division)")
+disenchant(button, { { link = WoW.link(DUST), count = 2, name = "Strange Dust" } })
+bucket = yields()["2:4:16-20"]
+H.check(bucket.n == 31 and bucket.materials[DUST].drops == 25 and bucket.materials[ESSENCE] == nil and bucket.materials[SHARD] == nil,
+    "recording keeps the 30 samples and drops only the bad entries")
+
+-- 5e. Buckets saved before the top band split (61-1000) move to 61-92 at
+-- load, merging into one the new code already started.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.loadAddon({ savedDB = { yields = {
+    ["2:4:61-1000"] = { quality = 2, classID = ARMOR, minLevel = 61, maxLevel = 1000, n = 30,
+        materials = { [16204] = { drops = 30, total = 90, minAmount = 2, maxAmount = 5 } } },
+    ["2:2:61-1000"] = { quality = 2, classID = WEAPON, minLevel = 61, maxLevel = 1000, n = 4,
+        materials = { [16203] = { drops = 3, total = 6, minAmount = 2, maxAmount = 2 } } },
+    ["2:2:61-92"] = { quality = 2, classID = WEAPON, minLevel = 61, maxLevel = 92, n = 2,
+        materials = { [16203] = { drops = 2, total = 6, minAmount = 3, maxAmount = 3 } } },
+} } })
+WoW.flushTimers()
+local y = yields()
+H.eq(y["2:4:61-1000"], nil, "the old armor key is gone")
+H.check(y["2:4:61-92"] and y["2:4:61-92"].n == 30 and y["2:4:61-92"].maxLevel == 92, "...its 30 samples now in 61-92")
+H.eq(T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 70 }).samples, 30, "and an ilvl 70 item uses them")
+local wpn = y["2:2:61-92"]
+H.check(y["2:2:61-1000"] == nil and wpn.n == 6 and wpn.materials[16203].drops == 5 and wpn.materials[16203].total == 12
+    and wpn.materials[16203].minAmount == 2 and wpn.materials[16203].maxAmount == 3, "the old weapon bucket merges into the new one")
+
 -- Mail: two vests from one sender, both received and queued by Mail.
 local function mailSetup()
     WoW.reset()
