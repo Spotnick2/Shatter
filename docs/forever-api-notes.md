@@ -4,7 +4,7 @@ Measured or source-verified facts this addon depends on. Addon-agnostic findings
 canonical guide, `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`; this file only records what
 Shatter itself relies on, with the evidence.
 
-Build: **1.60.1.70291** (`_classic_beta_\.build.info`, `References\forever-api-1.60.1.70291.md`).
+Build: **1.60.1.70334** (`_classic_beta_\.build.info`, `References\forever-api-1.60.1.70334.md`).
 Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 70245).
 
 | Shatter needs | On Forever | Evidence | Status |
