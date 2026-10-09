@@ -630,9 +630,11 @@ function C_AddOns.IsAddOnLoaded(name)
     local a = WoW.addons[name]
     return a and a.loaded or false, a and a.loaded or false
 end
+-- dump 183: name, title, notes, loadable, reason, security. The name is
+-- not optional: a missing addon still returns it, with reason "MISSING".
 function C_AddOns.GetAddOnInfo(name)
     local a = WoW.addons[name]
-    if not a then return nil, nil, nil, false, "MISSING" end
+    if not a then return name, name, "", false, "MISSING", "INSECURE" end
     return name, name, "", a.loadable ~= false, a.loadable == false and "DISABLED" or nil
 end
 function C_AddOns.LoadAddOn(name)

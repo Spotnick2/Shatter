@@ -70,9 +70,11 @@ local function IsAddOnLoadedSafe(name)
     return ok and loaded and true or false
 end
 
+-- GetAddOnInfo returns the name even for an addon that is not installed;
+-- absence is the fifth return, reason == "MISSING" (dump 183).
 local function IsAddOnInstalledSafe(name)
-    local ok, addonName = pcall(API.GetAddOnInfo, name)
-    return ok and addonName ~= nil and addonName ~= "" and addonName ~= "MISSING"
+    local ok, addonName, _, _, _, reason = pcall(API.GetAddOnInfo, name)
+    return ok and addonName ~= nil and reason ~= "MISSING"
 end
 
 local function TryLoadAddOnSafe(name)

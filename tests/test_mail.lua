@@ -569,4 +569,15 @@ H.eq(#byChar[other].mailHistory, 1, "the other character gets its history")
 H.eq(ShatterDB.sessions.activeMail, nil, "the old account-wide slot is emptied")
 H.eq(#ShatterDB.sessions.mailHistory, 1, "an entry naming no character stays where it was")
 
+
+-- 30. Postal not installed is not Postal available (GetAddOnInfo returns the
+-- name either way; reason "MISSING" says it is absent).
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.loadAddon()
+H.eq(Shatter.MailMode:IsPostalAvailable(), false, "Postal missing: not offered")
+WoW.addons.Postal = { loaded = false }
+H.eq(Shatter.MailMode:IsPostalAvailable(), true, "Postal installed (not loaded): offered")
+
 H.done("test_mail")
