@@ -1101,7 +1101,21 @@ function MainFrame:SetSettingsOpen(open)
 end
 
 function MainFrame:SetActiveView(view)
+    local previous = self.activeView
     self.activeView = view or "solo"
+    -- The view decides who owns the queue: Solo takes it back from a Mail
+    -- session (the mail items stay attributed in the session and return when
+    -- the Mail view is opened again).
+    if Shatter.Queue then
+        if self.activeView == "solo" and Shatter.Queue:GetOwner() == "mail" then
+            Shatter.Queue:ReleaseToSolo("SOLO_VIEW")
+        elseif self.activeView == "mail" and previous ~= "mail" and Shatter.MailSession and Shatter.MailMode then
+            local session = Shatter.MailSession:Get()
+            if session and session.status == Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT then
+                Shatter.MailMode:PrepareDisenchantQueue()
+            end
+        end
+    end
     self.settingsOpen = self.activeView == "settings"
     local summaryOpen = self.activeView == "summary"
     local settings = Shatter.Database and Shatter.Database:GetSettings()
@@ -1223,7 +1237,13 @@ function MainFrame:Update()
         end
         if self.primary then
             self.primary.text:SetText(label or "Scan Inbox")
-            self.primary.mailDisabledReason = label == "Open Mailbox" and "Open the Blizzard mailbox to take the selected attachments." or nil
+            if label == "Open Mailbox" then
+                self.primary.mailDisabledReason = "Open the Blizzard mailbox to take the selected attachments."
+            elseif (label == "Take Attachments" or label == "Shatter Next") and Shatter.MailMode and not Shatter.MailMode:AreActionsEnabled() then
+                self.primary.mailDisabledReason = Shatter.Constants.STATUS.MAIL_ACTIONS_DISABLED
+            else
+                self.primary.mailDisabledReason = nil
+            end
             if enabled then
                 SetButtonEnabled(self.primary, true)
                 Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)

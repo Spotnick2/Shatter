@@ -190,6 +190,21 @@ function Disenchant:BeginSecureClick(button)
         ClearButtonAction(button)
         return
     end
+    -- The item must come from the queue the visible view owns: a Mail view
+    -- disenchants only attributed mail items, the Solo view only bag items.
+    local view = Shatter.MainFrame and Shatter.MainFrame.activeView
+    local wantMode = view == "mail" and Shatter.Constants.MODES.MAIL or Shatter.Constants.MODES.SOLO
+    local owner = Shatter.Queue:GetOwner()
+    if item.mode ~= wantMode or (wantMode == Shatter.Constants.MODES.MAIL) ~= (owner == "mail") then
+        ClearButtonAction(button)
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.QUEUE_MISMATCH, true, 3) end
+        return
+    end
+    if wantMode == Shatter.Constants.MODES.MAIL and not Shatter.MailMode:AreActionsEnabled() then
+        ClearButtonAction(button)
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAIL_ACTIONS_DISABLED, true, 4) end
+        return
+    end
     -- Another spell's item cursor would take this item (Blizzard targets
     -- target-bag/slot whenever SpellCanTargetItem is true), and a cast in
     -- progress (cast or channel) makes this one fail.

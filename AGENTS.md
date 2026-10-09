@@ -88,8 +88,13 @@ heavy runtime dependencies.
 - Mail Mode is an auto-activated durable batch session (`MAIL_SHOW` creates/resumes
   `sessions.activeMail`; only an explicit `Close Session` archives it). Mail sessions are
   character-scoped in `sessions.byCharacter[characterKey]`. The Input Queue is item-based.
-  Destructive mail actions stay behind their safety gate until queue ownership and attachment
-  identity are proven (port plan M5). `Mail/MailSender.lua` stays a blocked scaffold.
+  Mail actions (Take Attachments, Shatter Next on mail items) stay off until the mail flow is
+  validated in game: `MailMode.ACTIONS_VALIDATED = false`; `/shatter mailtest` enables them for
+  one session. The queue has an owner (`Queue:GetOwner()`, `solo`/`mail`): Solo scans never
+  replace a Mail queue, and Shatter Next only takes items of the active view's owner. A take is
+  re-matched against the current inbox first, and receipt is proven by a newly occupied bag slot.
+  Attachments are scanned over all 16 receive slots (`ATTACHMENTS_MAX`). `Mail/MailSender.lua`
+  stays a blocked scaffold.
 - Before implementing Mail return/sending, inspect `C:\Projects\PrimalMailer` for API lessons; do
   not copy its code. Re-run SPEC.md Phase 0 mail validation on Forever first.
 - Raid / Trade Mode remains a disabled placeholder until Mail Mode is accepted.

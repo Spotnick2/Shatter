@@ -488,8 +488,16 @@ function MailLaunchPanel:Refresh()
     self:UpdateToggleVisual()
 end
 
-function MailLaunchPanel:ShowForMailbox()
-    if not self:AttachToMailbox() then return end
+function MailLaunchPanel:ShowForMailbox(attempt)
+    if not self:AttachToMailbox() then
+        -- MAIL_SHOW can arrive before the mail frame is ready: try again
+        -- shortly, a few times, while the mailbox is still open.
+        attempt = (attempt or 0) + 1
+        if attempt <= 5 and Shatter.Events then
+            Shatter.Events:After(0.1, function() self:ShowForMailbox(attempt) end)
+        end
+        return
+    end
     self.toggle:Show()
     if IsPanelPreferredVisible() then
         self.frame:Show()

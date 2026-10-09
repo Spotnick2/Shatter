@@ -1,6 +1,10 @@
 local _, Shatter = ...
 
-local InboxScanner = {}
+local InboxScanner = {
+    -- itemIDs whose item info was not cached at scan time; a
+    -- GET_ITEM_INFO_RECEIVED for one of them rescans the inbox.
+    pendingItemIDs = {},
+}
 Shatter.InboxScanner = InboxScanner
 Shatter.RegisterModule("InboxScanner", InboxScanner)
 
@@ -46,6 +50,17 @@ local function ReadAttachment(mailIndex, attachmentIndex)
     if not itemID and not link and not name then return nil end
 
     local infoName, itemLink, infoQuality, itemLevel, _, className, subclassName, _, equipLoc, itemTexture, _, classID, subclassID = Shatter.API.GetItemInfo(link or itemID)
+    if not infoName and itemID then
+        -- Cache miss: zero returns. Don't judge eligibility on missing data;
+        -- remember it and rescan when the client delivers it.
+        InboxScanner.pendingItemIDs[itemID] = true
+        return {
+            attachmentIndex = attachmentIndex, itemID = itemID, itemLink = link,
+            itemName = name or ("item:" .. tostring(itemID)), texture = texture, count = count or 1,
+            quality = quality, infoPending = true, disenchantable = false,
+            ineligibleReason = "item info pending", status = "pending",
+        }
+    end
     local item = {
         attachmentIndex = attachmentIndex,
         itemID = itemID,
@@ -148,7 +163,10 @@ function InboxScanner:Scan()
         if header and MailMatchesSelection(session, mailIndex, header) then
             local attachments = {}
             local disenchantable = false
-            for attachmentIndex = 1, math.min(header.itemCount or 0, 12) do
+            -- Every receive slot (16 here, 12 is the SEND limit), each checked:
+            -- a count of attachments says nothing about which slots hold
+            -- them once some have been taken.
+            for attachmentIndex = 1, ATTACHMENTS_MAX or 16 do
                 local attachment = ReadAttachment(mailIndex, attachmentIndex)
                 if attachment then
                     attachment.sourceAttachmentIndex = attachmentIndex
@@ -197,7 +215,7 @@ function InboxScanner:Scan()
                         equipLoc = attachment.equipLoc,
                         expectedEstimate = attachment.expectedEstimate,
                         disenchantable = true,
-                        selected = previous and previous.selected ~= false or true,
+                        selected = (not previous) or previous.selected ~= false,
                         status = previous and previous.status or "selected",
                         sourceMailId = mail.sourceMailId,
                         sourceSender = mail.sender,

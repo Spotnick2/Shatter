@@ -168,7 +168,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -211,6 +211,15 @@ SlashCmdList.SHATTER = function(message)
             if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SIMULATION_TOGGLED", 0.05) end
             if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
             Shatter.Print("Disenchant simulation " .. (settings.simulateDisenchant and "enabled. No items will be destroyed." or "disabled."))
+        end
+        return
+    elseif message == "mailtest" then
+        if Shatter.MailMode then
+            local enabled = not Shatter.MailMode.actionsEnabledForSession
+            Shatter.MailMode:SetActionsEnabledForSession(enabled)
+            Shatter.Print(enabled
+                and "Mail actions ENABLED for this session (validation testing). They turn off at /reload."
+                or "Mail actions disabled.")
         end
         return
     elseif message == "simreset" then

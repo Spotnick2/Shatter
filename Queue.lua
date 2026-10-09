@@ -1,8 +1,13 @@
 local _, Shatter = ...
 
+-- The queue has one owner at a time: "solo" (bag scan) or "mail" (items
+-- taken from a mail session, each attributed to its sender). A Solo scan must
+-- never replace a Mail queue: Shatter Next would then destroy whatever the
+-- bag scan selected and record it against nobody.
 local Queue = {
     items = {},
     selectedIndex = 1,
+    owner = "solo",
 }
 
 Shatter.Queue = Queue
@@ -11,6 +16,21 @@ Shatter.RegisterModule("Queue", Queue)
 function Queue:Initialize()
     self.items = {}
     self.selectedIndex = 1
+    self.owner = "solo"
+end
+
+function Queue:GetOwner()
+    return self.owner or "solo"
+end
+
+-- Hands the queue back to Solo (mail queue finished, session closed, or the
+-- player switched to the Solo view) and rebuilds it from the bags.
+function Queue:ReleaseToSolo(reason)
+    if self.owner == "solo" then return end
+    self.owner = "solo"
+    self.items = {}
+    self.selectedIndex = 1
+    if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan(reason or "MAIL_RELEASED", 0.05) end
 end
 
 local function SortBagSlot(a, b)
@@ -41,7 +61,10 @@ local function SortQueueItems(items)
     end
 end
 
-function Queue:SetItems(items)
+function Queue:SetItems(items, owner)
+    owner = owner or "solo"
+    if owner == "solo" and self.owner == "mail" then return false end
+    self.owner = owner
     local previous = self:GetSelected()
     local previousId = previous and previous.queueId
     self.items = items or {}
@@ -56,6 +79,7 @@ function Queue:SetItems(items)
             end
         end
     end
+    return true
 end
 
 function Queue:GetItems()

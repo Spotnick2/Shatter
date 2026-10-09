@@ -41,6 +41,8 @@ local function AddReason(self, reason)
 end
 
 function SoloMode:ScheduleScan(reason, delay)
+    -- A Mail queue is in charge: nothing to scan until it is released.
+    if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" then return end
     AddReason(self, reason)
     if Shatter.Debug then Shatter.Debug:Log("trace", "Solo scan scheduled. Reason: %s", self.scanReasonText or reason or "UNKNOWN") end
 
@@ -78,6 +80,9 @@ function SoloMode:Rescan(reason)
     -- Checked when the scan runs, not only when it was scheduled: a scan
     -- queued just before Enchanting was unlearned must not run.
     if not Shatter.isActive then return end
+    -- Checked again when the scan runs: Mail may have claimed the queue
+    -- after this scan was scheduled.
+    if Shatter.Queue:GetOwner() == "mail" then return end
     if self.isScanning then
         self.rescanAfterCurrent = true
         AddReason(self, reason or "REENTERED_SCAN")

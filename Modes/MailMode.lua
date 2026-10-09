@@ -81,6 +81,21 @@ local function TryLoadAddOnSafe(name)
     return ok and loaded and true or false
 end
 
+-- Mail actions (taking attachments, disenchanting mail items) stay off until
+-- the mail flow has been validated in game on Forever (SPEC.md Phase 0).
+-- `/shatter mailtest` turns them on for the current session only.
+MailMode.ACTIONS_VALIDATED = false
+MailMode.actionsEnabledForSession = false
+
+function MailMode:AreActionsEnabled()
+    return MailMode.ACTIONS_VALIDATED or MailMode.actionsEnabledForSession
+end
+
+function MailMode:SetActionsEnabledForSession(enabled)
+    MailMode.actionsEnabledForSession = enabled and true or false
+    if Shatter.MainFrame then Shatter.MainFrame:Update() end
+end
+
 function MailMode:Initialize()
     local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
     local recipients = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
@@ -96,6 +111,7 @@ function MailMode:Initialize()
     Shatter.Events:Register("MAIL_CLOSED", self, self.OnEvent)
     Shatter.Events:Register("MAIL_INBOX_UPDATE", self, self.OnEvent)
     Shatter.Events:Register("BAG_UPDATE_DELAYED", self, self.OnEvent)
+    Shatter.Events:Register("GET_ITEM_INFO_RECEIVED", self, self.OnEvent)
     Shatter.Events:Register("MAIL_SEND_SUCCESS", self, self.OnEvent)
     Shatter.Events:Register("UI_ERROR_MESSAGE", self, self.OnEvent)
 end
@@ -262,6 +278,15 @@ function MailMode:OnEvent(event, ...)
         if Shatter.MailLaunchPanel and IsMailboxOpen() then
             Shatter.MailLaunchPanel:Refresh()
         end
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        local itemID = ...
+        local pending = Shatter.InboxScanner and Shatter.InboxScanner.pendingItemIDs
+        if itemID and pending and pending[itemID] then
+            pending[itemID] = nil
+            if Shatter.MailSession and Shatter.MailSession:HasActiveSession() and IsMailboxOpen() then
+                self:ScheduleScan("ITEM_INFO", 0.3)
+            end
+        end
     elseif event == "BAG_UPDATE_DELAYED" then
         if Shatter.MailSession and Shatter.MailSession:HasActiveSession() and Shatter.AttachmentQueue then
             Shatter.AttachmentQueue:ResolvePending("BAG_UPDATE_DELAYED")
@@ -397,6 +422,17 @@ function MailMode:ScanInbox(reason)
         Shatter.MailSession:SetMailboxOpen(true)
     end
     local session = Shatter.InboxScanner and Shatter.InboxScanner:Scan()
+    -- A rescan (every MAIL_INBOX_UPDATE) resets the session to selecting; if
+    -- taken items are already waiting and nothing is left to take, the
+    -- disenchant queue is still the next step, so rebuild it.
+    if session and Shatter.AttachmentQueue and not Shatter.AttachmentQueue:GetNext() then
+        for _, input in ipairs(session.inputItems or {}) do
+            if input.disenchantStatus == "waiting" and input.bag then
+                self:PrepareDisenchantQueue()
+                break
+            end
+        end
+    end
     if Shatter.Debug then Shatter.Debug:Log("debug", "Mail scan completed. Reason: %s.", tostring(reason or "UNKNOWN")) end
     if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
     if Shatter.MainFrame then
@@ -469,7 +505,13 @@ function MailMode:PrepareDisenchantQueue()
             end
         end
     end
-    if Shatter.Queue then Shatter.Queue:SetItems(items) end
+    if Shatter.Queue then
+        if #items > 0 then
+            Shatter.Queue:SetItems(items, "mail")
+        else
+            Shatter.Queue:ReleaseToSolo("MAIL_QUEUE_EMPTY")
+        end
+    end
     if #items > 0 then
         session.status = Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT
         if Shatter.MailSession then Shatter.MailSession:Log("info", "Disenchant queue ready: %d item%s.", #items, #items == 1 and "" or "s") end
@@ -532,7 +574,7 @@ function MailMode:GetPrimaryState()
         return "Waiting...", false
     end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT then
-        return "Shatter Next", Shatter.Queue and Shatter.Queue:Count() > 0
+        return "Shatter Next", self:AreActionsEnabled() and Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and Shatter.Queue:Count() > 0
     end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_RETURN then
         return "Send Ready Mats", true
@@ -542,7 +584,7 @@ function MailMode:GetPrimaryState()
     end
     if Shatter.AttachmentQueue and Shatter.AttachmentQueue:GetNext() then
         session.mailboxOpen = mailboxOpen
-        return "Take Attachments", true
+        return "Take Attachments", self:AreActionsEnabled()
     end
     return mailboxOpen and "Scan Inbox" or "Open Mailbox", mailboxOpen
 end
@@ -579,6 +621,7 @@ function MailMode:CloseSession(force)
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(reason, true, 4) end
         return false
     end
+    if Shatter.Queue then Shatter.Queue:ReleaseToSolo("MAIL_SESSION_CLOSED") end
     if Shatter.MainFrame then
         Shatter.MainFrame:SetActiveView("solo")
         Shatter.MainFrame:SetStatus("Mail session closed.", false, 3)

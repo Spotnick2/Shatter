@@ -14,6 +14,9 @@
 - Expected materials now follow Vanilla disenchanting: Outland materials (Arcane Dust, Planar Essences, Prismatic Shards, Void Crystal) are gone, high-level greens show Illusion Dust and Greater Eternal Essence, blues Large Brilliant Shards, and epics Nexus Crystals. Items above Vanilla's item levels show "Expected Materials (unverified)".
 - `/shatter sim` produces Vanilla materials from the same rules.
 - Corrected uncommon shard chances (5% at 16-20, 10% at 21-25, 5% from 51) and weapon dust chances from 51.
+- Mail Mode safety: a bag scan can no longer replace the mail disenchant queue, Shatter Next only disenchants items from the queue of the view you are in, a take is re-matched against the inbox as it is now, and a received item is identified by the bag slot it newly occupies (an identical item you already owned is never mistaken for it).
+- Mail Mode reads all 16 attachment slots of a mail, and waits for item data the client has not cached yet instead of skipping those attachments.
+- Mail actions (taking attachments and disenchanting mail items) are off until the mail flow has been validated on Forever; `/shatter mailtest` enables them for the current session.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
 
 ## TBC Anniversary history (before the fork)

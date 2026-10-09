@@ -93,6 +93,23 @@ end
 
 function WoW.advance(seconds) WoW.time = WoW.time + seconds end
 
+-- Advances the clock by `seconds`, running timers as they come due, in order.
+-- flushTimers ignores delays; use this where the order of timers matters.
+function WoW.runTimers(seconds)
+    local target = WoW.time + seconds
+    while true do
+        local nextIndex, nextDue
+        for i, t in ipairs(WoW.timers) do
+            if t.due <= target and (not nextDue or t.due < nextDue) then nextIndex, nextDue = i, t.due end
+        end
+        if not nextIndex then break end
+        local t = table.remove(WoW.timers, nextIndex)
+        if t.due > WoW.time then WoW.time = t.due end
+        t.fn()
+    end
+    WoW.time = target
+end
+
 function WoW.chat() return table.concat(WoW.messages, "\n") end
 
 function WoW.link(itemID)
@@ -586,7 +603,7 @@ format = string.format
 ------------------------------------------------------------
 
 C_Timer = {}
-function C_Timer.After(delay, fn) WoW.timers[#WoW.timers + 1] = { delay = delay, fn = fn } end
+function C_Timer.After(delay, fn) WoW.timers[#WoW.timers + 1] = { due = WoW.time + (delay or 0), fn = fn } end
 
 C_AddOns = {}
 function C_AddOns.GetAddOnMetadata(name, key)
