@@ -190,4 +190,115 @@ realMailFrame:Show()
 WoW.flushTimers()
 H.check(Shatter.MailLaunchPanel.frame.parent == realMailFrame, "launch panel attached on a retry")
 
+-- 11. Switching to Solo never makes a received mail item the player's own.
+session = setup({ bags = { { 1, 1, BOOTS } } })
+WoW.bags[1].size = 4
+Shatter.AttachmentQueue:TakeNext()
+deliver(1, 1, 0, 2)
+WoW.flushTimers()
+Shatter.MainFrame:SetActiveView("solo")
+WoW.flushTimers()
+local soloHasVest = false
+for _, it in ipairs(Shatter.Queue:GetItems()) do if it.itemID == VEST then soloHasVest = true end end
+H.eq(soloHasVest, false, "the received vest is reserved: not in the Solo queue")
+
+-- 12. A real mail disenchant is credited to its sender.
+session = setup()
+Shatter.AttachmentQueue:TakeNext()
+deliver(1, 1, 0, 2)
+WoW.flushTimers()
+Shatter.MainFrame:SetActiveView("mail")
+WoW.click(Shatter.MainFrame.primary, "LeftButton")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
+WoW.bags[0][2] = nil
+WoW.SetBagItem(0, 7, { itemID = 10940, count = 2 })      -- Strange Dust
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+item = inputs(session)[1]
+H.eq(item.status, "disenchanted", "the mail input is marked disenchanted")
+local credited = false
+for _, bucket in pairs(session.outputRecipients or {}) do
+    if bucket.sourceSenders and bucket.sourceSenders["Alpha Smith"] and (bucket.materialsGenerated[10940] or 0) > 0 then credited = true end
+end
+H.check(credited, "the materials are credited to the sender")
+
+-- 13. A personal copy MOVED to a new slot while a take is pending is not
+-- the received item (no inbox or bag count change).
+session = setup({ bags = { { 0, 1, VEST } } })
+Shatter.AttachmentQueue:TakeNext()                  -- the take never lands
+WoW.bags[0][1] = nil
+WoW.SetBagItem(0, 9, { itemID = VEST })              -- player moves their own vest
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.runTimers(3)
+item = inputs(session)[1]
+H.eq(item.bag, nil, "a moved personal copy is not attributed to the sender")
+H.eq(item.status, "selected", "the attachment is still in the mail: back to the list")
+
+-- 14. Two identical mails keep separate rows across rescans.
+session = setup({ inbox = {
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+} })
+local rows = inputs(session)
+H.eq(#rows, 2, "two identical mails: two rows")
+rows[2].selected = false
+Shatter.MailMode:ScanInbox("TEST")
+rows = inputs(Shatter.MailSession:Get())
+H.eq(#rows, 2, "still two rows after a rescan (nothing duplicated)")
+H.check(rows[1].inputItemId ~= rows[2].inputItemId, "distinct identities")
+local deselected = 0
+for _, r in ipairs(rows) do if r.selected == false then deselected = deselected + 1 end end
+H.eq(deselected, 1, "the deselected one stays deselected, the other stays selected")
+
+-- 15. The original mail vanished: an otherwise identical COD mail is not a
+-- substitute (the scan excluded it), and two identical candidates are
+-- ambiguous - nothing is taken in either case.
+session = setup()
+WoW.inbox[1] = { sender = "Alpha Smith", subject = "DE please", cod = 5000, items = { [1] = { itemID = VEST } } }
+Shatter.AttachmentQueue:TakeNext()
+H.eq(#takes(), 0, "COD look-alike: no take")
+session = setup({ inbox = {
+    { sender = "Other Person", subject = "x", items = { [1] = { itemID = BOOTS } } },
+    { sender = "Other Person", subject = "y", items = { [1] = { itemID = BOOTS } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+} })                                                -- the vest's mail is index 3
+for _, it in ipairs(inputs(session)) do it.selected = it.itemID == VEST end
+WoW.inbox = {
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+}
+Shatter.AttachmentQueue:TakeNext()
+H.eq(#takes(), 0, "two identical candidates: ambiguous, no take")
+
+-- 16. An earlier take's timeout never resolves a later take.
+session = setup({ inbox = {
+    { sender = "Alpha Smith", subject = "A", items = { [1] = { itemID = VEST } } },
+    { sender = "Alpha Smith", subject = "B", items = { [1] = { itemID = BOOTS } } },
+} })
+Shatter.AttachmentQueue:TakeNext()                  -- take A at t=0
+WoW.runTimers(0.1)
+deliver(1, 1, 0, 2)                                 -- A lands, resolved by the bag event
+H.eq(session.pendingAction, nil, "A resolved")
+WoW.runTimers(1.8)                                  -- t=1.9
+Shatter.AttachmentQueue:TakeNext()                  -- take B
+local pendingB = session.pendingAction
+WoW.runTimers(0.2)                                  -- t=2.1: A's timeout fires
+H.check(session.pendingAction == pendingB, "A's timeout did not clear take B")
+deliver(2, 1, 0, 3)                                 -- B lands
+WoW.flushTimers()
+local bootsRow
+for _, r in ipairs(inputs(session)) do if r.itemID == BOOTS then bootsRow = r end end
+H.check(bootsRow and bootsRow.bag == 0 and bootsRow.slot == 3, "B attributed when it lands")
+
+-- 17. A missing attachment does not block the next one.
+session = setup({ inbox = {
+    { sender = "Alpha Smith", subject = "A", items = { [1] = { itemID = VEST } } },
+    { sender = "Alpha Smith", subject = "B", items = { [1] = { itemID = BOOTS } } },
+} })
+WoW.inbox[1].items[1] = nil                         -- A's attachment vanished
+Shatter.AttachmentQueue:TakeNext()                  -- marks A missing
+Shatter.AttachmentQueue:TakeNext()                  -- moves on to B
+local t2 = takes()[1]
+H.check(t2 and t2.index == 2, "the next selected attachment is taken")
+
 H.done("test_mail")

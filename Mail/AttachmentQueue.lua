@@ -19,17 +19,27 @@ local function SnapshotSlots()
     return slots
 end
 
--- The slot the taken attachment landed in: one that holds the item NOW and
--- held something else (or nothing) before. A copy the player already owned
--- is never mistaken for the received one.
-local function FindNewlyOccupiedSlot(itemID, before)
+-- Slots that hold the item NOW and held something else (or nothing) before.
+local function NewlyOccupiedSlots(itemID, before)
+    local found = {}
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, GetContainerNumSlotsSafe(bag) do
             if GetContainerItemIDSafe(bag, slot) == itemID and before[bag .. ":" .. slot] ~= itemID then
-                return bag, slot
+                found[#found + 1] = { bag = bag, slot = slot }
             end
         end
     end
+    return found
+end
+
+local function CountInBags(itemID)
+    local n = 0
+    for bag = 0, NUM_BAG_SLOTS do
+        for slot = 1, GetContainerNumSlotsSafe(bag) do
+            if GetContainerItemIDSafe(bag, slot) == itemID then n = n + 1 end
+        end
+    end
+    return n
 end
 
 local function InboxItemIDAt(mailIndex, attachmentIndex)
@@ -39,32 +49,49 @@ local function InboxItemIDAt(mailIndex, attachmentIndex)
     return itemID
 end
 
+-- How many attachments of this item this sender's mails with this subject
+-- hold right now. A take that worked lowers it by one.
+local function CountInboxMatches(sender, subject, itemID)
+    local n = 0
+    for mailIndex = 1, GetInboxNumItems() or 0 do
+        local _, _, s, subj = GetInboxHeaderInfo(mailIndex)
+        if s == sender and (subj or "") == (subject or "") then
+            for a = 1, ATTACHMENTS_MAX or 16 do
+                if InboxItemIDAt(mailIndex, a) == itemID then n = n + 1 end
+            end
+        end
+    end
+    return n
+end
+
 -- Re-finds the input item in the inbox as it is NOW (indices shift as mail
--- is taken or deleted): same sender and subject, same item in the same
--- attachment slot. Returns the current mail index, or nil.
+-- is taken or deleted): same sender and subject, same item and count in the
+-- same attachment slot, and still eligible (no COD, not from a GM) - the
+-- scan excluded those, so a substitute must be excluded too. Returns the
+-- current mail index, or nil plus a reason ("missing" or "ambiguous").
 local function RematchMail(item)
     local function matches(mailIndex)
-        local _, _, sender, subject = GetInboxHeaderInfo(mailIndex)
-        return sender == item.sourceSender and (subject or "") == (item.mailSubject or "")
-            and InboxItemIDAt(mailIndex, item.sourceAttachmentIndex) == item.itemID
+        local _, _, sender, subject, _, cod, _, _, _, _, _, _, isGM = GetInboxHeaderInfo(mailIndex)
+        if sender ~= item.sourceSender or (subject or "") ~= (item.mailSubject or "") then return false end
+        if (cod or 0) > 0 or isGM then return false end
+        if InboxItemIDAt(mailIndex, item.sourceAttachmentIndex) ~= item.itemID then return false end
+        local _, _, _, count = GetInboxItem(mailIndex, item.sourceAttachmentIndex)
+        return (count or 1) == (item.count or 1)
     end
     local count = GetInboxNumItems() or 0
     local known = item.lastKnownMailIndex
     if known and known <= count and matches(known) then return known end
+    -- The mail moved. Accept a substitute only if exactly one mail fits:
+    -- two identical mails from one sender cannot be told apart here.
+    local found
     for mailIndex = 1, count do
-        if matches(mailIndex) then return mailIndex end
-    end
-    return nil
-end
-
-local function FindBagSlotForItem(itemID)
-    for bag = 0, NUM_BAG_SLOTS do
-        for slot = 1, GetContainerNumSlotsSafe(bag) do
-            if GetContainerItemIDSafe(bag, slot) == itemID then
-                return bag, slot
-            end
+        if matches(mailIndex) then
+            if found then return nil, "ambiguous" end
+            found = mailIndex
         end
     end
+    if found then return found end
+    return nil, "missing"
 end
 
 local function IsMailboxOpen()
@@ -81,7 +108,8 @@ function AttachmentQueue:GetNext()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return nil end
     for _, item in ipairs(session.inputItems or {}) do
-        if item.selected and item.disenchantable and not item.bag and item.status ~= "taken" and item.status ~= "queued for disenchant" and item.status ~= "disenchanted" then
+        if item.selected and item.disenchantable and not item.bag and item.status ~= "taken" and item.status ~= "queued for disenchant"
+            and item.status ~= "disenchanted" and item.status ~= "missing" and item.status ~= "unresolved" then
             return item
         end
     end
@@ -107,12 +135,20 @@ function AttachmentQueue:TakeNext()
     end
     -- The inbox may have shifted since the scan: take only what still
     -- matches this input item, from wherever it is now.
-    local mailIndex = RematchMail(item)
+    local mailIndex, why = RematchMail(item)
     if not mailIndex then
-        item.status = "missing"
-        item.disenchantStatus = "missing"
-        if Shatter.MailSession then Shatter.MailSession:Log("warn", "Attachment no longer in the inbox: %s from %s.", item.itemLink or item.itemName or "?", item.sourceSender or "?") end
-        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("That attachment is no longer in the inbox; rescan.", true, 4) end
+        -- Left out of automatic intake from now on (GetNext skips it): an
+        -- ambiguous or vanished attachment needs the player to look.
+        item.status = why == "ambiguous" and "unresolved" or "missing"
+        item.disenchantStatus = item.status
+        if Shatter.MailSession then
+            Shatter.MailSession:Log("warn", "%s: %s from %s.",
+                why == "ambiguous" and "Several identical mails match; not taking automatically" or "Attachment no longer in the inbox",
+                item.itemLink or item.itemName or "?", item.sourceSender or "?")
+        end
+        if Shatter.MainFrame then
+            Shatter.MainFrame:SetStatus(why == "ambiguous" and "Identical mails: take that one by hand." or "That attachment is no longer in the inbox.", true, 4)
+        end
         return false
     end
     item.lastKnownMailIndex = mailIndex
@@ -124,33 +160,51 @@ function AttachmentQueue:TakeNext()
         attachmentIndex = item.sourceAttachmentIndex,
         itemID = item.itemID,
         mailIndex = mailIndex,
+        sender = item.sourceSender,
+        subject = item.mailSubject,
         startedAt = GetTime and GetTime() or 0,
         beforeSlots = SnapshotSlots(),
+        beforeBagCount = CountInBags(item.itemID),
+        beforeInboxCount = CountInboxMatches(item.sourceSender, item.mailSubject, item.itemID),
     }
     item.status = "taking attachment"
     item.disenchantStatus = "taking"
     if Shatter.MailSession then Shatter.MailSession:Log("info", "Taking attachment from %s: %s.", item.sourceSender or "?", item.itemLink or item.itemName or "?") end
     TakeInboxItem(mailIndex, item.sourceAttachmentIndex)
+    -- The callbacks belong to THIS take: a later take must not be resolved
+    -- (or timed out) by an earlier one's timers.
+    local action = session.pendingAction
     if Shatter.Events then
-        Shatter.Events:After(0.8, function() self:ResolvePending("timer") end)
-        Shatter.Events:After(2.0, function() self:ResolvePending("timeout") end)
+        Shatter.Events:After(0.8, function() self:ResolvePending("timer", action) end)
+        Shatter.Events:After(2.0, function() self:ResolvePending("timeout", action) end)
     end
     return true
 end
 
-function AttachmentQueue:ResolvePending(reason)
+-- Receipt needs three things to agree: the inbox holds one fewer of this
+-- sender's item, the bags hold one more, and exactly one slot newly holds
+-- it. A personal copy moved between slots changes neither count, so it can
+-- never be taken for the received item; anything ambiguous is left for the
+-- player rather than guessed.
+function AttachmentQueue:ResolvePending(reason, action)
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     local pending = session and session.pendingAction
     if not pending or pending.kind ~= "TAKE_ATTACHMENT" then return end
-    local bag, slot = FindNewlyOccupiedSlot(pending.itemID, pending.beforeSlots or {})
+    if action and action ~= pending then return end
     local item = Shatter.MailSession and Shatter.MailSession:FindInputItem(pending.inputItemId)
+    local leftInbox = CountInboxMatches(pending.sender, pending.subject, pending.itemID) < (pending.beforeInboxCount or 0)
+    local arrived = CountInBags(pending.itemID) > (pending.beforeBagCount or 0)
+    local candidates = NewlyOccupiedSlots(pending.itemID, pending.beforeSlots or {})
+    local bag, slot
+    if leftInbox and arrived and #candidates == 1 then
+        bag, slot = candidates[1].bag, candidates[1].slot
+    end
     if not bag then
         if reason ~= "timeout" then return end
         session.pendingAction = nil
         -- Still in the mail: the take failed (bags full, mailbox busy). The
         -- item goes back to the list to try again; nothing is attributed.
-        local stillThere = pending.mailIndex and pending.mailIndex <= (GetInboxNumItems() or 0)
-            and InboxItemIDAt(pending.mailIndex, pending.attachmentIndex) == pending.itemID
+        local stillThere = not leftInbox
         if item then
             item.status = stillThere and "selected" or "unresolved"
             item.disenchantStatus = stillThere and "detected" or "unresolved"

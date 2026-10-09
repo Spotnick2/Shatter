@@ -724,8 +724,8 @@ function GetInboxHeaderInfo(index)
     if not m then return nil end
     local count = 0
     for a = 1, ATTACHMENTS_MAX do if m.items and m.items[a] then count = count + 1 end end
-    return nil, nil, m.sender, m.subject or "", m.money or 0, 0, 30, count > 0 and count or nil,
-        m.read or false, false, false, true, false
+    return nil, nil, m.sender, m.subject or "", m.money or 0, m.cod or 0, 30, count > 0 and count or nil,
+        m.read or false, m.returned or false, false, true, m.isGM or false
 end
 function GetInboxItem(index, attachment)
     local m = WoW.inbox[index]

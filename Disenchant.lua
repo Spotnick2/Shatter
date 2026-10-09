@@ -229,6 +229,12 @@ function Disenchant:BeginSecureClick(button)
         return
     end
     local current = currentOrReason
+    -- ValidateItem rebuilt the item from the bag slot (as Solo, unattributed).
+    -- Keep the queued item's identity: a mail item's result must be credited
+    -- to its sender.
+    for _, key in ipairs({ "mode", "sourceId", "sourceSender", "sourceMailId", "queueId", "queueSequence" }) do
+        current[key] = item[key]
+    end
 
     if self:IsSimulationEnabled() then
         ClearButtonAction(button)

@@ -231,6 +231,21 @@ function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
     session.updatedAt = Now()
 end
 
+-- Bag slots holding items received for this session and not yet
+-- disenchanted: { ["bag:slot"] = itemID }. The Solo scan leaves them out, so
+-- a sender's item can never be destroyed as if it were the player's own.
+function MailSession:GetReservedSlots()
+    local reserved = {}
+    local session = self:Get()
+    if not session or not self:HasActiveSession() then return reserved end
+    for _, item in ipairs(session.inputItems or {}) do
+        if item.bag and item.slot and item.status ~= "disenchanted" then
+            reserved[item.bag .. ":" .. item.slot] = item.itemID
+        end
+    end
+    return reserved
+end
+
 function MailSession:FindInputItem(inputItemId)
     local session = self:Get()
     if not session or not inputItemId then return nil end

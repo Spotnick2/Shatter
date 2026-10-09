@@ -93,11 +93,14 @@ end
 function ItemScanner:ScanBags()
     local items = {}
     local pendingInfo = false
+    local reserved = Shatter.MailSession and Shatter.MailSession:GetReservedSlots() or {}
 
     for bag = 0, NUM_BAG_SLOTS do
         for slot = 1, API.GetContainerNumSlots(bag) do
             local item, reason = self:BuildItem(bag, slot)
-            if item then
+            if item and reserved[bag .. ":" .. slot] == item.itemID then
+                item = nil   -- received for a mail session: not the player's to disenchant here
+            elseif item then
                 local ok = self:IsCandidateDisenchantable(item)
                 if ok then
                     if Shatter.DisenchantTables then

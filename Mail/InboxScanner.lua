@@ -112,7 +112,10 @@ end
 
 local function FindPreviousItem(previousItems, mail, attachment)
     for _, existing in ipairs(previousItems or {}) do
-        if existing.itemID == attachment.itemID
+        -- One-to-one: a previous row already matched this scan is not reused
+        -- for an identical attachment in another identical mail.
+        if not existing.__shatterSeen
+            and existing.itemID == attachment.itemID
             and existing.sourceSender == mail.sender
             and existing.mailSubject == mail.subject
             and existing.sourceAttachmentIndex == attachment.attachmentIndex then
