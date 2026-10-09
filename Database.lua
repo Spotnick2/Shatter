@@ -243,6 +243,22 @@ function Database:SetProfileScope(scope)
     return scope
 end
 
+-- Measured disenchant results, account-wide (see DisenchantTables). Absent
+-- until the first real disenchant is recorded; `create` makes it.
+function Database:GetYields(create)
+    ShatterDB = ShatterDB or {}
+    if type(ShatterDB.yields) ~= "table" then
+        if not create then return nil end
+        ShatterDB.yields = {}
+    end
+    return ShatterDB.yields
+end
+
+function Database:ResetYields()
+    ShatterDB = ShatterDB or {}
+    ShatterDB.yields = nil
+end
+
 function Database:IsIgnored(itemID)
     itemID = tonumber(itemID)
     if not itemID then return false end

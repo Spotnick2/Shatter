@@ -72,6 +72,115 @@ local RULES = {
 }
 Tables.RULES = RULES
 
+-- Measured yields (ShatterDB.yields): real disenchants counted per rule
+-- bucket, so a few dozen casts cover a whole bracket. From
+-- MIN_YIELD_SAMPLES on, a bucket's measured odds replace the table's.
+Tables.MIN_YIELD_SAMPLES = 20
+
+local QUALITY_NAMES = { [2] = "Uncommon", [3] = "Rare", [4] = "Epic" }
+local CLASS_NAMES = { [ARMOR] = "armor", [WEAPON] = "weapon" }
+
+-- The rule bucket an item falls in: quality, class (only where the rules
+-- tell classes apart) and the item-level band every matching rule shares.
+-- Returns the key and the bucket's description, or nil without a rule.
+function Tables:GetBucket(item)
+    if not item or not item.quality or not item.itemLevel then return nil end
+    local minLevel, maxLevel, classed
+    for _, rule in ipairs(RULES) do
+        local quality, classID, low, high = rule[1], rule[2], rule[3], rule[4]
+        if item.quality == quality and item.itemLevel >= low and item.itemLevel <= high and (not classID or classID == item.classID) then
+            minLevel = math.max(minLevel or low, low)
+            maxLevel = math.min(maxLevel or high, high)
+            if classID then classed = true end
+        end
+    end
+    if not minLevel then return nil end
+    local classID = classed and item.classID or nil
+    return string.format("%d:%s:%d-%d", item.quality, tostring(classID or "any"), minLevel, maxLevel),
+        { quality = item.quality, classID = classID, minLevel = minLevel, maxLevel = maxLevel }
+end
+
+-- One real disenchant's loot. Only a clean observation counts: at least one
+-- looted item, every one a disenchanting material, and an item with a
+-- bucket. Returns true when recorded.
+function Tables:RecordYield(item, loot)
+    if type(loot) ~= "table" or not next(loot) or not Shatter.Database then return false end
+    for itemID, count in pairs(loot) do
+        if not C.MATERIAL_ITEM_IDS[itemID] or (tonumber(count) or 0) <= 0 then return false end
+    end
+    local key, info = self:GetBucket(item)
+    if not key then return false end
+    local yields = Shatter.Database:GetYields(true)
+    local bucket = yields[key]
+    if type(bucket) ~= "table" then
+        bucket = { quality = info.quality, classID = info.classID, minLevel = info.minLevel, maxLevel = info.maxLevel, n = 0 }
+        yields[key] = bucket
+    end
+    bucket.materials = type(bucket.materials) == "table" and bucket.materials or {}
+    bucket.n = (tonumber(bucket.n) or 0) + 1
+    for itemID, count in pairs(loot) do
+        local m = bucket.materials[itemID] or { drops = 0, total = 0 }
+        m.drops = m.drops + 1
+        m.total = m.total + count
+        m.minAmount = math.min(m.minAmount or count, count)
+        m.maxAmount = math.max(m.maxAmount or count, count)
+        bucket.materials[itemID] = m
+    end
+    return true
+end
+
+-- How many disenchants the item's bucket has measured, plus (from
+-- MIN_YIELD_SAMPLES on) its measured odds as estimate entries.
+function Tables:GetMeasured(item)
+    local key = self:GetBucket(item)
+    local yields = key and Shatter.Database and Shatter.Database:GetYields()
+    local bucket = yields and yields[key]
+    local n = type(bucket) == "table" and tonumber(bucket.n) or 0
+    if n < self.MIN_YIELD_SAMPLES or type(bucket.materials) ~= "table" then return n, nil end
+    local results = {}
+    for itemID, m in pairs(bucket.materials) do
+        results[itemID] = {
+            itemID = itemID, chance = m.drops / n, expectedAmount = m.total / n,
+            minAmount = m.minAmount or 1, maxAmount = m.maxAmount or 1,
+        }
+    end
+    return n, results
+end
+
+-- Chat lines for /shatter yields: every measured bucket, Uncommon to Epic.
+function Tables:FormatYields()
+    local yields = Shatter.Database and Shatter.Database:GetYields()
+    local keys = {}
+    for key, bucket in pairs(yields or {}) do
+        if type(bucket) == "table" and (tonumber(bucket.n) or 0) > 0 then keys[#keys + 1] = key end
+    end
+    if #keys == 0 then return { "No disenchants measured yet." } end
+    table.sort(keys, function(a, b)
+        local x, y = yields[a], yields[b]
+        if x.quality ~= y.quality then return x.quality < y.quality end
+        if x.minLevel ~= y.minLevel then return x.minLevel < y.minLevel end
+        return tostring(x.classID) < tostring(y.classID)
+    end)
+    local lines = {}
+    for _, key in ipairs(keys) do
+        local b = yields[key]
+        local mats = {}
+        for itemID, m in pairs(b.materials or {}) do mats[#mats + 1] = { itemID = itemID, m = m } end
+        table.sort(mats, function(p, q) return p.m.drops > q.m.drops end)
+        local parts = {}
+        for _, e in ipairs(mats) do
+            local name = Shatter.API.GetItemInfo(e.itemID)
+            parts[#parts + 1] = string.format("%s %d%% x%.1f", name or ("item:" .. e.itemID),
+                math.floor(e.m.drops / b.n * 100 + 0.5), e.m.total / e.m.drops)
+        end
+        local band = b.maxLevel >= TOP and (b.minLevel .. "+") or (b.minLevel .. "-" .. b.maxLevel)
+        lines[#lines + 1] = string.format("%s %s %s: %d%s - %s",
+            QUALITY_NAMES[b.quality] or ("quality " .. tostring(b.quality)), CLASS_NAMES[b.classID] or "any", band,
+            b.n, b.n >= self.MIN_YIELD_SAMPLES and "" or " (table used)", table.concat(parts, ", "))
+    end
+    return lines
+end
+
 
 local function Average(minAmount, maxAmount)
     return ((minAmount or 1) + (maxAmount or minAmount or 1)) / 2
@@ -103,6 +212,11 @@ function Tables:GetExpected(item)
     end
     if not found then return nil end
     local uncertain = item.itemLevel > Tables.VANILLA_MAX_ITEM_LEVEL
+    local samples, measured = self:GetMeasured(item)
+    if measured then
+        results = measured
+        uncertain = false
+    end
 
     local list = {}
     local expectedValue, valueSource
@@ -118,7 +232,10 @@ function Tables:GetExpected(item)
         table.insert(list, entry)
     end
     table.sort(list, function(a, b) return (a.expectedAmount or 0) > (b.expectedAmount or 0) end)
-    return { materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain }
+    return {
+        materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain,
+        measured = measured ~= nil, samples = samples,
+    }
 end
 
 function Tables:FormatMoney(copper)

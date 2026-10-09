@@ -185,7 +185,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -238,6 +238,15 @@ SlashCmdList.SHATTER = function(message)
                 and "Mail actions ENABLED for this session (validation testing). They turn off at /reload."
                 or "Mail actions disabled.")
         end
+        return
+    elseif message == "yields" then
+        Shatter.Print("Measured disenchants (" .. Shatter.DisenchantTables.MIN_YIELD_SAMPLES .. " per bracket replace the built-in table):")
+        for _, line in ipairs(Shatter.DisenchantTables:FormatYields()) do Shatter.Print("  " .. line) end
+        return
+    elseif message == "yields reset" then
+        Shatter.Database:ResetYields()
+        Shatter.Rescan()
+        Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
         return
     elseif message == "simreset" then
         if Shatter.Session then Shatter.Session:ResetSimulatedItems() end
