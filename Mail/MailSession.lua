@@ -243,6 +243,7 @@ function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
             end
         end
         session.mailSelection.selectedMailIndices = next(map) and map or nil
+        session.mailSelection.capturedAttachments = nil
     else
         session.mailSelection.selectedMailIndices = nil
     end

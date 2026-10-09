@@ -87,6 +87,17 @@ local function ReadAttachment(mailIndex, attachmentIndex)
     return item
 end
 
+local function IsPostalSelection(session)
+    local selection = session and session.mailSelection
+    local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
+    return selection and selection.mode == (selectionModes.POSTAL_SELECTED or "POSTAL_SELECTED") or false
+end
+
+-- Identity of one attachment that does not depend on the mail's inbox index.
+local function AttachmentKey(sender, subject, attachmentIndex, itemID)
+    return table.concat({ sender or "", subject or "", tostring(attachmentIndex or 0), tostring(itemID or 0) }, "\031")
+end
+
 local function MailMatchesSelection(session, mailIndex, header)
     local selection = session and session.mailSelection or nil
     local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
@@ -96,6 +107,9 @@ local function MailMatchesSelection(session, mailIndex, header)
         return sender and header and header.sender and sender == header.sender or false
     end
     if mode == (selectionModes.POSTAL_SELECTED or "POSTAL_SELECTED") then
+        -- Once captured, every mail is looked at and the captured attachments
+        -- decide (Postal's indices shift as soon as mail is removed).
+        if type(selection.capturedAttachments) == "table" then return true end
         local selected = selection and selection.selectedMailIndices
         return type(selected) == "table" and selected[mailIndex] == true
     end
@@ -166,6 +180,27 @@ function InboxScanner:Scan()
     session.inputItems = {}
     session.updatedAt = time and time() or 0
 
+    -- Postal "Selected mails": the checked rows' indices are only right for
+    -- the scan at session start. That scan captures WHICH attachments were
+    -- selected; later scans keep only those (each once), wherever they are.
+    -- A session saved before captures existed captures its current rows.
+    local selection = session.mailSelection
+    local capture, remaining
+    if IsPostalSelection(session) then
+        if type(selection.capturedAttachments) ~= "table" and #previousItems > 0 then
+            selection.capturedAttachments = {}
+            for _, row in ipairs(previousItems) do
+                table.insert(selection.capturedAttachments, AttachmentKey(row.sourceSender, row.mailSubject, row.sourceAttachmentIndex, row.itemID))
+            end
+        end
+        if type(selection.capturedAttachments) == "table" then
+            remaining = {}
+            for _, key in ipairs(selection.capturedAttachments) do remaining[key] = (remaining[key] or 0) + 1 end
+        else
+            capture = {}
+        end
+    end
+
     local count = GetInboxCount()
     local scannedAttachments = 0
     local eligibleAttachments = 0
@@ -179,6 +214,18 @@ function InboxScanner:Scan()
             -- them once some have been taken.
             for attachmentIndex = 1, ATTACHMENTS_MAX or 16 do
                 local attachment = ReadAttachment(mailIndex, attachmentIndex)
+                if attachment then
+                    local key = AttachmentKey(header.sender, header.subject, attachmentIndex, attachment.itemID)
+                    if capture then
+                        table.insert(capture, key)
+                    elseif remaining then
+                        if (remaining[key] or 0) > 0 then
+                            remaining[key] = remaining[key] - 1
+                        else
+                            attachment = nil      -- not one the player selected
+                        end
+                    end
+                end
                 if attachment then
                     attachment.sourceAttachmentIndex = attachmentIndex
                     table.insert(attachments, attachment)
@@ -242,6 +289,10 @@ function InboxScanner:Scan()
                 end
             end
         end
+    end
+    if capture then
+        selection.capturedAttachments = capture
+        selection.selectedMailIndices = nil
     end
     for _, previous in ipairs(previousItems or {}) do
         if previous.__shatterSeen then

@@ -602,4 +602,50 @@ H.check(keptBucket and keptBucket.status == "kept" and (keptBucket.materialsGene
 H.eq(session.status, Shatter.Constants.MAIL_STATE.COMPLETE, "KEEP: the session completes (no return to self)")
 H.eq(Shatter.MailSession:HasUnresolvedWork(), false, "nothing unresolved")
 
+
+-- 32. Postal "Selected mails" survives inbox shifts: the selection is
+-- captured at session start, not kept as inbox indices.
+local function installPostal(checkedRows)
+    WoW.addons.Postal = { loaded = true }
+    for row = 1, 7 do
+        local cb = CreateFrame("CheckButton")
+        cb:Show()
+        cb:SetChecked(checkedRows[row] or false)
+        rawset(_G, "PostalInboxCB" .. row, cb)
+    end
+end
+local function removePostal()
+    for row = 1, 7 do rawset(_G, "PostalInboxCB" .. row, nil) end
+end
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.AddItem(BLADE, { name = "Blue Blade", quality = 3, itemLevel = 40, classID = 2, subclassID = 7, equipLoc = "INVTYPE_WEAPON" })
+WoW.AddItem(BOOTS, { name = "Green Boots", quality = 2, itemLevel = 25, classID = 4, subclassID = 2, equipLoc = "INVTYPE_FEET" })
+WoW.inbox = {
+    { sender = "Other Person", subject = "hi", items = { [1] = { itemID = BOOTS } } },
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } },
+    { sender = "Beta Jones", subject = "more", items = { [1] = { itemID = BLADE } } },
+}
+WoW.loadAddon()
+WoW.flushTimers()
+installPostal({ [2] = true })                       -- only Alpha's mail is checked
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+H.eq(Shatter.MailMode:StartNewSessionFromLaunchPanel(), true, "a Postal-selected session starts")
+local function rowItems()
+    local ids = {}
+    for _, r in ipairs(inputs(Shatter.MailSession:Get())) do ids[#ids + 1] = r.itemID end
+    table.sort(ids)
+    return table.concat(ids, ",")
+end
+H.eq(rowItems(), tostring(VEST), "only the checked mail's vest is listed")
+table.remove(WoW.inbox, 1)                          -- mail 1 goes: Alpha is now 1, Beta is 2
+Shatter.MailMode:ScanInbox("TEST")
+H.eq(rowItems(), tostring(VEST), "after the inbox shifted, still only the vest (not Beta's blade at index 2)")
+removePostal()
+
 H.done("test_mail")
