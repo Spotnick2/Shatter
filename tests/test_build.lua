@@ -9,7 +9,7 @@ dofile("tests/wow_stubs.lua")
 
 -- This literal is the point: it must be edited by hand together with the
 -- constant after re-measuring a new client build (porting guide, section 0).
-local MEASURED = "1.60.1.70291"
+local MEASURED = "1.60.1.70334"
 
 WoW.enchanter()
 WoW.loadAddon()
@@ -78,7 +78,7 @@ for run = 1, 3 do
     saved = ShatterDB
     H.eq(#saved.loadStamps, run, "load " .. run .. ": " .. run .. " stamp(s)")
 end
-H.eq(saved.loadStamps[3].build, "1.60.1." .. "70291", "each stamp records the build")
+H.eq(saved.loadStamps[3].build, "1.60.1." .. "70334", "each stamp records the build")
 
 -- A fresh table (SavedVariables not read back) starts again at one.
 WoW.reset()

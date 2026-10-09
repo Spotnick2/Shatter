@@ -5,7 +5,7 @@
 -- Every such call goes through Shatter.API; nothing here is written to _G
 -- (an addon-owned global changes capability detection for every other addon).
 --
--- Shapes, from the 1.60.1.70291 dump (C:\Projects\References):
+-- Shapes, from the 1.60.1.70334 dump (C:\Projects\References):
 --   C_Item.GetItemInfo         Classic 18-value tuple; returns NOTHING on a cache miss
 --   C_Item.GetItemInfoInstant  Classic 7-value tuple; no cache needed
 --   C_Container.GetContainerItemInfo   a STRUCT (itemID, hyperlink, stackCount,
