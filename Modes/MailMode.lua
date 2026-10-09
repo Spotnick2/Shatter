@@ -327,35 +327,60 @@ function MailMode:ActivateFromMailbox()
     end
 end
 
+-- Checks the launch panel's choices before a session starts or continues
+-- with them. `checkSelection` is false when the mail selection is not being
+-- changed. Returns true plus the Postal selection (in that mode), or false
+-- plus what is missing.
+function MailMode:CheckLaunchOptions(options, checkSelection)
+    local modes = Shatter.Constants.MAIL_SELECTION_MODE
+    local selectedMailIndices
+    if checkSelection then
+        if options.selectionMode == modes.SENDER then
+            if not options.sender or options.sender == "" then
+                return false, "Select a sender for Mail from filter."
+            end
+            if #(self.launchSenders or {}) == 0 then
+                return false, "No mailbox senders were detected for Mail from filter."
+            end
+        elseif options.selectionMode == modes.POSTAL_SELECTED then
+            selectedMailIndices = self:GetPostalSelectedMailIndices()
+            if CountEntries(selectedMailIndices) == 0 then
+                return false, "No Postal selected mails on the current inbox page."
+            end
+        end
+    end
+    if options.recipientMode == Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL
+        and (not options.funnelRecipient or options.funnelRecipient == "") then
+        return false, "Set a funnel recipient first."
+    end
+    return true, selectedMailIndices
+end
+
+local function LogSelection(selectionMode, sender, selectedMailIndices)
+    local modes = Shatter.Constants.MAIL_SELECTION_MODE
+    if selectionMode == modes.SENDER then
+        Shatter.MailSession:Log("info", "Mail selection: sender '%s'.", tostring(sender))
+    elseif selectionMode == modes.POSTAL_SELECTED then
+        Shatter.MailSession:Log("info", "Mail selection: %d Postal-selected mail(s) on current page.", CountEntries(selectedMailIndices))
+    else
+        Shatter.MailSession:Log("info", "Mail selection: all mail.")
+    end
+end
+
 function MailMode:StartNewSessionFromLaunchPanel()
     if not IsMailboxOpen() then
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end
         return false
     end
     local options = self.launchOptions or {}
-    local selectionMode = options.selectionMode or (Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.ALL) or "ALL"
+    local selectionMode = options.selectionMode or Shatter.Constants.MAIL_SELECTION_MODE.ALL
     local sender = options.sender
-    local selectedMailIndices = nil
-    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") and (not sender or sender == "") then
-        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("Select a sender for Mail from filter.", true, 3) end
+    local ok, result = self:CheckLaunchOptions(options, true)
+    if not ok then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(result, true, 4) end
         return false
     end
-    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") and #(self.launchSenders or {}) == 0 then
-        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("No mailbox senders were detected for Mail from filter.", true, 4) end
-        return false
-    end
-    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED) or "POSTAL_SELECTED") then
-        selectedMailIndices = self:GetPostalSelectedMailIndices()
-        if CountEntries(selectedMailIndices) == 0 then
-            if Shatter.MainFrame then Shatter.MainFrame:SetStatus("No Postal selected mails on the current inbox page.", true, 4) end
-            return false
-        end
-    end
-    if options.recipientMode == ((Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE.FUNNEL) or "FUNNEL")
-        and (not options.funnelRecipient or options.funnelRecipient == "") then
-        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("Set a funnel recipient before starting this session.", true, 4) end
-        return false
-    end
+    local selectedMailIndices = result
 
     local session, why = Shatter.MailSession:StartNew()
     if not session then
@@ -369,13 +394,7 @@ function MailMode:StartNewSessionFromLaunchPanel()
     Shatter.MailSession:SetMailSelection(selectionMode, sender, selectedMailIndices)
     self.launchOptions.selectedMailIndices = CopyMap(selectedMailIndices)
     Shatter.MailSession:Log("info", "New mail session started from mailbox panel.")
-    if selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.SENDER) or "SENDER") then
-        Shatter.MailSession:Log("info", "Mail selection: sender '%s'.", tostring(sender))
-    elseif selectionMode == ((Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED) or "POSTAL_SELECTED") then
-        Shatter.MailSession:Log("info", "Mail selection: %d Postal-selected mail(s) on current page.", CountEntries(selectedMailIndices))
-    else
-        Shatter.MailSession:Log("info", "Mail selection: all mail.")
-    end
+    LogSelection(selectionMode, sender, selectedMailIndices)
     self:ScanInbox("SESSION_START")
     if Shatter.MainFrame then
         Shatter.MainFrame:Show()
@@ -385,10 +404,29 @@ function MailMode:StartNewSessionFromLaunchPanel()
     return true
 end
 
+-- Continues the active session with what the panel shows now: the panel was
+-- loaded from the session at MAIL_SHOW, so anything different is an edit the
+-- player made. The mail selection is re-read only if it changed (Postal's
+-- checked rows are indices, right only when just checked).
 function MailMode:ContinueSessionFromLaunchPanel()
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session or session.status == Shatter.Constants.MAIL_STATE.CLOSED then return false end
-    self:LoadLaunchOptionsFromSession()
+    local options = self.launchOptions or {}
+    local current = session.mailSelection or {}
+    local modes = Shatter.Constants.MAIL_SELECTION_MODE
+    local selectionMode = options.selectionMode or modes.ALL
+    local selectionChanged = selectionMode ~= (current.mode or modes.ALL)
+        or (selectionMode == modes.SENDER and options.sender ~= current.sender)
+    local ok, result = self:CheckLaunchOptions(options, selectionChanged)
+    if not ok then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(result, true, 4) end
+        return false
+    end
+    Shatter.MailSession:SetRecipientMode(options.recipientMode, options.funnelRecipient)
+    if selectionChanged then
+        Shatter.MailSession:SetMailSelection(selectionMode, options.sender, result)
+        LogSelection(selectionMode, options.sender, result)
+    end
     if IsMailboxOpen() then
         Shatter.MailSession:SetMailboxOpen(true)
     end

@@ -648,4 +648,23 @@ Shatter.MailMode:ScanInbox("TEST")
 H.eq(rowItems(), tostring(VEST), "after the inbox shifted, still only the vest (not Beta's blade at index 2)")
 removePostal()
 
+
+-- 33. Continue keeps what the player changed on the panel (recipient mode,
+-- funnel, mail filter) instead of reloading the session's old choices; an
+-- incomplete choice is refused and changes nothing.
+session = setup()
+local RM, SM = Shatter.Constants.MAIL_RECIPIENT_MODE, Shatter.Constants.MAIL_SELECTION_MODE
+Shatter.MailMode:SetLaunchRecipientMode(RM.FUNNEL)
+Shatter.MailMode:SetLaunchFunnelRecipient("")
+H.eq(Shatter.MailMode:ContinueSessionFromLaunchPanel(), false, "funnel without a recipient: Continue refused")
+H.eq(session.recipientMode, RM.ORIGINAL_SENDERS, "...and the session is unchanged")
+Shatter.MailMode:SetLaunchFunnelRecipient("Bank Alt")
+Shatter.MailMode:SetLaunchMailSelectionMode(SM.SENDER)
+Shatter.MailMode:SetLaunchSender("Alpha Smith")
+H.eq(Shatter.MailMode:ContinueSessionFromLaunchPanel(), true, "Continue with the edits")
+H.eq(session.recipientMode, RM.FUNNEL, "the recipient mode change is kept")
+H.eq(session.funnelRecipient, "Bank Alt", "the funnel recipient is kept")
+H.eq(session.mailSelection.mode, SM.SENDER, "the mail filter change is kept")
+H.eq(session.mailSelection.sender, "Alpha Smith", "with its sender")
+
 H.done("test_mail")
