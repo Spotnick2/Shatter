@@ -15,7 +15,9 @@ local WEAPON = C.ITEM_CLASS_WEAPON
 -- (tests/test_tables.lua checks both). The top brackets are open-ended up to
 -- TOP; Vanilla content ends at item level VANILLA_MAX_ITEM_LEVEL, so an item
 -- above it gets the top bracket's estimate marked uncertain. None of these
--- rates has been measured on Forever yet.
+-- rates has been measured on Forever yet. Expected amounts use the midpoint of
+-- each min-max range, an approximation: the real spread is not always uniform
+-- (an epic's 1-2 Nexus Crystals lean towards 2), so values read slightly low.
 local TOP = 1000
 Tables.VANILLA_MAX_ITEM_LEVEL = 92
 
@@ -29,9 +31,9 @@ local RULES = {
     { 2, ARMOR, 36, 40, 11137, 0.75, 1, 2 }, { 2, WEAPON, 36, 40, 11137, 0.20, 1, 2 },
     { 2, ARMOR, 41, 45, 11137, 0.75, 2, 5 }, { 2, WEAPON, 41, 45, 11137, 0.20, 2, 5 },
     { 2, ARMOR, 46, 50, 11176, 0.75, 1, 2 }, { 2, WEAPON, 46, 50, 11176, 0.20, 1, 2 },
-    { 2, ARMOR, 51, 55, 11176, 0.75, 2, 5 }, { 2, WEAPON, 51, 55, 11176, 0.22, 2, 5 },
-    { 2, ARMOR, 56, 60, 16204, 0.75, 1, 2 }, { 2, WEAPON, 56, 60, 16204, 0.22, 1, 2 },
-    { 2, ARMOR, 61, TOP, 16204, 0.75, 2, 5 }, { 2, WEAPON, 61, TOP, 16204, 0.22, 2, 5 },
+    { 2, ARMOR, 51, 55, 11176, 0.75, 2, 5 }, { 2, WEAPON, 51, 55, 11176, 0.20, 2, 5 },
+    { 2, ARMOR, 56, 60, 16204, 0.75, 1, 2 }, { 2, WEAPON, 56, 60, 16204, 0.20, 1, 2 },
+    { 2, ARMOR, 61, TOP, 16204, 0.75, 2, 5 }, { 2, WEAPON, 61, TOP, 16204, 0.20, 2, 5 },
 
     { 2, ARMOR, 5, 15, 10938, 0.20, 1, 2 }, { 2, WEAPON, 5, 15, 10938, 0.80, 1, 2 },
     { 2, ARMOR, 16, 20, 10939, 0.20, 1, 2 }, { 2, WEAPON, 16, 20, 10939, 0.75, 1, 2 },
@@ -45,14 +47,15 @@ local RULES = {
     { 2, ARMOR, 56, 60, 16203, 0.20, 1, 2 }, { 2, WEAPON, 56, 60, 16203, 0.75, 1, 2 },
     { 2, ARMOR, 61, TOP, 16203, 0.20, 2, 3 }, { 2, WEAPON, 61, TOP, 16203, 0.75, 2, 3 },
 
-    { 2, ARMOR, 16, 25, 10978, 0.07, 1, 1 }, { 2, WEAPON, 16, 25, 10978, 0.07, 1, 1 },
+    { 2, ARMOR, 16, 20, 10978, 0.05, 1, 1 }, { 2, WEAPON, 16, 20, 10978, 0.05, 1, 1 },
+    { 2, ARMOR, 21, 25, 10978, 0.10, 1, 1 }, { 2, WEAPON, 21, 25, 10978, 0.10, 1, 1 },
     { 2, ARMOR, 26, 30, 11084, 0.05, 1, 1 }, { 2, WEAPON, 26, 30, 11084, 0.05, 1, 1 },
     { 2, ARMOR, 31, 35, 11138, 0.05, 1, 1 }, { 2, WEAPON, 31, 35, 11138, 0.05, 1, 1 },
     { 2, ARMOR, 36, 40, 11139, 0.05, 1, 1 }, { 2, WEAPON, 36, 40, 11139, 0.05, 1, 1 },
     { 2, ARMOR, 41, 45, 11177, 0.05, 1, 1 }, { 2, WEAPON, 41, 45, 11177, 0.05, 1, 1 },
     { 2, ARMOR, 46, 50, 11178, 0.05, 1, 1 }, { 2, WEAPON, 46, 50, 11178, 0.05, 1, 1 },
-    { 2, ARMOR, 51, 55, 14343, 0.04, 1, 1 }, { 2, WEAPON, 51, 55, 14343, 0.03, 1, 1 },
-    { 2, ARMOR, 56, TOP, 14344, 0.04, 1, 1 }, { 2, WEAPON, 56, TOP, 14344, 0.03, 1, 1 },
+    { 2, ARMOR, 51, 55, 14343, 0.05, 1, 1 }, { 2, WEAPON, 51, 55, 14343, 0.05, 1, 1 },
+    { 2, ARMOR, 56, TOP, 14344, 0.05, 1, 1 }, { 2, WEAPON, 56, TOP, 14344, 0.05, 1, 1 },
 
     -- Rare: one shard; from 56 a small Nexus Crystal chance.
     { 3, nil, 1, 25, 10978, 1.00, 1, 1 }, { 3, nil, 26, 30, 11084, 1.00, 1, 1 },

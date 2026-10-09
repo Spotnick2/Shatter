@@ -13,6 +13,7 @@
 - The Shatter window no longer raises blocked-action errors in combat: opening, closing, moving and resizing wait until combat ends, and Escape does not close it during combat.
 - Expected materials now follow Vanilla disenchanting: Outland materials (Arcane Dust, Planar Essences, Prismatic Shards, Void Crystal) are gone, high-level greens show Illusion Dust and Greater Eternal Essence, blues Large Brilliant Shards, and epics Nexus Crystals. Items above Vanilla's item levels show "Expected Materials (unverified)".
 - `/shatter sim` produces Vanilla materials from the same rules.
+- Corrected uncommon shard chances (5% at 16-20, 10% at 21-25, 5% from 51) and weapon dust chances from 51.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
 
 ## TBC Anniversary history (before the fork)

@@ -86,6 +86,79 @@ H.check(m[20725] and m[20725].maxAmount == 1, "epic 56: one Nexus Crystal")
 m = materials(4, WEAPON, 92)
 H.check(m[20725] and m[20725].maxAmount == 2, "epic 92 (Naxxramas): Nexus Crystal 1-2, not Void Crystal")
 
+-- Outcome chances sum to 1 at every level (a missing or duplicated row
+-- shows up here even when some material is still present).
+local function total(quality, classID, ilvl)
+    local e = T:GetExpected(item(quality, classID, ilvl))
+    local sum = 0
+    for _, m in ipairs(e and e.materials or {}) do sum = sum + m.chance end
+    return sum
+end
+for ilvl = 5, 100 do
+    for _, cls in ipairs({ ARMOR, WEAPON }) do
+        local t = total(2, cls, ilvl)
+        H.check(math.abs(t - 1) < 0.011, string.format("uncommon %s ilvl %d: chances sum to 1 (got %.3f)", cls == ARMOR and "armor" or "weapon", ilvl, t))
+    end
+end
+for ilvl = 1, 100 do
+    H.check(math.abs(total(3, ARMOR, ilvl) - 1) < 0.001, "rare ilvl " .. ilvl .. ": chances sum to 1")
+end
+for ilvl = 40, 100 do
+    H.check(math.abs(total(4, WEAPON, ilvl) - 1) < 0.001, "epic ilvl " .. ilvl .. ": chances sum to 1")
+end
+
+-- Exact outcomes on both sides of every transition, written out
+-- independently of the rule table: { materialID, chance, min, max }.
+local EXPECT = {
+    -- uncommon armor
+    { 2, ARMOR, 15, { { 10940, 0.80, 1, 2 }, { 10938, 0.20, 1, 2 } } },
+    { 2, ARMOR, 16, { { 10940, 0.75, 2, 3 }, { 10939, 0.20, 1, 2 }, { 10978, 0.05, 1, 1 } } },
+    { 2, ARMOR, 20, { { 10940, 0.75, 2, 3 }, { 10939, 0.20, 1, 2 }, { 10978, 0.05, 1, 1 } } },
+    { 2, ARMOR, 21, { { 10940, 0.75, 4, 6 }, { 10998, 0.15, 1, 2 }, { 10978, 0.10, 1, 1 } } },
+    { 2, ARMOR, 50, { { 11176, 0.75, 1, 2 }, { 11175, 0.20, 1, 2 }, { 11178, 0.05, 1, 1 } } },
+    { 2, ARMOR, 51, { { 11176, 0.75, 2, 5 }, { 16202, 0.20, 1, 2 }, { 14343, 0.05, 1, 1 } } },
+    { 2, ARMOR, 55, { { 11176, 0.75, 2, 5 }, { 16202, 0.20, 1, 2 }, { 14343, 0.05, 1, 1 } } },
+    { 2, ARMOR, 56, { { 16204, 0.75, 1, 2 }, { 16203, 0.20, 1, 2 }, { 14344, 0.05, 1, 1 } } },
+    { 2, ARMOR, 60, { { 16204, 0.75, 1, 2 }, { 16203, 0.20, 1, 2 }, { 14344, 0.05, 1, 1 } } },
+    { 2, ARMOR, 61, { { 16204, 0.75, 2, 5 }, { 16203, 0.20, 2, 3 }, { 14344, 0.05, 1, 1 } } },
+    -- uncommon weapon
+    { 2, WEAPON, 15, { { 10940, 0.20, 1, 2 }, { 10938, 0.80, 1, 2 } } },
+    { 2, WEAPON, 16, { { 10940, 0.20, 2, 3 }, { 10939, 0.75, 1, 2 }, { 10978, 0.05, 1, 1 } } },
+    { 2, WEAPON, 21, { { 10940, 0.15, 4, 6 }, { 10998, 0.75, 1, 2 }, { 10978, 0.10, 1, 1 } } },
+    { 2, WEAPON, 51, { { 11176, 0.20, 2, 5 }, { 16202, 0.75, 1, 2 }, { 14343, 0.05, 1, 1 } } },
+    { 2, WEAPON, 56, { { 16204, 0.20, 1, 2 }, { 16203, 0.75, 1, 2 }, { 14344, 0.05, 1, 1 } } },
+    { 2, WEAPON, 61, { { 16204, 0.20, 2, 5 }, { 16203, 0.75, 2, 3 }, { 14344, 0.05, 1, 1 } } },
+    -- rare
+    { 3, ARMOR, 55, { { 14343, 1.00, 1, 1 } } },
+    { 3, ARMOR, 56, { { 14344, 0.995, 1, 1 }, { 20725, 0.005, 1, 1 } } },
+    { 3, WEAPON, 60, { { 14344, 0.995, 1, 1 }, { 20725, 0.005, 1, 1 } } },
+    { 3, WEAPON, 61, { { 14344, 0.99, 1, 1 }, { 20725, 0.01, 1, 1 } } },
+    -- epic
+    { 4, ARMOR, 40, { { 11177, 1.00, 2, 4 } } },
+    { 4, ARMOR, 45, { { 11177, 1.00, 2, 4 } } },
+    { 4, ARMOR, 46, { { 11178, 1.00, 2, 4 } } },
+    { 4, WEAPON, 50, { { 11178, 1.00, 2, 4 } } },
+    { 4, WEAPON, 51, { { 14343, 1.00, 2, 4 } } },
+    { 4, ARMOR, 55, { { 14343, 1.00, 2, 4 } } },
+    { 4, ARMOR, 56, { { 20725, 1.00, 1, 1 } } },
+    { 4, WEAPON, 60, { { 20725, 1.00, 1, 1 } } },
+    { 4, WEAPON, 61, { { 20725, 1.00, 1, 2 } } },
+    { 4, ARMOR, 92, { { 20725, 1.00, 1, 2 } } },
+}
+for _, case in ipairs(EXPECT) do
+    local quality, cls, ilvl, outcomes = case[1], case[2], case[3], case[4]
+    local got = materials(quality, cls, ilvl)
+    local label = string.format("q%d %s ilvl %d", quality, cls == ARMOR and "armor" or "weapon", ilvl)
+    local n = 0
+    for _ in pairs(got) do n = n + 1 end
+    H.eq(n, #outcomes, label .. ": number of outcomes")
+    for _, o in ipairs(outcomes) do
+        local m = got[o[1]]
+        H.check(m and math.abs(m.chance - o[2]) < 1e-9 and m.minAmount == o[3] and m.maxAmount == o[4],
+            string.format("%s: material %d at %.3f, %d-%d", label, o[1], o[2], o[3], o[4]))
+    end
+end
+
 -- Uncertainty: above Vanilla's top item level the estimate is flagged.
 local _, e = materials(4, ARMOR, 92)
 H.eq(e.uncertain, false, "ilvl 92 is Vanilla: not flagged")
@@ -117,6 +190,16 @@ Shatter.MainFrame:Show()
 WoW.click(Shatter.MainFrame.primary, "LeftButton")
 WoW.flushTimers()
 H.check(recorded and recorded[20725] == 1, "simulated epic 83: a Nexus Crystal (TBC sim gave a Void Crystal)")
+
+-- A weapon simulates its most likely material (essence), and an item with
+-- no rule simulates an empty result rather than inventing one.
+local simulate = Shatter.Disenchant._GetSimulatedResult
+H.eq(type(simulate), "function", "simulation hook exposed for tests")
+local r = simulate(item(2, WEAPON, 58))
+H.check(r[16203] == 1 and r[16204] == nil, "uncommon weapon 58: Greater Eternal Essence (essence-heavy)")
+r = simulate(item(2, ARMOR, 58))
+H.check(r[16204] == 1 and r[16203] == nil, "uncommon armor 58: Illusion Dust (dust-heavy)")
+H.eq(next(simulate(item(4, ARMOR, 30))), nil, "no rule: empty simulated result")
 H.eq(#WoW.actions, 0, "simulation touched nothing")
 
 H.done("test_tables")

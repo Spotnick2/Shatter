@@ -80,6 +80,7 @@ local function GetSimulatedResult(item)
     end
     return result
 end
+Disenchant._GetSimulatedResult = GetSimulatedResult
 
 local function HasInventorySpace()
     for bag = 0, NUM_BAG_SLOTS do

@@ -48,11 +48,11 @@ Debug logging reports meaningful state changes. `/shatter trace` enables verbose
 
 Solo Mode is the only implemented mode. Mail and Raid / Trade tabs are disabled placeholders for later phases.
 
-The real `Shatter Next` path uses a guided secure macro button for one player click against the selected bag slot. Additional in-game API validation is still needed before treating real disenchant result tracking as final.
+The real `Shatter Next` path is a secure button: one left click casts Disenchant (by spell ID) on the selected bag slot. Blizzard's secure handler targets the slot only while Disenchant is waiting for an item, so a cast that fails to start never uses the item. In-game validation on Forever is still needed before treating real disenchant result tracking as final.
 
 ## Phase 2 Notes
 
-Expected materials use built-in Shatter tables for Classic/TBC disenchant outcomes. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
+Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); they are not yet measured on Forever. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
 
 Value filtering is opt-in from Settings. If no pricing source is available, Shatter keeps otherwise eligible items in the queue instead of hiding them.
 
@@ -61,10 +61,10 @@ Value filtering is opt-in from Settings. If no pricing source is available, Shat
 Manual install target:
 
 ```text
-C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns\Shatter\
+C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\Shatter\
 ```
 
-After installing or updating, run:
+From a checkout, `pwsh Tools/deploy.ps1` copies exactly the files the TOC loads there. A brand-new addon folder needs a full client restart once; after that, run:
 
 ```text
 /reload
@@ -72,5 +72,5 @@ After installing or updating, run:
 
 ## Supported Version
 
-- World of Warcraft: TBC Anniversary
-- Interface: `20505`
+- World of Warcraft: Forever (client 1.60.1)
+- Interface: `16001`

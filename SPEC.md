@@ -1,5 +1,12 @@
 # Shatter Product And Technical Specification
 
+> **Forever edition note.** This specification was written for the TBC Anniversary addon and is
+> kept for its product design (modes, workflows, constraints). Where it names TBC content
+> (Outland materials such as Arcane Dust, Interface 20505, the `/cast` + `/use` macro), the
+> Forever build differs: Vanilla content, Interface 16001, a `type=spell` secure button. AGENTS.md
+> and `docs/forever-api-notes.md` are authoritative for this repository; Phase 0 validation must be
+> re-run on Forever.
+
 ## 1. Executive Summary
 
 Shatter is a standalone disenchanting workflow addon for World of Warcraft TBC Classic / Anniversary. It gives enchanters a compact queue UI for finding disenchantable items, showing expected materials when available, guiding one disenchant action at a time, and tracking actual material output.
