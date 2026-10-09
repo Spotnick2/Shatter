@@ -187,7 +187,7 @@ local function UpdateGenerated(detail)
         local entry = list[i]
         if entry then
             slot:Show()
-            local name, link, _, _, _, _, _, _, _, texture = GetItemInfo(entry.itemID)
+            local name, link, _, _, _, _, _, _, _, texture = Shatter.API.GetItemInfo(entry.itemID)
             slot.itemLink = link
             slot.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
             slot.count:SetText(tostring(entry.count))
@@ -245,12 +245,12 @@ local function UpdateDetailSections(detail, selected)
             if entry then
                 row.frame:Show()
                 row.chance:SetText(FormatChance(entry.chance))
-                local name, link = GetItemInfo(entry.itemID)
+                local name, link = Shatter.API.GetItemInfo(entry.itemID)
                 row.name:SetText(StripColorCodes(link or name or ("item:" .. tostring(entry.itemID))))
-                local r, g, b = Shatter.GetQualityColor(select(3, GetItemInfo(entry.itemID)))
+                local r, g, b = Shatter.GetQualityColor(select(3, Shatter.API.GetItemInfo(entry.itemID)))
                 row.name:SetTextColor(r, g, b, 1)
                 row.meta:SetText(string.format("%s   Range: %s", FormatExpectedQuantity(entry.expectedAmount), FormatRange(entry.minAmount, entry.maxAmount)))
-                local _, _, _, _, _, _, _, _, _, texture = GetItemInfo(entry.itemID)
+                local _, _, _, _, _, _, _, _, _, texture = Shatter.API.GetItemInfo(entry.itemID)
                 row.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
             else
                 row.frame:Hide()
@@ -476,9 +476,8 @@ function MainFrame:Create()
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:SetMovable(true)
-    if frame.SetResizable then frame:SetResizable(true) end
-    if frame.SetMinResize then frame:SetMinResize(MIN_W, MIN_H) end
-    if frame.SetMaxResize then frame:SetMaxResize(MAX_W, MAX_H) end
+    frame:SetResizable(true)
+    frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
     frame:EnableMouse(true)
     frame:Hide()
     Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_MAIN))

@@ -4,10 +4,11 @@ Shatter = Shatter or {}
 _G.Shatter = Shatter
 
 Shatter.ADDON_NAME = ADDON_NAME
-Shatter.VERSION = GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version") or "dev"
+Shatter.VERSION = Shatter.API.GetAddOnVersion(ADDON_NAME)
 Shatter.modules = Shatter.modules or {}
 Shatter.isReady = false
 Shatter.disabledNoEnchanting = false
+Shatter.isActive = false
 
 local PREFIX = "|cffffd200Shatter|r"
 
@@ -31,36 +32,22 @@ local function SafeCall(label, fn, ...)
     return ok
 end
 
-local function HasEnchantingProfession()
-    if Shatter.ItemScanner and Shatter.ItemScanner.HasDisenchantSpell and Shatter.ItemScanner:HasDisenchantSpell() then
-        return true
-    end
-
-    if not GetProfessions or not GetProfessionInfo then
-        return false
-    end
-    local enchantingName = GetSpellInfo and GetSpellInfo(7411) or "Enchanting"
-    local first, second = GetProfessions()
-    local professionIndexes = { first, second }
-    for _, index in ipairs(professionIndexes) do
-        if index then
-            local name, _, _, _, _, _, skillLine = GetProfessionInfo(index)
-            if skillLine == 333 or (enchantingName and name == enchantingName) then
-                return true
-            end
-        end
-    end
-    return false
+-- The gate is the Disenchant spell itself (C_SpellBook, via Shatter.API).
+-- GetProfessions exists on this client but returns nothing, and the Classic
+-- spellbook globals are gone, so neither is consulted.
+local function HasDisenchant()
+    local ok, known = pcall(Shatter.API.IsSpellKnown, Shatter.Constants.SPELL_DISENCHANT)
+    return ok and known == true
 end
 
-function Shatter.Initialize()
-    if not HasEnchantingProfession() then
-        Shatter.disabledNoEnchanting = true
-        Shatter.isReady = true
-        return
-    end
+-- Module setup runs exactly once per session: Events:Register appends
+-- handlers and Session:Initialize resets the active session, so a second run
+-- would double every handler.
+local modulesInitialized = false
 
-    Shatter.disabledNoEnchanting = false
+local function InitializeModules()
+    if modulesInitialized then return end
+    modulesInitialized = true
     if Shatter.Database then SafeCall("Database", Shatter.Database.Initialize, Shatter.Database) end
     if Shatter.Debug then SafeCall("Debug", Shatter.Debug.Initialize, Shatter.Debug) end
     if Shatter.Events then SafeCall("Events", Shatter.Events.Initialize, Shatter.Events) end
@@ -77,8 +64,50 @@ function Shatter.Initialize()
     if Shatter.SoloMode then SafeCall("SoloMode", Shatter.SoloMode.Initialize, Shatter.SoloMode) end
     if Shatter.MailMode then SafeCall("MailMode", Shatter.MailMode.Initialize, Shatter.MailMode) end
     if Shatter.RaidMode then SafeCall("RaidMode", Shatter.RaidMode.Initialize, Shatter.RaidMode) end
+end
 
+-- Hides the UI after Enchanting is unlearned. Data stays; module handlers stay
+-- registered but every user-facing path checks Shatter.isActive. In combat
+-- the main frame is protected (it parents the secure button), so the hide
+-- waits for PLAYER_REGEN_ENABLED.
+local function Deactivate()
+    if Shatter.MainFrame and Shatter.MainFrame.frame then
+        if InCombatLockdown() then
+            Shatter.pendingDeactivateHide = true
+        else
+            SafeCall("MainFrame", Shatter.MainFrame.frame.Hide, Shatter.MainFrame.frame)
+        end
+    end
+    if Shatter.MailLaunchPanel and Shatter.MailLaunchPanel.HideForMailboxClose then
+        SafeCall("MailLaunchPanel", Shatter.MailLaunchPanel.HideForMailboxClose, Shatter.MailLaunchPanel)
+    end
+end
+
+-- Called at PLAYER_LOGIN and again on SPELLS_CHANGED / SKILL_LINES_CHANGED,
+-- so a character who learns (or unlearns) Enchanting mid-session follows
+-- without a reload. A spellbook that is not ready yet at login answers
+-- "unknown" here; SPELLS_CHANGED arrives once it is and settles it.
+function Shatter.EvaluateCapability()
+    local known = HasDisenchant()
+    if known then
+        local wasActive = Shatter.isActive
+        Shatter.disabledNoEnchanting = false
+        Shatter.isActive = true
+        InitializeModules()
+        if not wasActive and Shatter.isReady and Shatter.MainFrame and Shatter.MainFrame.Update then
+            SafeCall("MainFrame", Shatter.MainFrame.Update, Shatter.MainFrame)
+        end
+    else
+        local wasActive = Shatter.isActive
+        Shatter.disabledNoEnchanting = true
+        Shatter.isActive = false
+        if wasActive then Deactivate() end
+    end
     Shatter.isReady = true
+end
+
+function Shatter.Initialize()
+    Shatter.EvaluateCapability()
 end
 
 function Shatter.Toggle()
@@ -170,10 +199,26 @@ SlashCmdList.SHATTER = function(message)
     Shatter.Toggle()
 end
 
+-- The bootstrap frame lives outside the gate, so capability changes reach a
+-- character that logged in without Enchanting.
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("SPELLS_CHANGED")
+frame:RegisterEvent("SKILL_LINES_CHANGED")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+local loggedIn = false
 frame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_LOGIN" then
+        loggedIn = true
         Shatter.Initialize()
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if Shatter.pendingDeactivateHide then
+            Shatter.pendingDeactivateHide = nil
+            if not Shatter.isActive and Shatter.MainFrame and Shatter.MainFrame.frame then
+                SafeCall("MainFrame", Shatter.MainFrame.frame.Hide, Shatter.MainFrame.frame)
+            end
+        end
+    elseif loggedIn then
+        Shatter.EvaluateCapability()
     end
 end)

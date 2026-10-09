@@ -6,6 +6,7 @@
 ## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
 ## SavedVariables: ShatterDB
 
+Compat.lua
 Core.lua
 Constants.lua
 Theme.lua

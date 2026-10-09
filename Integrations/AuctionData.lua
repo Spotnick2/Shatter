@@ -9,7 +9,7 @@ local function ItemString(itemID)
 end
 
 local function ItemLink(itemID)
-    local _, link = GetItemInfo(itemID)
+    local _, link = Shatter.API.GetItemInfo(itemID)
     return link or ("item:" .. tostring(itemID))
 end
 

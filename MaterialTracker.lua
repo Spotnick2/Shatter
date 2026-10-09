@@ -1,5 +1,7 @@
 local _, Shatter = ...
 
+local API = Shatter.API
+
 local MaterialTracker = {}
 Shatter.MaterialTracker = MaterialTracker
 Shatter.RegisterModule("MaterialTracker", MaterialTracker)
@@ -16,13 +18,7 @@ end
 function MaterialTracker:GetItemCount(itemID)
     itemID = tonumber(itemID)
     if not itemID then return 0 end
-    if C_Item and C_Item.GetItemCount then
-        return C_Item.GetItemCount(itemID, false, false, false) or 0
-    end
-    if GetItemCount then
-        return GetItemCount(itemID, false) or 0
-    end
-    return 0
+    return API.GetItemCount(itemID)
 end
 
 function MaterialTracker:Snapshot()
@@ -75,7 +71,7 @@ function MaterialTracker:Format(result)
     end
     local parts = {}
     for itemID, count in pairs(result) do
-        local name, link = GetItemInfo(itemID)
+        local name, link = API.GetItemInfo(itemID)
         table.insert(parts, string.format("%sx%d", link or name or tostring(itemID), count))
     end
     table.sort(parts)

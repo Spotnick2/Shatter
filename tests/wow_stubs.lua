@@ -420,7 +420,7 @@ end
 
 -- One mouse edge. Returns true when the secure action ran.
 function WoW.clickEdge(w, button, down)
-    if not w.shown or not w.enabled then return false end
+    if not w:IsVisible() or not w.enabled then return false end
     if not registeredFor(w, button, down) then return false end
     if w.scripts.PreClick then w.scripts.PreClick(w, button, down) end
     local useOnKeyDown = w.attrs.useOnKeyDown

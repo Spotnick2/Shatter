@@ -63,45 +63,22 @@ local function CopyMap(source)
     return next(copy) and copy or nil
 end
 
+local API = Shatter.API
+
 local function IsAddOnLoadedSafe(name)
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, name)
-        if ok and loaded then return true end
-    end
-    if IsAddOnLoaded then
-        local ok, loaded = pcall(IsAddOnLoaded, name)
-        if ok and loaded then return true end
-    end
-    return false
+    local ok, loaded = pcall(API.IsAddOnLoaded, name)
+    return ok and loaded and true or false
 end
 
 local function IsAddOnInstalledSafe(name)
-    if C_AddOns and C_AddOns.GetAddOnInfo then
-        local ok, addonName = pcall(C_AddOns.GetAddOnInfo, name)
-        if ok and addonName and addonName ~= "" then
-            return true
-        end
-    end
-    if GetAddOnInfo then
-        local ok, addonName = pcall(GetAddOnInfo, name)
-        if ok and addonName and addonName ~= "" and addonName ~= "MISSING" then
-            return true
-        end
-    end
-    return false
+    local ok, addonName = pcall(API.GetAddOnInfo, name)
+    return ok and addonName ~= nil and addonName ~= "" and addonName ~= "MISSING"
 end
 
 local function TryLoadAddOnSafe(name)
     if IsAddOnLoadedSafe(name) then return true end
-    if C_AddOns and C_AddOns.LoadAddOn then
-        local ok, loaded = pcall(C_AddOns.LoadAddOn, name)
-        return ok and loaded and true or false
-    end
-    if LoadAddOn then
-        local ok, loaded = pcall(LoadAddOn, name)
-        return ok and loaded and true or false
-    end
-    return false
+    local ok, loaded = pcall(API.LoadAddOn, name)
+    return ok and loaded and true or false
 end
 
 function MailMode:Initialize()
@@ -270,6 +247,7 @@ function MailMode:GetLaunchContext()
 end
 
 function MailMode:OnEvent(event, ...)
+    if not Shatter.isActive then return end
     if event == "MAIL_SHOW" then
         self:ActivateFromMailbox()
     elseif event == "MAIL_CLOSED" then

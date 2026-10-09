@@ -12,7 +12,7 @@ Shatter.RegisterModule("Disenchant", Disenchant)
 
 local function SpellMatches(...)
     local spellID = Shatter.Constants.SPELL_DISENCHANT
-    local spellName = GetSpellInfo and GetSpellInfo(spellID)
+    local spellName = Shatter.API.GetSpellName(spellID)
     for i = 1, select("#", ...) do
         local value = select(i, ...)
         if value == spellID or (spellName and value == spellName) then
@@ -65,11 +65,7 @@ end
 local function HasInventorySpace()
     for bag = 0, NUM_BAG_SLOTS do
         local free, bagType
-        if C_Container and C_Container.GetContainerNumFreeSlots then
-            free, bagType = C_Container.GetContainerNumFreeSlots(bag)
-        elseif GetContainerNumFreeSlots then
-            free, bagType = GetContainerNumFreeSlots(bag)
-        end
+        free, bagType = Shatter.API.GetContainerNumFreeSlots(bag)
         if (bagType or 0) == 0 and (free or 0) > 0 then
             return true
         end
@@ -158,7 +154,7 @@ end
 function Disenchant:BeginSecureClick(button)
     local item = Shatter.Queue and Shatter.Queue:GetSelected()
     self:Trace("Shatter Next clicked")
-    if not button or not item then
+    if not button or not item or not Shatter.isActive or not Shatter.Events:IsHealthy() then
         ClearButtonAction(button)
         return
     end
@@ -185,7 +181,7 @@ function Disenchant:BeginSecureClick(button)
         return
     end
 
-    local spellName = GetSpellInfo and GetSpellInfo(Shatter.Constants.SPELL_DISENCHANT) or "Disenchant"
+    local spellName = Shatter.API.GetSpellName(Shatter.Constants.SPELL_DISENCHANT) or "Disenchant"
     local macro = string.format("/cast %s;\n/use %d %d", spellName, current.bag, current.slot)
 
     button:SetAttribute("*type1", "macro")

@@ -3,6 +3,10 @@
 ## Forever port (unreleased)
 
 - Shatter now targets World of Warcraft: Forever (Interface 16001). This repository was forked with full history from the TBC Anniversary addon at `Spotnick2/Shatter@25886ea`; the TBC entries below are that addon's history.
+- Ported item, spell, container and addon calls to the Forever (Retail) APIs through a `Shatter.API` adapter; the bag scan no longer errors on the removed `GetItemInfo`.
+- The Enchanting gate now asks the spellbook for Disenchant directly, so real enchanters are no longer switched off; learning or unlearning Enchanting mid-session takes effect without a reload.
+- Soulbound detection reads the container's bound flag instead of scanning (localized) tooltip text.
+- Events the client refuses are reported in chat; if one Shatter needs to track a disenchant result is missing, Shatter Next stays disabled.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
 
 ## TBC Anniversary history (before the fork)

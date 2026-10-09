@@ -125,7 +125,7 @@ function Tables:FormatEstimate(estimate)
     end
     local lines = { "Expected materials:" }
     for _, entry in ipairs(estimate.materials) do
-        local name, link = GetItemInfo(entry.itemID)
+        local name, link = Shatter.API.GetItemInfo(entry.itemID)
         local label = link or name or ("item:" .. tostring(entry.itemID))
         local chance = math.floor((entry.chance or 0) * 100 + 0.5)
         table.insert(lines, string.format("%s x%.2f (%d%%, %d-%d)", label, entry.expectedAmount or 0, chance, entry.minAmount or 1, entry.maxAmount or 1))

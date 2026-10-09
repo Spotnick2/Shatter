@@ -179,7 +179,7 @@ function Session:GetSummaryLines()
 
     if Shatter.MaterialTracker and not Shatter.MaterialTracker:IsEmpty(session.summary.materialsGenerated) then
         for itemID, count in pairs(session.summary.materialsGenerated) do
-            local name, link = GetItemInfo(itemID)
+            local name, link = Shatter.API.GetItemInfo(itemID)
             table.insert(lines, string.format("  %s x%d", link or name or tostring(itemID), count))
         end
     else

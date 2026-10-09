@@ -37,7 +37,7 @@ local function ReadAttachment(mailIndex, attachmentIndex)
     end
     local link = GetInboxItemLink and GetInboxItemLink(mailIndex, attachmentIndex)
     if link and (not itemID or not name) then
-        local infoName, _, infoQuality, _, _, _, _, _, _, infoTexture = GetItemInfo(link)
+        local infoName, _, infoQuality, _, _, _, _, _, _, infoTexture = Shatter.API.GetItemInfo(link)
         itemID = itemID or tonumber(string.match(link, "item:(%d+)"))
         name = name or infoName
         quality = quality or infoQuality
@@ -45,7 +45,7 @@ local function ReadAttachment(mailIndex, attachmentIndex)
     end
     if not itemID and not link and not name then return nil end
 
-    local infoName, itemLink, infoQuality, itemLevel, _, className, subclassName, _, equipLoc, itemTexture, _, classID, subclassID = GetItemInfo(link or itemID)
+    local infoName, itemLink, infoQuality, itemLevel, _, className, subclassName, _, equipLoc, itemTexture, _, classID, subclassID = Shatter.API.GetItemInfo(link or itemID)
     local item = {
         attachmentIndex = attachmentIndex,
         itemID = itemID,

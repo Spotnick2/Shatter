@@ -4,16 +4,9 @@ local AttachmentQueue = {}
 Shatter.AttachmentQueue = AttachmentQueue
 Shatter.RegisterModule("AttachmentQueue", AttachmentQueue)
 
-local function GetContainerNumSlotsSafe(bag)
-    if C_Container and C_Container.GetContainerNumSlots then return C_Container.GetContainerNumSlots(bag) or 0 end
-    if GetContainerNumSlots then return GetContainerNumSlots(bag) or 0 end
-    return 0
-end
-
-local function GetContainerItemIDSafe(bag, slot)
-    if C_Container and C_Container.GetContainerItemID then return C_Container.GetContainerItemID(bag, slot) end
-    if GetContainerItemID then return GetContainerItemID(bag, slot) end
-end
+local API = Shatter.API
+local GetContainerNumSlotsSafe = API.GetContainerNumSlots
+local GetContainerItemIDSafe = API.GetContainerItemID
 
 local function SnapshotItemCounts()
     local counts = {}
