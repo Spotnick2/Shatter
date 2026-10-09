@@ -21,7 +21,7 @@ function ReturnQueue:GetRecipientForSender(session, sender)
 end
 
 function ReturnQueue:AddResult(sourceSender, result)
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return end
     session.outputRecipients = type(session.outputRecipients) == "table" and session.outputRecipients or {}
     local recipient = self:GetRecipientForSender(session, sourceSender)

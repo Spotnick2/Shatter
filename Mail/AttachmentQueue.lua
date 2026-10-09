@@ -116,7 +116,7 @@ function AttachmentQueue:GetNext()
 end
 
 function AttachmentQueue:TakeNext()
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if session then session.mailboxOpen = IsMailboxOpen() end
     if not session or not session.mailboxOpen then
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.MAILBOX_REQUIRED, true, 3) end

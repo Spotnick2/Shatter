@@ -413,6 +413,10 @@ function MailMode:ScheduleScan(reason, delay)
 end
 
 function MailMode:ScanInbox(reason)
+    if not (Shatter.MailSession and Shatter.MailSession:Get()) then
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus("Start a mail session from the mailbox panel first.", true, 3) end
+        return
+    end
     if not IsMailboxOpen() then
         if Shatter.MailSession then
             local session = Shatter.MailSession:SetMailboxOpen(false)
@@ -476,14 +480,14 @@ function MailMode:SetRecipientMode(mode)
 end
 
 function MailMode:SetFunnelRecipient(name)
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return end
     session.funnelRecipient = name or ""
     if Shatter.MainFrame then Shatter.MainFrame:Update() end
 end
 
 function MailMode:PrepareDisenchantQueue()
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return end
     Shatter.MailSession:LocateReceived()
     local items = {}
@@ -546,7 +550,6 @@ function MailMode:HasReturnMaterials(session)
 end
 
 function MailMode:OnDisenchantResult(item, result)
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
     if input then
         input.disenchantStatus = "done"
@@ -558,7 +561,6 @@ function MailMode:OnDisenchantResult(item, result)
 end
 
 function MailMode:OnDisenchantFailed(item, reason)
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
     if input then
         input.disenchantStatus = "failed"
@@ -569,7 +571,6 @@ function MailMode:OnDisenchantFailed(item, reason)
 end
 
 function MailMode:SkipQueueItem(item)
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
     local input = item and item.sourceId and Shatter.MailSession and Shatter.MailSession:FindInputItem(item.sourceId)
     if input then
         input.disenchantStatus = "skipped"

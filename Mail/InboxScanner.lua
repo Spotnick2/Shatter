@@ -158,7 +158,7 @@ local function RefreshCarriedForwardSource(item, sourceMails)
 end
 
 function InboxScanner:Scan()
-    local session = Shatter.MailSession and Shatter.MailSession:Ensure()
+    local session = Shatter.MailSession and Shatter.MailSession:Get()
     if not session then return nil end
     session.status = Shatter.Constants.MAIL_STATE.SCANNING
     local previousItems = session.inputItems or {}

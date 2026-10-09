@@ -505,4 +505,25 @@ H.eq(table.concat(slotsSeen, ","), "0:2,0:3", "each row in its own slot")
 use = mailClick()
 H.check(use and use.bag == 0 and (use.slot == 2 or use.slot == 3), "Mail disenchants a received vest")
 
+
+-- 27. Nothing but Start New Session creates a mail session: not a send
+-- result, not logging, not the Scan Inbox button with no session.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.inbox = { { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } } }
+WoW.loadAddon()
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+H.eq(Shatter.MailSession:Get(), nil, "opening the mailbox creates no session")
+WoW.fire("MAIL_SEND_SUCCESS")
+Shatter.MailSession:Log("info", "anything")
+Shatter.MailSession:SetStatus(Shatter.Constants.MAIL_STATE.SELECTING)
+H.eq(Shatter.MailSession:Get(), nil, "a send result, a log line or a status creates no session")
+Shatter.MailMode:ScanInbox("BUTTON")
+WoW.flushTimers()
+H.eq(Shatter.MailSession:Get(), nil, "Scan Inbox without a session creates none")
+H.check(Shatter.MainFrame.status:GetText():find("Start a mail session", 1, true), "and says how to start one")
+
 H.done("test_mail")

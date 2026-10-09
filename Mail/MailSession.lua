@@ -99,21 +99,6 @@ function MailSession:StartNew()
     return bucket.activeMail
 end
 
-function MailSession:Ensure()
-    self:Initialize()
-    local db = Shatter.Database:Get()
-    local bucket = GetBucket(db, true)
-    if type(bucket.activeMail) ~= "table" or bucket.activeMail.status == Shatter.Constants.MAIL_STATE.CLOSED then
-        bucket.activeMail = NewSession()
-        table.insert(bucket.activeMail.sessionLog, {
-            timestamp = Now(),
-            level = "info",
-            message = "Mail session created.",
-        })
-    end
-    return bucket.activeMail
-end
-
 function MailSession:SetMailboxOpen(open)
     local session = self:Get()
     if not session then return nil end
@@ -127,15 +112,19 @@ function MailSession:SetMailboxOpen(open)
     return session
 end
 
+-- Nothing below creates a session: only StartNew (an explicit player
+-- choice on the mailbox panel) does. Without one they do nothing.
 function MailSession:SetStatus(status)
-    local session = self:Ensure()
+    local session = self:Get()
+    if not session then return nil end
     session.status = status or session.status
     session.updatedAt = Now()
     return session
 end
 
 function MailSession:Log(level, message, ...)
-    local session = self:Ensure()
+    local session = self:Get()
+    if not session then return end
     if select("#", ...) > 0 then
         message = string.format(message, ...)
     end
@@ -196,7 +185,8 @@ function MailSession:Close(force)
 end
 
 function MailSession:SetRecipientMode(mode, funnelRecipient)
-    local session = self:Ensure()
+    local session = self:Get()
+    if not session then return end
     local recipientModes = Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE or {}
     if mode ~= recipientModes.FUNNEL and mode ~= recipientModes.KEEP then
         mode = Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS
@@ -207,7 +197,8 @@ function MailSession:SetRecipientMode(mode, funnelRecipient)
 end
 
 function MailSession:SetMailSelection(mode, sender, selectedMailIndices)
-    local session = self:Ensure()
+    local session = self:Get()
+    if not session then return end
     local selectionModes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
     local normalized = mode
     if normalized ~= selectionModes.SENDER and normalized ~= selectionModes.POSTAL_SELECTED then
