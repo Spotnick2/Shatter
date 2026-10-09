@@ -440,14 +440,44 @@ H.eq(item.disenchantStatus, "waiting", "and waiting to be disenchanted again")
 use = mailClick()
 H.check(use and use.bag == 0 and use.slot == 7, "Mail targets it where it came back")
 
--- 25. A GUID lookup that fails for a moment is not "the item left".
-session = receiveVest()
+-- 25. A GUID lookup that fails for a moment is not "the item left", and
+-- while locations are unproven every copy of a received item is held back
+-- from Solo: one moved during the failure, and one returning from the bank.
+session = receiveVest({ bags = { { 1, 1, BOOTS } } })
 local workingGUID = C_Item.GetItemGUID
 C_Item.GetItemGUID = function() error("lookup failed") end
 WoW.fire("BAG_UPDATE_DELAYED")
 WoW.flushTimers()
 item = inputs(session)[1]
 H.check(item.bag == 0 and item.slot == 2 and item.status ~= "unresolved", "a failed lookup keeps the item held where it was")
+WoW.MoveBagItem(0, 2, 0, 9)                         -- moved while lookups fail
+WoW.fire("BAG_UPDATE_DELAYED")
+Shatter.MainFrame:SetActiveView("solo")
+Shatter.SoloMode:ScheduleScan("TEST", 0)
+WoW.flushTimers()
+H.eq(soloSlotsOf(BOOTS), "1:1", "Solo scanned the bags")
+H.eq(soloSlotsOf(VEST), "", "lookup failing: the moved vest is not offered to Solo")
+WoW.runTimers(3)
+WoW.actions = {}
+WoW.click(Shatter.MainFrame.primary, "LeftButton")
+local soloUse = WoW.actionsOf("use")[1]
+H.check(not (soloUse and soloUse.bag == 0 and soloUse.slot == 9), "a Solo click cannot destroy the sender's vest")
+C_Item.GetItemGUID = workingGUID
+-- Away, then back while lookups fail.
+session = receiveVest({ bags = { { 1, 1, BOOTS } } })
+local awayVest = WoW.bags[0][2]
+WoW.bags[0][2] = nil
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.flushTimers()
+H.eq(inputs(session)[1].status, "unresolved", "the vest is away")
+C_Item.GetItemGUID = function() error("lookup failed") end
+WoW.bags[0][6] = awayVest
+WoW.fire("BAG_UPDATE_DELAYED")
+Shatter.MainFrame:SetActiveView("solo")
+Shatter.SoloMode:ScheduleScan("TEST", 0)
+WoW.flushTimers()
+H.eq(soloSlotsOf(BOOTS), "1:1", "Solo scanned the bags")
+H.eq(soloSlotsOf(VEST), "", "lookup failing: a returning vest is not offered to Solo")
 C_Item.GetItemGUID = workingGUID
 
 -- 26. Two identical mails, take / rescan / take: the received row is never

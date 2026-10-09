@@ -256,18 +256,21 @@ end
 -- location: an item whose GUID left the bags (banked, traded) is marked
 -- away and still searched for, and is held again the moment it returns.
 -- Items received without a GUID keep their slot; callers refuse them.
+-- Returns true when every received item's location is proven this time;
+-- false when it could not look (a disenchant in flight, a slot gave no
+-- GUID), and the saved slots may be stale.
 function MailSession:LocateReceived()
     local session = self:Get()
-    if not session or not self:HasActiveSession() then return end
+    if not session or not self:HasActiveSession() then return true end
     -- A disenchant in flight consumes its item before the result is
     -- recorded; that is not the item leaving the bags.
-    if Shatter.Disenchant and Shatter.Disenchant.pending then return end
+    if Shatter.Disenchant and Shatter.Disenchant.pending then return false end
     local where
     for _, item in ipairs(session.inputItems or {}) do
         if item.itemGUID and item.status ~= "disenchanted" then
             if not where then
                 where = MapBagGUIDs()
-                if not where then return end
+                if not where then return false end
             end
             local found = where[item.itemGUID]
             if found then
@@ -291,22 +294,27 @@ function MailSession:LocateReceived()
             end
         end
     end
+    return true
 end
 
 -- What the Solo scan must leave out, so a sender's item can never be
 -- destroyed as if it were the player's own:
 --   slots   { ["bag:slot"] = itemID } for received items, located by GUID
---   itemIDs { [itemID] = true } for received items with no GUID: their slot
---           proves nothing after a move, so every copy is held back
+--   itemIDs { [itemID] = true } where a slot proves nothing, so every copy
+--           is held back: received items with no GUID, and, while their
+--           locations could not be proven, every received item (away too)
 function MailSession:GetReservedSlots()
     local reserved, reservedIDs = {}, {}
     local session = self:Get()
     if not session or not self:HasActiveSession() then return reserved, reservedIDs end
-    self:LocateReceived()
+    local proven = self:LocateReceived()
     for _, item in ipairs(session.inputItems or {}) do
         if IsHeld(item) then
             reserved[item.bag .. ":" .. item.slot] = item.itemID
             if not item.itemGUID then reservedIDs[item.itemID] = true end
+        end
+        if not proven and (item.received or item.bag) and item.status ~= "disenchanted" then
+            reservedIDs[item.itemID] = true
         end
     end
     return reserved, reservedIDs
