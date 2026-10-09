@@ -25,6 +25,41 @@ WoW.loadAddon()
 H.check(WoW.chat():find("This client is 1.60.1.70400; Shatter was measured on " .. MEASURED, 1, true),
     "a different build is announced at login")
 
+-- Activation that comes later still announces it, once: a spellbook not
+-- ready at login, then SPELLS_CHANGED (and more of them)...
+local function notices()
+    local n, from = 0, 1
+    local chat = WoW.chat()
+    while true do
+        local at = chat:find("Shatter was measured on", from, true)
+        if not at then return n end
+        n, from = n + 1, at + 1
+    end
+end
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.build = "70400"
+WoW.spellbookReady = false
+WoW.loadAddon()
+H.eq(notices(), 0, "spellbook not ready at login: no notice yet")
+WoW.spellbookReady = true
+WoW.fire("SPELLS_CHANGED")
+WoW.fire("SPELLS_CHANGED")
+H.eq(notices(), 1, "late spellbook: announced once on activation")
+
+-- ...and first activation deferred by combat (a reload in combat).
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.build = "70400"
+WoW.inCombat = true
+WoW.loadAddon()
+H.eq(notices(), 0, "activation waiting for combat: no notice yet")
+WoW.inCombat = false
+WoW.fire("PLAYER_REGEN_ENABLED")
+H.eq(notices(), 1, "combat-deferred activation: announced once when it completes")
+
 -- Non-enchanters stay quiet (no notice for an addon that does nothing there).
 WoW.reset()
 dofile("tests/wow_stubs.lua")

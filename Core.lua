@@ -97,6 +97,17 @@ local function Reactivate()
     if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("REACTIVATED", 0.1) end
 end
 
+-- One line when the client is not the build these notes and the adapter
+-- were measured on: something may have moved (porting guide, s0).
+local function CheckBuild()
+    local version, build = GetBuildInfo()
+    local current = tostring(version) .. "." .. tostring(build)
+    if current ~= Shatter.Constants.MEASURED_ON_BUILD then
+        Shatter.Print(string.format("|cffffaa00This client is %s; Shatter was measured on %s.|r Report anything odd.",
+            current, Shatter.Constants.MEASURED_ON_BUILD))
+    end
+end
+
 -- Called at PLAYER_LOGIN and again on SPELLS_CHANGED / SKILL_LINES_CHANGED,
 -- so a character who learns (or unlearns) Enchanting mid-session follows
 -- without a reload. A spellbook that is not ready yet at login answers
@@ -117,6 +128,9 @@ function Shatter.EvaluateCapability()
         Shatter.disabledNoEnchanting = false
         Shatter.isActive = true
         InitializeModules()
+        -- Once, on the first activation, wherever it happens (login, a late
+        -- spellbook, the end of combat); inactive characters stay quiet.
+        if firstTime then CheckBuild() end
         if not wasActive and not firstTime then
             Reactivate()
         end
@@ -132,20 +146,8 @@ function Shatter.EvaluateCapability()
     Shatter.isReady = true
 end
 
--- One line at login when the client is not the build these notes and the
--- adapter were measured on: something may have moved (porting guide, s0).
-local function CheckBuild()
-    local version, build = GetBuildInfo()
-    local current = tostring(version) .. "." .. tostring(build)
-    if current ~= Shatter.Constants.MEASURED_ON_BUILD then
-        Shatter.Print(string.format("|cffffaa00This client is %s; Shatter was measured on %s.|r Report anything odd.",
-            current, Shatter.Constants.MEASURED_ON_BUILD))
-    end
-end
-
 function Shatter.Initialize()
     Shatter.EvaluateCapability()
-    if Shatter.isActive then CheckBuild() end
 end
 
 function Shatter.Toggle()

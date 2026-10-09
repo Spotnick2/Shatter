@@ -18,7 +18,7 @@
 - A received mail item stays the sender's when you move or sort it: Shatter follows it by its item GUID, keeps it out of the Solo queue (also after a trip to the bank), and never disenchants a copy of your own that ends up in its old slot. Switching to Solo is no longer undone by a background inbox rescan.
 - Mail Mode reads all 16 attachment slots of a mail, and waits for item data the client has not cached yet instead of skipping those attachments.
 - Mail actions (taking attachments and disenchanting mail items) are off until the mail flow has been validated on Forever; `/shatter mailtest` enables them for the current session.
-- At login on a client build other than the one Shatter was measured on (1.60.1.70291), Shatter prints a one-line notice.
+- On a client build other than the one Shatter was measured on (1.60.1.70291), Shatter prints a one-line notice when it first activates (at login, or later if the spellbook loads late or login happened in combat).
 - Price lookups through other addons (Auctionator, Auctioneer, TSM) can no longer raise errors in Shatter; a failing lookup simply shows no price.
 - Dragging the minimap button now follows the cursor correctly when the minimap is scaled in Edit Mode.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.
