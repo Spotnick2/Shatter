@@ -245,7 +245,12 @@ SlashCmdList.SHATTER = function(message)
         return
     elseif message == "yields reset" then
         Shatter.Database:ResetYields()
-        Shatter.Rescan()
+        -- A Mail queue keeps its owner; a Solo scan would skip it.
+        if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and Shatter.MailMode then
+            Shatter.MailMode:PrepareDisenchantQueue()
+        else
+            Shatter.Rescan()
+        end
         Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
         return
     elseif message == "simreset" then
