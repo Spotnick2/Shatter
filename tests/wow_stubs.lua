@@ -51,6 +51,7 @@ function WoW.reset()
     WoW.inbox         = {}  -- list of { sender, subject, items = { [attachmentIndex] = { itemID, count } } }
     WoW.loot          = {}  -- list of { link, count, name }
     WoW.casting       = nil -- { name, startMs, endMs, spellID }
+    WoW.channeling    = nil -- { name, startMs, endMs, spellID }
     WoW.targeting     = false
     WoW.castRefused   = false
     WoW.shift         = false
@@ -555,6 +556,12 @@ function UnitCastingInfo(unit)
     local c = unit == "player" and WoW.casting
     if not c then return nil end
     return c.name, c.name, 136244, c.startMs, c.endMs, false, "cast-1", false, c.spellID
+end
+-- Channels are reported here, not by UnitCastingInfo (dump 6403).
+function UnitChannelInfo(unit)
+    local c = unit == "player" and WoW.channeling
+    if not c then return nil end
+    return c.name, c.name, 136244, c.startMs, c.endMs, false, false, c.spellID, false, 0
 end
 
 function wipe(t) for k in pairs(t) do t[k] = nil end return t end

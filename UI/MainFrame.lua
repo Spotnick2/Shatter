@@ -534,8 +534,9 @@ function MainFrame:RequestShown(shown)
         if self.frame:IsShown() ~= shown then
             self.shownAfterCombat = shown
             Shatter.Print(shown and "Shatter opens when combat ends." or "Shatter closes when combat ends.")
-        else
+        elseif self.shownAfterCombat ~= nil then
             self.shownAfterCombat = nil
+            Shatter.Print(shown and "Shatter stays open." or "Shatter stays closed.")
         end
         return
     end
@@ -1072,11 +1073,10 @@ end
 function MainFrame:Toggle()
     if not Shatter.isActive then return end
     self:Create()
-    if self.frame:IsShown() then
-        self:RequestShown(false)
-    else
-        self:RequestShown(true)
-    end
+    -- In combat a second toggle inverts the queued request, not the frame.
+    local shown = self.shownAfterCombat
+    if shown == nil then shown = self.frame:IsShown() end
+    self:RequestShown(not shown)
 end
 
 function MainFrame:SetStatus(text, isError, duration)

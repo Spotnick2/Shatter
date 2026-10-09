@@ -65,6 +65,34 @@ Shatter.MainFrame:RequestShown(false)
 leaveCombat()
 H.eq(frame:IsShown(), false, "open+close in one fight cancels out")
 
+-- Two /shatter toggles in one fight cancel out (the second inverts the
+-- queued request, not the still-hidden frame).
+frame = setup()
+enterCombat()
+SlashCmdList.SHATTER("")
+SlashCmdList.SHATTER("")
+H.check(WoW.chat():find("stays closed", 1, true), "the second toggle says the open is cancelled")
+leaveCombat()
+H.eq(frame:IsShown(), false, "hidden window: two toggles in combat leave it hidden")
+
+-- Same from a shown window: two toggles leave it shown.
+frame = setup()
+Shatter.MainFrame:Show()
+enterCombat()
+Shatter.MainFrame:Toggle()
+Shatter.MainFrame:Toggle()
+leaveCombat()
+H.eq(frame:IsShown(), true, "shown window: two toggles in combat leave it shown")
+
+-- Three toggles still end up toggled.
+frame = setup()
+enterCombat()
+Shatter.MainFrame:Toggle()
+Shatter.MainFrame:Toggle()
+Shatter.MainFrame:Toggle()
+leaveCombat()
+H.eq(frame:IsShown(), true, "three toggles in combat open the window")
+
 -- Escape: the frame leaves UISpecialFrames for the fight and comes back.
 frame = setup()
 H.eq(inSpecialFrames(), true, "Escape closes the window out of combat")

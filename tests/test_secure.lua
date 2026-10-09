@@ -105,6 +105,13 @@ WoW.casting = { name = "Hearthstone", startMs = 0, endMs = 10000, spellID = 8690
 WoW.click(button, "LeftButton")
 H.eq(#WoW.actions, 0, "casting another spell: refused")
 
+-- Channeling (UnitChannelInfo, not UnitCastingInfo): refuse too.
+button = setup()
+WoW.channeling = { name = "Fishing", startMs = 0, endMs = 20000, spellID = 7620 }
+WoW.click(button, "LeftButton")
+H.eq(#WoW.actions, 0, "channeling a spell: refused")
+H.check(Shatter.MainFrame.status:GetText():find("current spell", 1, true), "status explains the channel refusal")
+
 -- A locked item (being moved/traded) is not targeted.
 button = setup()
 local item = selected()

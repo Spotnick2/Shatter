@@ -208,8 +208,8 @@ function Disenchant:BeginSecureClick(button)
     end
     -- Another spell's item cursor would take this item (Blizzard targets
     -- target-bag/slot whenever SpellCanTargetItem is true), and a cast in
-    -- progress makes this one fail.
-    if SpellIsTargeting() or UnitCastingInfo("player") then
+    -- progress (cast or channel) makes this one fail.
+    if SpellIsTargeting() or UnitCastingInfo("player") or UnitChannelInfo("player") then
         ClearButtonAction(button)
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.BUSY_CASTING, true, 3) end
         return
