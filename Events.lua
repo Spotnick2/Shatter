@@ -12,6 +12,7 @@ local failed = {}
 -- tracking. If one cannot be registered, Shatter Next refuses to arm.
 Events.REQUIRED = {
     UNIT_SPELLCAST_SUCCEEDED = true, UNIT_SPELLCAST_FAILED = true, UNIT_SPELLCAST_INTERRUPTED = true,
+    UNIT_SPELLCAST_FAILED_QUIET = true,
     LOOT_OPENED = true, LOOT_CLOSED = true, BAG_UPDATE_DELAYED = true,
 }
 

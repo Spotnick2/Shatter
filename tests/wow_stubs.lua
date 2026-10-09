@@ -423,6 +423,13 @@ function WoW.clickEdge(w, button, down)
     if not w:IsVisible() or not w.enabled then return false end
     if not registeredFor(w, button, down) then return false end
     if w.scripts.PreClick then w.scripts.PreClick(w, button, down) end
+    -- An ordinary button's OnClick runs on every edge it registered for; the
+    -- down == useOnKeyDown filter lives inside SecureActionButton_OnClick.
+    if not w.secure then
+        if w.scripts.OnClick then w.scripts.OnClick(w, button, down) end
+        if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
+        return false
+    end
     local useOnKeyDown = w.attrs.useOnKeyDown
     if useOnKeyDown == nil then useOnKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1" end
     local acted = false
@@ -431,8 +438,6 @@ function WoW.clickEdge(w, button, down)
         if kind == "macro" then
             local text = modifiedAttribute(w, "macrotext", button)
             if text and text ~= "" then runMacro(text) acted = true end
-        elseif w.scripts.OnClick and not w.secure then
-            w.scripts.OnClick(w, button, down)
         end
     end
     if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end

@@ -74,4 +74,56 @@ WoW.spellbookReady = true
 WoW.fire("SPELLS_CHANGED")
 H.eq(Shatter.isActive, true, "activates when the spellbook arrives")
 
+-- 7. Inactive means inactive everywhere: the minimap button is hidden, its
+-- right-click cannot reopen the window, and bag/item events schedule no scan.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.AddItem(2589, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.SetBagItem(0, 1, { itemID = 2589 })
+WoW.loadAddon()
+WoW.flushTimers()
+local minimap = Shatter.MinimapButton.button
+H.eq(minimap:IsShown(), true, "minimap button shown while active")
+Shatter.SoloMode:ScheduleScan("BEFORE_UNLEARN", 0.2)     -- queued, not yet run
+WoW.knownSpells[13262] = nil
+WoW.fire("SPELLS_CHANGED")
+H.eq(minimap:IsShown(), false, "minimap button hidden on unlearn")
+local queuedBefore = #Shatter.Queue:GetItems()
+WoW.SetBagItem(0, 2, { itemID = 2589 })
+WoW.fire("BAG_UPDATE_DELAYED")
+WoW.fire("GET_ITEM_INFO_RECEIVED", 2589, true)
+WoW.flushTimers()
+H.eq(#Shatter.Queue:GetItems(), queuedBefore, "no scan runs while inactive (queued or new)")
+minimap:Show()   -- even if something showed it, a right-click must not reopen Shatter
+WoW.click(minimap, "RightButton")
+H.eq(Shatter.MainFrame.frame:IsShown(), false, "minimap right-click cannot reopen a disabled Shatter")
+WoW.click(minimap, "LeftButton")
+H.eq(Shatter.MainFrame.frame:IsShown(), false, "minimap left-click cannot either")
+-- Relearned: the button follows its preference and the queue is rebuilt.
+WoW.knownSpells[13262] = true
+WoW.fire("SPELLS_CHANGED")
+WoW.flushTimers()
+H.eq(minimap:IsShown(), true, "minimap button back on relearn")
+H.eq(#Shatter.Queue:GetItems(), 2, "queue rebuilt on relearn")
+
+-- 8. First activation during combat waits: the secure button cannot be
+-- created or configured under lockdown.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.spellbookReady = false
+WoW.loadAddon()
+WoW.inCombat = true
+WoW.spellbookReady = true
+H.ok(function() WoW.fire("SPELLS_CHANGED") end, "spellbook arrives in combat")
+H.eq(Shatter.isActive, false, "activation waits for the end of combat")
+H.eq(Shatter.MainFrame.frame, nil, "no secure frame built in combat")
+SlashCmdList.SHATTER("")
+H.check(WoW.chat():find("when combat ends", 1, true), "slash explains the wait")
+WoW.inCombat = false
+WoW.fire("PLAYER_REGEN_ENABLED")
+H.eq(Shatter.isActive, true, "activated after combat")
+H.check(Shatter.MainFrame.frame ~= nil, "main frame built after combat")
+
 H.done("test_gate")

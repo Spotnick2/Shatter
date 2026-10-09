@@ -21,6 +21,7 @@ function SoloMode:Initialize()
 end
 
 function SoloMode:OnEvent(event)
+    if not Shatter.isActive then return end
     if event == "BAG_UPDATE_DELAYED" or event == "GET_ITEM_INFO_RECEIVED" then
         if Shatter.Disenchant and Shatter.Disenchant:HasPending() then return end
         self:ScheduleScan(event, event == "BAG_UPDATE_DELAYED" and 0.15 or 0.25)
@@ -74,6 +75,9 @@ end
 
 function SoloMode:Rescan(reason)
     if not Shatter.ItemScanner or not Shatter.Queue then return end
+    -- Checked when the scan runs, not only when it was scheduled: a scan
+    -- queued just before Enchanting was unlearned must not run.
+    if not Shatter.isActive then return end
     if self.isScanning then
         self.rescanAfterCurrent = true
         AddReason(self, reason or "REENTERED_SCAN")

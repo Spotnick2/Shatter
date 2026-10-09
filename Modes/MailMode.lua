@@ -373,6 +373,7 @@ function MailMode:ScheduleScan(reason, delay)
     if Shatter.Events then
         Shatter.Events:After(delay or 0.2, function()
             self.scanScheduled = false
+            if not Shatter.isActive then return end
             self:ScanInbox(reason or "SCHEDULED")
         end)
     else

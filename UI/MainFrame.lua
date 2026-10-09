@@ -911,11 +911,13 @@ function MainFrame:ApplyPosition()
 end
 
 function MainFrame:Show()
+    if not Shatter.isActive then return end
     self:Create()
     self.frame:Show()
 end
 
 function MainFrame:Toggle()
+    if not Shatter.isActive then return end
     self:Create()
     if self.frame:IsShown() then
         self.frame:Hide()

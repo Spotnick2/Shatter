@@ -43,4 +43,13 @@ Shatter.MainFrame.frame:Show()
 WoW.click(Shatter.MainFrame.primary, "LeftButton")
 H.eq(#WoW.actionsOf("use"), 1, "healthy: the same click uses the queued item")
 
+-- A refused UNIT_SPELLCAST_FAILED_QUIET is just as fatal: Disenchant treats
+-- it as a failure signal, and without it a failed cast stays pending.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.refusedEvents.UNIT_SPELLCAST_FAILED_QUIET = true
+WoW.loadAddon()
+H.eq(Shatter.Events:IsHealthy(), false, "UNIT_SPELLCAST_FAILED_QUIET is required")
+
 H.done("test_events")

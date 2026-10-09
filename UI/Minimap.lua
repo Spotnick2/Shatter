@@ -54,7 +54,9 @@ function MinimapButton:Create()
     button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     button:SetScript("OnClick", function(_, mouseButton)
-        if mouseButton == "RightButton" then
+        if not Shatter.isActive then
+            Shatter.Toggle()   -- says why nothing opens
+        elseif mouseButton == "RightButton" then
             if Shatter.MainFrame then
                 Shatter.MainFrame:Show()
                 if Shatter.SettingsUI then Shatter.SettingsUI:Toggle() end

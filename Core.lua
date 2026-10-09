@@ -81,6 +81,17 @@ local function Deactivate()
     if Shatter.MailLaunchPanel and Shatter.MailLaunchPanel.HideForMailboxClose then
         SafeCall("MailLaunchPanel", Shatter.MailLaunchPanel.HideForMailboxClose, Shatter.MailLaunchPanel)
     end
+    local minimapButton = Shatter.MinimapButton and Shatter.MinimapButton.button
+    if minimapButton then minimapButton:Hide() end
+end
+
+-- After a reactivation (unlearn, then learn again): the minimap button
+-- follows its saved preference again and the queue is rebuilt.
+local function Reactivate()
+    if Shatter.MinimapButton and Shatter.MinimapButton.Refresh then
+        SafeCall("MinimapButton", Shatter.MinimapButton.Refresh, Shatter.MinimapButton)
+    end
+    if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("REACTIVATED", 0.1) end
 end
 
 -- Called at PLAYER_LOGIN and again on SPELLS_CHANGED / SKILL_LINES_CHANGED,
@@ -90,10 +101,22 @@ end
 function Shatter.EvaluateCapability()
     local known = HasDisenchant()
     if known then
+        -- First activation builds the secure Shatter Next button, which the
+        -- client refuses to create or configure in combat: wait it out.
+        if not modulesInitialized and InCombatLockdown() then
+            Shatter.pendingActivation = true
+            Shatter.isReady = true
+            return
+        end
+        Shatter.pendingActivation = nil
         local wasActive = Shatter.isActive
+        local firstTime = not modulesInitialized
         Shatter.disabledNoEnchanting = false
         Shatter.isActive = true
         InitializeModules()
+        if not wasActive and not firstTime then
+            Reactivate()
+        end
         if not wasActive and Shatter.isReady and Shatter.MainFrame and Shatter.MainFrame.Update then
             SafeCall("MainFrame", Shatter.MainFrame.Update, Shatter.MainFrame)
         end
@@ -113,6 +136,10 @@ end
 function Shatter.Toggle()
     if not Shatter.isReady then
         Shatter.Print("Addon is still loading.")
+        return
+    end
+    if Shatter.pendingActivation then
+        Shatter.Print("Shatter finishes loading when combat ends.")
         return
     end
     if Shatter.disabledNoEnchanting then
@@ -142,6 +169,9 @@ SlashCmdList.SHATTER = function(message)
 
     if message == "help" or message == "?" then
         Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset")
+        return
+    elseif Shatter.pendingActivation then
+        Shatter.Print("Shatter finishes loading when combat ends.")
         return
     elseif Shatter.disabledNoEnchanting then
         Shatter.Print("Disabled on this character: Enchanting is not trained.")
@@ -212,6 +242,9 @@ frame:SetScript("OnEvent", function(_, event)
         loggedIn = true
         Shatter.Initialize()
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if Shatter.pendingActivation then
+            Shatter.EvaluateCapability()
+        end
         if Shatter.pendingDeactivateHide then
             Shatter.pendingDeactivateHide = nil
             if not Shatter.isActive and Shatter.MainFrame and Shatter.MainFrame.frame then
