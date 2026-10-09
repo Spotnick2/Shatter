@@ -52,6 +52,9 @@ local function InitializeModules()
         SafeCall("Database", Shatter.Database.Initialize, Shatter.Database)
         SafeCall("Database", Shatter.Database.StampLoad, Shatter.Database)
     end
+    if Shatter.DisenchantTables then
+        SafeCall("DisenchantTables", Shatter.DisenchantTables.MigrateYields, Shatter.DisenchantTables)
+    end
     if Shatter.Debug then SafeCall("Debug", Shatter.Debug.Initialize, Shatter.Debug) end
     if Shatter.Events then SafeCall("Events", Shatter.Events.Initialize, Shatter.Events) end
     if Shatter.MaterialTracker then SafeCall("MaterialTracker", Shatter.MaterialTracker.Initialize, Shatter.MaterialTracker) end
