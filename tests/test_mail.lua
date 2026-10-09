@@ -824,4 +824,44 @@ end
 toPostal(false)
 toPostal(true)
 
+
+-- 39. Postal "Selected mails" with a checked attachment whose item info is
+-- not cached yet: it stays selected until the info arrives, then joins
+-- (also next to a cached attachment in the same mail); an unchecked mail's
+-- uncached attachment does not.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.AddItem(BLADE, { name = "Blue Blade", quality = 3, itemLevel = 40, classID = 2, subclassID = 7, equipLoc = "INVTYPE_WEAPON" })
+WoW.AddItem(BOOTS, { name = "Green Boots", quality = 2, itemLevel = 25, classID = 4, subclassID = 2, equipLoc = "INVTYPE_FEET" })
+WoW.cacheMiss[BLADE] = true
+WoW.cacheMiss[BOOTS] = true
+WoW.inbox = {
+    { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST }, [2] = { itemID = BLADE } } },
+    { sender = "Beta Jones", subject = "more", items = { [1] = { itemID = BOOTS } } },
+}
+WoW.loadAddon()
+WoW.flushTimers()
+SlashCmdList.SHATTER("mailtest")
+installPostal({ [1] = true })                       -- Alpha's mail only
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+Shatter.MailMode:StartNewSessionFromLaunchPanel()
+WoW.flushTimers()
+H.eq(#inputs(Shatter.MailSession:Get()), 1, "the cached vest is listed; the blade waits for its item info")
+Shatter.MailMode:ScanInbox("TEST")                  -- a rescan before the info arrives
+WoW.cacheMiss[BLADE] = nil
+WoW.cacheMiss[BOOTS] = nil
+WoW.fire("GET_ITEM_INFO_RECEIVED", BLADE, true)
+WoW.fire("GET_ITEM_INFO_RECEIVED", BOOTS, true)
+WoW.flushTimers()
+local got = {}
+for _, r in ipairs(inputs(Shatter.MailSession:Get())) do got[r.itemID] = true end
+H.check(got[VEST] and got[BLADE], "the checked blade joins once its info arrives")
+H.eq(got[BOOTS], nil, "the unchecked mail's boots do not")
+removePostal()
+
 H.done("test_mail")

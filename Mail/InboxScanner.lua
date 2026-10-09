@@ -195,18 +195,25 @@ function InboxScanner:Scan()
     local reset = selection.changed
     -- Postal "Selected mails" after the scan that read Postal's checks: an
     -- attachment belongs only while a listed, not yet received row matches
-    -- it. Each row matches once; an identical attachment in an unchecked
-    -- mail never joins, nor does one arriving after the row was received.
+    -- it, or a selected attachment still waiting for its item info (no row
+    -- yet: it cannot be judged). Each matches once; an identical attachment
+    -- in an unchecked mail never joins, nor does one arriving after the row
+    -- was received.
+    local postal = IsPostalSelection(session)
     local remaining, members, matches
-    if IsPostalSelection(session) and not reset then
+    local stillPending = postal and {} or nil
+    if postal and not reset then
         remaining, members, matches = {}, {}, {}
+        local function admit(key)
+            remaining[key] = (remaining[key] or 0) + 1
+            members[key] = remaining[key]
+        end
         for _, row in ipairs(previousItems) do
             if not IsReceived(row) then
-                local key = AttachmentKey(row.sourceSender, row.mailSubject, row.sourceAttachmentIndex, row.itemID)
-                remaining[key] = (remaining[key] or 0) + 1
-                members[key] = remaining[key]
+                admit(AttachmentKey(row.sourceSender, row.mailSubject, row.sourceAttachmentIndex, row.itemID))
             end
         end
+        for _, key in ipairs(selection.pendingMembers or {}) do admit(key) end
     end
 
     local count = GetInboxCount()
@@ -234,6 +241,10 @@ function InboxScanner:Scan()
                             attachment = nil      -- not one the player selected
                         end
                     end
+                end
+                if attachment and stillPending and attachment.infoPending
+                    and not header.isGM and (header.cod or 0) == 0 then
+                    table.insert(stillPending, AttachmentKey(header.sender, header.subject, attachmentIndex, attachment.itemID))
                 end
                 if attachment then
                     attachment.sourceAttachmentIndex = attachmentIndex
@@ -318,6 +329,9 @@ function InboxScanner:Scan()
             RefreshCarriedForwardSource(previous, session.sourceMails)
             table.insert(session.inputItems, previous)
         end
+    end
+    if postal then
+        selection.pendingMembers = #stillPending > 0 and stillPending or nil
     end
     if reset then
         selection.changed = nil
