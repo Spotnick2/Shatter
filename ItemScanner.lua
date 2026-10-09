@@ -11,7 +11,7 @@ local API = Shatter.API
 local function GetContainerItemSafe(bag, slot)
     local info = API.GetContainerItemInfo(bag, slot)
     if type(info) ~= "table" then return nil end
-    return info.itemID, info.hyperlink, info.iconFileID, info.stackCount, info.isBound and true or false
+    return info.itemID, info.hyperlink, info.iconFileID, info.stackCount, info.isBound and true or false, info.isLocked and true or false
 end
 
 local function ParseItemID(link)
@@ -51,7 +51,7 @@ function ItemScanner:IsCandidateDisenchantable(item)
 end
 
 function ItemScanner:BuildItem(bag, slot)
-    local itemID, link, texture, count, isBound = GetContainerItemSafe(bag, slot)
+    local itemID, link, texture, count, isBound, isLocked = GetContainerItemSafe(bag, slot)
     itemID = itemID or ParseItemID(link)
     if not itemID and not link then return nil end
 
@@ -81,6 +81,7 @@ function ItemScanner:BuildItem(bag, slot)
         subclassID = subclassID or instantSubclassID,
         equipLoc = equipLoc or instantEquipLoc,
         isSoulbound = isBound,
+        isLocked = isLocked,
         expectedMats = nil,
         expectedValueCopper = nil,
         status = "queued",

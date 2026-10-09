@@ -13,7 +13,7 @@ Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 7
 | Container | `C_Container.*`; `GetContainerItemInfo` returns a struct with `isBound` | dump 1167-1182, 8790 | source |
 | Disenchant known | `C_SpellBook.IsSpellInSpellBook(13262)`; bare `IsSpellKnown` only with deprecation fallbacks | dump 3627; `Blizzard_DeprecatedSpellBook` | source |
 | Localized spell name | `C_Spell.GetSpellName(13262)` (by ID always resolves) | dump 3543; guide s2 | source |
-| Secure macro button | `SecureActionButtonTemplate`, `type=macro` -> `C_Macro.RunMacroText`; register both edges | SecureTemplates.lua:450, 724, 802; guide s3 | source; **measure in game** |
+| Secure Disenchant button | `SecureActionButtonTemplate`, `type=spell` + `spell=13262` -> `CastSpellByID`; `target-bag`/`target-slot` used only while `SpellCanTargetItem()`; `useOnKeyDown=false` attribute pins the action to the up edge | SecureTemplates.lua:396, 758-776, 780-805; guide s3 | source; **measure in game** |
 | Resize bounds | `SetResizeBounds(minW, minH, maxW, maxH)`; `SetMinResize`/`SetMaxResize` gone | dump 6114 | source |
 | Mail receive slots | `ATTACHMENTS_MAX` = 16 receive, 12 send | Blizzard_MailFrame/MailFrame.lua:3-4 | source |
 | Mail frames | `InboxFrame`, `OpenMailFrame`, `MailFrameTab1/2` exist; Blizzard_MailFrame is not LOD | MailFrame.xml | source |

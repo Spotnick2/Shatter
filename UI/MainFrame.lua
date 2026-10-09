@@ -41,9 +41,12 @@ local function CreateButton(parent, text, width, secure)
     local button = CreateFrame("Button", nil, parent, template)
     button:SetSize(width or 100, 26)
     if secure then
-        button:RegisterForClicks(GetCVarBool and GetCVarBool("ActionButtonUseKeyDown") and "LeftButtonDown" or "LeftButtonUp")
-        button:SetAttribute("*type1", "macro")
-        button:SetAttribute("*macrotext1", "")
+        -- Both edges, as the porting guide prescribes; useOnKeyDown = false
+        -- pins the secure action to the up edge whatever the player's
+        -- ActionButtonUseKeyDown, so Shatter knows which edge acts. No
+        -- typerelease: with one, press-and-hold release would cast twice.
+        button:RegisterForClicks("AnyUp", "AnyDown")
+        button:SetAttribute("useOnKeyDown", false)
     else
         button:RegisterForClicks("LeftButtonUp")
     end
@@ -67,8 +70,16 @@ local function CreateButton(parent, text, width, secure)
     return button
 end
 
+-- The main frame parents the secure Shatter Next button, so it, the footer
+-- and the button are protected: under combat lockdown the client refuses to
+-- show, hide, move, resize or rescale them. Such changes are recorded and
+-- applied on PLAYER_REGEN_ENABLED (MainFrame:OnCombatEvent).
 local function SetShown(frame, shown)
     if not frame then return end
+    if InCombatLockdown() and frame:IsProtected() then
+        if frame:IsShown() ~= (shown and true or false) then MainFrame.updateAfterCombat = true end
+        return
+    end
     if shown then
         frame:Show()
     else
@@ -298,6 +309,10 @@ function MainFrame:ClampGeometry()
 end
 
 function MainFrame:SaveGeometry()
+    if InCombatLockdown() then
+        self.saveGeometryAfterCombat = true
+        return
+    end
     self:ClampGeometry()
     if Shatter.Database then Shatter.Database:SaveWindow(self.frame) end
 end
@@ -355,6 +370,10 @@ end
 
 function MainFrame:Layout()
     if not self.frame or not self.queuePanel or not self.detailPanel then return end
+    if InCombatLockdown() then
+        self.layoutAfterCombat = true
+        return
+    end
     if self.layouting then return end
     self.layouting = true
     self:ClampGeometry()
@@ -387,6 +406,11 @@ function MainFrame:Layout()
 end
 
 function MainFrame:ResetGeometry()
+    if InCombatLockdown() then
+        self.resetGeometryAfterCombat = true
+        self:SetStatus("The window resets when combat ends.", false, 3)
+        return
+    end
     if Shatter.Database then
         Shatter.Database:ResetWindow()
     else
@@ -431,12 +455,19 @@ function MainFrame:CreateResizeGrip(parent)
         GameTooltip:Hide()
     end)
     grip:SetScript("OnMouseDown", function(self, button)
+        if InCombatLockdown() then return end
         if button == "LeftButton" then
             if IsShiftKeyDown and IsShiftKeyDown() then
                 self.scaling = true
                 self.startX, self.startY = GetCursorPosition()
                 self.startScale = parent:GetScale() or 1
                 self:SetScript("OnUpdate", function(self)
+                    if InCombatLockdown() then
+                        self.scaling = nil
+                        self:SetScript("OnUpdate", nil)
+                        MainFrame.saveGeometryAfterCombat = true
+                        return
+                    end
                     local x, y = GetCursorPosition()
                     local delta = ((x - self.startX) - (y - self.startY)) / 500
                     parent:SetScale(Clamp(self.startScale + delta, MIN_SCALE, MAX_SCALE))
@@ -454,6 +485,9 @@ function MainFrame:CreateResizeGrip(parent)
         if self.scaling then
             self.scaling = nil
             self:SetScript("OnUpdate", nil)
+        elseif InCombatLockdown() then
+            MainFrame.stopMovingAfterCombat = true
+            return
         else
             parent:StopMovingOrSizing()
         end
@@ -466,6 +500,90 @@ end
 
 function MainFrame:Initialize()
     self:Create()
+    if Shatter.Events then
+        Shatter.Events:Register("PLAYER_REGEN_DISABLED", self, self.OnCombatEvent)
+        Shatter.Events:Register("PLAYER_REGEN_ENABLED", self, self.OnCombatEvent)
+    end
+end
+
+local SPECIAL_FRAME_NAME = "ShatterMainFrame"
+
+-- Writes entries of Blizzard's UISpecialFrames, never the table itself.
+local function SetEscapeCloses(enabled)
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == SPECIAL_FRAME_NAME then table.remove(UISpecialFrames, i) end
+    end
+    if enabled then table.insert(UISpecialFrames, SPECIAL_FRAME_NAME) end
+end
+
+-- Asks for the window to be shown or hidden; in combat the request waits.
+function MainFrame:RequestShown(shown)
+    if not self.frame then return end
+    if InCombatLockdown() then
+        if self.frame:IsShown() ~= shown then
+            self.shownAfterCombat = shown
+            Shatter.Print(shown and "Shatter opens when combat ends." or "Shatter closes when combat ends.")
+        else
+            self.shownAfterCombat = nil
+        end
+        return
+    end
+    self.shownAfterCombat = nil
+    if shown then self.frame:Show() else self.frame:Hide() end
+end
+
+function MainFrame:OnCombatEvent(event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        -- Escape runs CloseSpecialWindows over UISpecialFrames; an entry an
+        -- addon put there taints that pass, and Hide() on this protected
+        -- frame would then be blocked. Leave the list for the fight.
+        SetEscapeCloses(false)
+        -- This event arrives just before lockdown: finish a drag while we can.
+        if self.frame and not InCombatLockdown() then
+            if self.resizeGrip and self.resizeGrip.scaling then
+                self.resizeGrip.scaling = nil
+                self.resizeGrip:SetScript("OnUpdate", nil)
+            end
+            self.frame:StopMovingOrSizing()
+            self:SaveGeometry()
+        end
+        return
+    end
+
+    -- PLAYER_REGEN_ENABLED: apply everything that waited.
+    SetEscapeCloses(true)
+    if not self.frame then return end
+    if self.stopMovingAfterCombat then
+        self.stopMovingAfterCombat = nil
+        self.frame:StopMovingOrSizing()
+        self.saveGeometryAfterCombat = true
+    end
+    if self.resetGeometryAfterCombat then
+        self.resetGeometryAfterCombat = nil
+        self.applyWindowAfterCombat = nil
+        self:ResetGeometry()
+    elseif self.applyWindowAfterCombat then
+        self.applyWindowAfterCombat = nil
+        self:ApplyPosition()
+    end
+    if self.saveGeometryAfterCombat then
+        self.saveGeometryAfterCombat = nil
+        self:SaveGeometry()
+    end
+    if self.shownAfterCombat ~= nil then
+        local shown = self.shownAfterCombat
+        self.shownAfterCombat = nil
+        if shown and not Shatter.isActive then shown = false end
+        self:RequestShown(shown)
+    end
+    if self.layoutAfterCombat then
+        self.layoutAfterCombat = nil
+        self:Layout()
+    end
+    if self.updateAfterCombat then
+        self.updateAfterCombat = nil
+        self:Update()
+    end
 end
 
 function MainFrame:Create()
@@ -481,7 +599,7 @@ function MainFrame:Create()
     frame:EnableMouse(true)
     frame:Hide()
     Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_MAIN))
-    table.insert(UISpecialFrames, "ShatterMainFrame")
+    SetEscapeCloses(true)
     self.frame = frame
 
     if Shatter.Database then Shatter.Database:ApplyWindow(frame) end
@@ -492,8 +610,15 @@ function MainFrame:Create()
     titleBar:SetHeight(TITLE_H)
     titleBar:EnableMouse(true)
     titleBar:RegisterForDrag("LeftButton")
-    titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
+    titleBar:SetScript("OnDragStart", function()
+        if InCombatLockdown() then return end
+        frame:StartMoving()
+    end)
     titleBar:SetScript("OnDragStop", function()
+        if InCombatLockdown() then
+            self.stopMovingAfterCombat = true
+            return
+        end
         frame:StopMovingOrSizing()
         if Shatter.Database then Shatter.Database:SaveWindow(frame) end
     end)
@@ -533,7 +658,7 @@ function MainFrame:Create()
 
     local close = CreateButton(titleBar, "x", 22)
     close:SetPoint("RIGHT", titleBar, "RIGHT", -7, 0)
-    close:SetScript("OnClick", function() frame:Hide() end)
+    close:SetScript("OnClick", function() self:RequestShown(false) end)
 
     local tabSolo = CreateButton(frame, "Solo", 68)
     tabSolo:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -TITLE_H - 7)
@@ -857,20 +982,25 @@ function MainFrame:Create()
     primary:SetHeight(30)
     primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
     primary:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
-    primary:SetScript("PreClick", function(button)
+    primary:SetScript("PreClick", function(button, mouseButton, down)
+        -- Every registered edge and mouse button arrives here; only the one
+        -- the secure handler acts on may arm or change state.
+        if not Shatter.Disenchant or not Shatter.Disenchant:IsActionEdge(mouseButton, down) then return end
         if self.activeView == "mail" then
             local label = Shatter.MailMode and Shatter.MailMode:GetPrimaryState()
-            if label == "Shatter Next" and Shatter.Disenchant then
+            if label == "Shatter Next" then
                 Shatter.Disenchant:BeginSecureClick(button)
             else
-                button:SetAttribute("*type1", "macro")
-                button:SetAttribute("*macrotext1", "")
+                Shatter.Disenchant:Disarm(button)
             end
         elseif Shatter.Disenchant then
             Shatter.Disenchant:BeginSecureClick(button)
         end
     end)
-    primary:SetScript("PostClick", function()
+    primary:SetScript("PostClick", function(button, mouseButton, down)
+        if not Shatter.Disenchant or not Shatter.Disenchant:IsActionEdge(mouseButton, down) then return end
+        -- The secure action has run (or not); never leave the button armed.
+        Shatter.Disenchant:Disarm(button)
         if self.activeView == "mail" and Shatter.MailMode then
             local label = Shatter.MailMode:GetPrimaryState()
             if label ~= "Shatter Next" then
@@ -904,6 +1034,10 @@ function MainFrame:Create()
 end
 
 function MainFrame:ApplyPosition()
+    if InCombatLockdown() then
+        self.applyWindowAfterCombat = true
+        return
+    end
     if self.frame and Shatter.Database then
         Shatter.Database:ApplyWindow(self.frame)
         self:Layout()
@@ -913,16 +1047,16 @@ end
 function MainFrame:Show()
     if not Shatter.isActive then return end
     self:Create()
-    self.frame:Show()
+    self:RequestShown(true)
 end
 
 function MainFrame:Toggle()
     if not Shatter.isActive then return end
     self:Create()
     if self.frame:IsShown() then
-        self.frame:Hide()
+        self:RequestShown(false)
     else
-        self.frame:Show()
+        self:RequestShown(true)
     end
 end
 

@@ -52,6 +52,7 @@ function WoW.reset()
     WoW.loot          = {}  -- list of { link, count, name }
     WoW.casting       = nil -- { name, startMs, endMs, spellID }
     WoW.targeting     = false
+    WoW.castRefused   = false
     WoW.shift         = false
     WoW.cursor        = { 0, 0 }
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
@@ -418,6 +419,25 @@ local function runMacro(text)
     end
 end
 
+-- type=spell (SECURE_ACTIONS.spell -> CastSpellByID), then OnActionButtonClick
+-- targets target-bag/target-slot ONLY while the spell awaits an item target.
+local function runSpell(w, button)
+    local spell = modifiedAttribute(w, "spell", button)
+    local spellID = tonumber(spell)
+    WoW.actions[#WoW.actions + 1] = { kind = "cast", spell = spellID or spell }
+    -- A refused cast (moving, already casting) raises no cursor of its own,
+    -- but a cursor some OTHER spell left up still takes the item.
+    if not WoW.castRefused then WoW.targeting = true end
+    if WoW.targeting then
+        local bag = modifiedAttribute(w, "target-bag", button)
+        local slot = modifiedAttribute(w, "target-slot", button)
+        if slot then
+            WoW.actions[#WoW.actions + 1] = { kind = "use", bag = tonumber(bag), slot = tonumber(slot) }
+            WoW.targeting = false
+        end
+    end
+end
+
 -- One mouse edge. Returns true when the secure action ran.
 function WoW.clickEdge(w, button, down)
     if not w:IsVisible() or not w.enabled then return false end
@@ -430,6 +450,7 @@ function WoW.clickEdge(w, button, down)
         if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
         return false
     end
+    -- SecureActionButton_ShouldUseOnKeyDown: the attribute, else the CVar.
     local useOnKeyDown = w.attrs.useOnKeyDown
     if useOnKeyDown == nil then useOnKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1" end
     local acted = false
@@ -438,7 +459,14 @@ function WoW.clickEdge(w, button, down)
         if kind == "macro" then
             local text = modifiedAttribute(w, "macrotext", button)
             if text and text ~= "" then runMacro(text) acted = true end
+        elseif kind == "spell" then
+            runSpell(w, button)
+            acted = true
         end
+    elseif not down and w.secure and WoW.cvars.ActionButtonUseKeyHeldSpell == "1" then
+        -- Press-and-hold release resolves "typerelease", not "type".
+        local kind = modifiedAttribute(w, "typerelease", button)
+        if kind == "spell" then runSpell(w, button) acted = true end
     end
     if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
     return acted
@@ -515,6 +543,7 @@ function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end 
 function GetProfessions() return nil end
 function GetProfessionInfo() return nil end
 function SpellIsTargeting() return WoW.targeting end
+function SpellCanTargetItem() return WoW.targeting end
 function UnitCastingInfo(unit)
     local c = unit == "player" and WoW.casting
     if not c then return nil end

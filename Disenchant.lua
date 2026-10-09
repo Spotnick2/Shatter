@@ -22,10 +22,44 @@ local function SpellMatches(...)
     return false
 end
 
+-- The secure action. type=spell runs CastSpellByID(13262) (no localized
+-- name involved), and Blizzard's own OnActionButtonClick then uses
+-- target-bag/target-slot ONLY while the spell is waiting for an item target
+-- (SpellCanTargetItem; Blizzard_FrameXML/SecureTemplates.lua). A cast that
+-- never starts therefore never uses - equips - the item, which the old
+-- "/cast Disenchant" + "/use bag slot" macro could.
+--
+-- The button acts on the mouse-UP edge only: its useOnKeyDown attribute is
+-- false (set at creation), which SecureActionButton_OnClick reads before the
+-- ActionButtonUseKeyDown CVar. Shatter's own PreClick/PostClick work runs on
+-- that edge and for the left button only (Disenchant:IsActionEdge).
+--
+-- Attributes cannot change in combat. The button is armed in PreClick and
+-- disarmed in PostClick of the same click, so it is never left armed; in
+-- combat it stays disarmed and Shatter Next does nothing.
 local function ClearButtonAction(button)
-    if not button then return end
-    button:SetAttribute("*type1", "macro")
-    button:SetAttribute("*macrotext1", "")
+    if not button or InCombatLockdown() then return false end
+    button:SetAttribute("*type1", nil)
+    button:SetAttribute("*spell1", nil)
+    button:SetAttribute("*target-bag1", nil)
+    button:SetAttribute("*target-slot1", nil)
+    return true
+end
+
+local function ArmButton(button, bag, slot)
+    button:SetAttribute("*type1", "spell")
+    button:SetAttribute("*spell1", Shatter.Constants.SPELL_DISENCHANT)
+    button:SetAttribute("*target-bag1", bag)
+    button:SetAttribute("*target-slot1", slot)
+end
+
+-- True for the one edge on which the secure button acts: left button, up.
+function Disenchant:IsActionEdge(mouseButton, down)
+    return mouseButton == "LeftButton" and not down
+end
+
+function Disenchant:Disarm(button)
+    return ClearButtonAction(button or self.button)
 end
 
 local function AddResult(result, itemID, count)
@@ -143,6 +177,9 @@ function Disenchant:ValidateItem(item)
     if not current or current.itemID ~= item.itemID then
         return false, Shatter.Constants.STATUS.ITEM_MISSING
     end
+    if current.isLocked then
+        return false, Shatter.Constants.STATUS.ITEM_LOCKED
+    end
 
     local ok, reason = Shatter.ItemScanner:IsCandidateDisenchantable(current)
     if not ok then
@@ -156,6 +193,23 @@ function Disenchant:BeginSecureClick(button)
     self:Trace("Shatter Next clicked")
     if not button or not item or not Shatter.isActive or not Shatter.Events:IsHealthy() then
         ClearButtonAction(button)
+        return
+    end
+    if InCombatLockdown() then
+        -- Attributes are locked: the button stays disarmed and does nothing.
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.IN_COMBAT, true, 3) end
+        return
+    end
+    if self.pending then
+        ClearButtonAction(button)
+        return
+    end
+    -- Another spell's item cursor would take this item (Blizzard targets
+    -- target-bag/slot whenever SpellCanTargetItem is true), and a cast in
+    -- progress makes this one fail.
+    if SpellIsTargeting() or UnitCastingInfo("player") then
+        ClearButtonAction(button)
+        if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.BUSY_CASTING, true, 3) end
         return
     end
     self:Trace("Selected item: %s bag=%s slot=%s itemID=%s", item.itemLink or item.itemName or "?", tostring(item.bag), tostring(item.slot), tostring(item.itemID))
@@ -181,12 +235,8 @@ function Disenchant:BeginSecureClick(button)
         return
     end
 
-    local spellName = Shatter.API.GetSpellName(Shatter.Constants.SPELL_DISENCHANT) or "Disenchant"
-    local macro = string.format("/cast %s;\n/use %d %d", spellName, current.bag, current.slot)
-
-    button:SetAttribute("*type1", "macro")
-    button:SetAttribute("*macrotext1", macro)
-    self:Trace("Prepared secure macro: /cast %s ; /use %d %d", tostring(spellName), current.bag, current.slot)
+    ArmButton(button, current.bag, current.slot)
+    self:Trace("Armed Disenchant on bag %d slot %d", current.bag, current.slot)
 
     self.pending = {
         item = current,
@@ -265,6 +315,7 @@ function Disenchant:Simulate(item)
 end
 
 function Disenchant:Finish()
+    ClearButtonAction(self.button)
     if not self.pending or self.finalizing then return end
     self.finalizing = true
 
@@ -302,6 +353,7 @@ function Disenchant:Finish()
 end
 
 function Disenchant:Fail(reason)
+    ClearButtonAction(self.button)
     if not self.pending then return end
     self.pending = nil
     self.finalizing = false

@@ -65,12 +65,18 @@ heavy runtime dependencies.
   rescan from UI rendering or frame visibility loops.
 - Queue ordering is saved under `ShatterDB.settings.queueOrder` with per-mode keys. Keep FIFO/LIFO
   stable through `Session:AssignQueueSequence(item)`.
-- The real `Shatter Next` action uses a secure macro button: a `SecureActionButtonTemplate` button
-  with `*type1 = "macro"` and `*macrotext1` set during `PreClick`. Register **both** edges
-  (`"AnyUp", "AnyDown"`) and set no `typerelease`; the client acts on exactly one edge
-  (`down == useOnKeyDown`). Shatter's own PreClick/PostClick side effects must run only for the
-  left button on that edge, and the macro must be disarmed after each click. Direct
-  `CastSpellByName` / `C_Container.UseContainerItem` calls from addon code are protected.
+- The real `Shatter Next` action is a `SecureActionButtonTemplate` button armed in `PreClick` with
+  `*type1 = "spell"`, `*spell1 = 13262`, `*target-bag1` / `*target-slot1`, and disarmed (all four
+  set to nil) in `PostClick` of the same click. Blizzard's handler casts by spell ID and uses the
+  target slot only while the spell is waiting for an item target, so a refused cast never uses
+  (equips) the item. This replaced the TBC `/cast Disenchant` + `/use bag slot` macro; it is
+  source-verified (`SecureTemplates.lua`) and must be confirmed in game.
+- The button registers **both** edges (`"AnyUp", "AnyDown"`) with the attribute
+  `useOnKeyDown = false`, so the secure action always runs on the up edge; Shatter's
+  PreClick/PostClick work runs only for `LeftButton` on that edge
+  (`Disenchant:IsActionEdge`). No `typerelease`. Never arm while another spell's targeting cursor
+  is up, while casting, in combat, or for a locked item. Direct `CastSpellByName` /
+  `C_Container.UseContainerItem` calls from addon code are protected.
 - The Shatter-owned cast/progress bar lives in `UI/MainFrame.lua`. It may use `OnUpdate` only while
   visible for an active cast, result wait, simulation progress, or resize scale drag.
 - The minimap button is Shatter-owned in `UI/Minimap.lua` with no external library.
