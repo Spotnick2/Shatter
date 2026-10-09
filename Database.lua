@@ -159,6 +159,20 @@ function Database:Initialize()
     end
 end
 
+-- Persistence canary, called once per session from Core's module setup
+-- (Initialize itself re-runs from every getter). One entry per load, never defaulted: if SavedVariables
+-- stop loading back (as on Forever builds through 69977), the list stays at
+-- one entry however often the game is started. Read it after a FULL client
+-- exit; /reload hands the table back in memory and proves nothing.
+function Database:StampLoad()
+    local stamps = type(ShatterDB.loadStamps) == "table" and ShatterDB.loadStamps or {}
+    local version, build = GetBuildInfo()
+    stamps[#stamps + 1] = { time = time(), build = tostring(version) .. "." .. tostring(build) }
+    local max = Shatter.Constants and Shatter.Constants.MAX_LOAD_STAMPS or 30
+    while #stamps > max do table.remove(stamps, 1) end
+    ShatterDB.loadStamps = stamps
+end
+
 function Database:GetQueueOrder(mode)
     local settings = self:GetSettings()
     NormalizeQueueOrder(settings)

@@ -21,5 +21,9 @@ Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 7
 | Bags | 0-4 unchanged, `NUM_BAG_SLOTS` = 4, reagent bag 5 | guide s3 | measured (guide) |
 | SavedVariables | load back since 70009 | guide s1 | measured (guide) |
 
+Persistence canary: `ShatterDB.loadStamps` gains one `{ time, build }` per login (capped at 30).
+After a FULL client exit, a list that never grows past one entry means SavedVariables are not
+being read back on that build.
+
 "source" = read from the dump or Blizzard source; still needs an in-game check before it is
 "measured". Update this table when an in-game check settles a row.

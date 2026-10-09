@@ -48,7 +48,10 @@ local modulesInitialized = false
 local function InitializeModules()
     if modulesInitialized then return end
     modulesInitialized = true
-    if Shatter.Database then SafeCall("Database", Shatter.Database.Initialize, Shatter.Database) end
+    if Shatter.Database then
+        SafeCall("Database", Shatter.Database.Initialize, Shatter.Database)
+        SafeCall("Database", Shatter.Database.StampLoad, Shatter.Database)
+    end
     if Shatter.Debug then SafeCall("Debug", Shatter.Debug.Initialize, Shatter.Debug) end
     if Shatter.Events then SafeCall("Events", Shatter.Events.Initialize, Shatter.Events) end
     if Shatter.MaterialTracker then SafeCall("MaterialTracker", Shatter.MaterialTracker.Initialize, Shatter.MaterialTracker) end
@@ -129,8 +132,20 @@ function Shatter.EvaluateCapability()
     Shatter.isReady = true
 end
 
+-- One line at login when the client is not the build these notes and the
+-- adapter were measured on: something may have moved (porting guide, s0).
+local function CheckBuild()
+    local version, build = GetBuildInfo()
+    local current = tostring(version) .. "." .. tostring(build)
+    if current ~= Shatter.Constants.MEASURED_ON_BUILD then
+        Shatter.Print(string.format("|cffffaa00This client is %s; Shatter was measured on %s.|r Report anything odd.",
+            current, Shatter.Constants.MEASURED_ON_BUILD))
+    end
+end
+
 function Shatter.Initialize()
     Shatter.EvaluateCapability()
+    if Shatter.isActive then CheckBuild() end
 end
 
 function Shatter.Toggle()

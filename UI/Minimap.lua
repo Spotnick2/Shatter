@@ -78,9 +78,12 @@ function MinimapButton:Create()
     end)
     button:SetScript("OnDragStart", function(self)
         self:SetScript("OnUpdate", function(self)
+            -- GetCenter is in the frame's OWN coordinate space, and Edit Mode
+            -- scales the minimap independently of UIParent: convert the
+            -- cursor with the minimap's effective scale, not UIParent's.
             local mx, my = Minimap:GetCenter()
             local px, py = GetCursorPosition()
-            local scale = UIParent:GetEffectiveScale()
+            local scale = Minimap:GetEffectiveScale()
             px, py = px / scale, py / scale
             local angle = math.deg(math.atan2(py - my, px - mx))
             GetSettings().angle = angle
