@@ -5,7 +5,10 @@ adds Claude-specific bits. Where the two overlap, AGENTS.md wins.
 
 ## Adversarial review - prefer a different family
 
-For a second opinion on a plan, design, or PR, use **Codex** via the `/codex-consult` skill, with
+PR code review is done **manually by the owner**; do not run Codex (or any automated review) on
+PRs or post review comments unasked.
+
+For a second opinion on a plan or design, when the owner asks for one, use **Codex** via the `/codex-consult` skill, with
 `-m gpt-6-astra -c model_reasoning_effort=high` (the owner's standing choice for this repo). Fall
 back to Fable only when Codex is unavailable.
 

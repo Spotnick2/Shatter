@@ -83,7 +83,7 @@ attachment identity, and anything touching `ShatterDB`'s shape. Hand it
 `docs/forever-api-notes.md` and the porting guide alongside the diff: those findings are measured
 on the live client, and a cold reviewer will otherwise argue from Classic-era API behaviour.
 
-The PR review loop in `docs/WORKFLOW.md` is this skill's main use here.
+Use it for plan or design reviews the owner asks for. PR code review is done manually by the owner; do not run this skill on PRs unasked.
 
 ## Concurrency / safety
 

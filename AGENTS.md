@@ -105,7 +105,8 @@ heavy runtime dependencies.
 - In game: `/console scriptErrors 1` (errors are off by default on this client).
 
 ## Repository Practices
-- Workflow: issue -> branch -> PR -> Codex review (`gpt-6-astra`, high effort) -> merge. See
+- Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run
+  automated PR reviews or post review comments unasked. See
   `docs/WORKFLOW.md`.
 - Keep changes scoped to the current milestone.
 - Do not copy proprietary addon data or UI code from TSM, Postal, Gargul, or other addons.
