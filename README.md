@@ -54,7 +54,7 @@ The real `Shatter Next` path is a secure button: one left click casts Disenchant
 
 ## Phase 2 Notes
 
-Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); they are not yet measured on Forever. Shatter measures as you go: every real disenchant whose loot window it reads is counted for the item's quality, armor/weapon and item-level bracket, and once a bracket has 20 measured disenchants its estimates come from them ("Expected Materials (measured, n)"). `/shatter yields` lists the measurements; `/shatter yields reset` clears them. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
+Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); Forever's own rates are not published. Shatter measures as you go: every real disenchant whose loot window it reads is counted for the item's quality, armor/weapon and item-level bracket (items above item level 92 apart from Vanilla's), and once a bracket has 20 measured disenchants its estimates blend those measurements with the table, leaning on the measurements as they grow ("Expected Materials (measured, n)"). `/shatter yields` lists the measurements; `/shatter yields reset` clears them. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
 
 Value filtering is opt-in from Settings. If no pricing source is available, Shatter keeps otherwise eligible items in the queue instead of hiding them.
 

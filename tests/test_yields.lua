@@ -56,6 +56,8 @@ H.eq(key(2, WEAPON, 20), "2:2:16-20", "uncommon weapon 20: its own bucket")
 H.eq(key(2, ARMOR, 58), "2:4:56-60", "uncommon armor 58: the shard rule's 56+ narrowed to 56-60")
 H.eq(key(3, WEAPON, 33), "3:any:31-35", "rare: no class split")
 H.eq(key(4, ARMOR, 30), nil, "no rule, no bucket")
+H.eq(key(2, ARMOR, 70), "2:4:61-92", "the open top band stops at Vanilla's last item level")
+H.eq(key(2, ARMOR, 100), "2:4:93-1000", "...and items beyond Vanilla get their own bucket")
 
 -- 2. A real disenchant read from the loot window is recorded.
 local button = setup()
@@ -81,7 +83,8 @@ WoW.click(button, "LeftButton")
 WoW.flushTimers()
 H.eq(yields(), nil, "simulated: not measured")
 
--- 4. Below the threshold the table decides; from it on, the measured odds.
+-- 4. Below the threshold the table decides; from it on, the measured odds
+-- blended with the table, weighted as YIELD_PRIOR_WEIGHT disenchants.
 setup()
 local vest = { quality = 2, classID = ARMOR, itemLevel = 20 }
 local function measure(n, drops, total)
@@ -96,10 +99,28 @@ H.check(e.materials[1].itemID == DUST, "...whose top material for armor is dust"
 measure(T.MIN_YIELD_SAMPLES, T.MIN_YIELD_SAMPLES / 2, T.MIN_YIELD_SAMPLES)
 e = T:GetExpected(vest)
 H.eq(e.measured, true, "at the threshold: measured")
-H.eq(#e.materials, 1, "only what was measured")
-H.check(e.materials[1].itemID == ESSENCE and math.abs(e.materials[1].chance - 0.5) < 1e-9
-    and math.abs(e.materials[1].expectedAmount - 1) < 1e-9, "measured odds: 50%, one per disenchant on average")
+local function entry(estimate, itemID)
+    for _, m in ipairs(estimate.materials) do if m.itemID == itemID then return m end end
+end
+local function near(a, b) return a and math.abs(a - b) < 1e-9 end
+local w, n = T.YIELD_PRIOR_WEIGHT, T.MIN_YIELD_SAMPLES
+local ess = entry(e, ESSENCE)
+H.check(ess and near(ess.chance, (n / 2) / (n + w)) and near(ess.expectedAmount, n / (n + w)),
+    "a measured material: its drops and amounts over n + weight")
+local dust = entry(e, DUST)
+H.check(dust and near(dust.chance, w * 0.75 / (n + w)) and near(dust.expectedAmount, w * 0.75 * 2.5 / (n + w)),
+    "a table material never measured: the table's share, weighted")
+local shard = entry(e, 10978)
+H.check(shard and near(shard.chance, w * 0.05 / (n + w)), "a rare shard not seen yet keeps its share instead of vanishing")
+measure(1000, 500, 1000)
+ess = entry(T:GetExpected(vest), ESSENCE)
+H.check(ess and math.abs(ess.chance - 0.5) < 0.01, "many measurements dominate the table")
 H.eq(T:GetExpected({ quality = 2, classID = WEAPON, itemLevel = 20 }).measured, false, "another bucket keeps the table")
+ShatterDB.yields = { ["2:4:61-92"] = { quality = 2, classID = ARMOR, minLevel = 61, maxLevel = 92, n = 50,
+    materials = { [16204] = { drops = 40, total = 120, minAmount = 2, maxAmount = 5 } } } }
+H.eq(T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 70 }).measured, true, "ilvl 70 uses the 61-92 measurements")
+local beyond = T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 100 })
+H.check(beyond.measured == false and beyond.uncertain == true, "ilvl 100 does not: still the table, still unverified")
 
 -- 5. /shatter yields lists the buckets; /shatter yields reset clears them.
 button = setup()
@@ -110,6 +131,39 @@ SlashCmdList.SHATTER("yields reset")
 H.eq(yields(), nil, "reset clears the measurements")
 SlashCmdList.SHATTER("yields")
 H.check(WoW.chat():find("No disenchants measured yet.", 1, true), "an empty list says so")
+
+-- 5b. Autoloot empties a slot between LOOT_READY and LOOT_OPENED: the
+-- later, partial read does not drop the shard the first one saw.
+button = setup()
+local SHARD = 10978
+WoW.AddItem(SHARD, { name = "Small Glimmering Shard", quality = 2, itemLevel = 1, classID = 7, subclassID = 12, equipLoc = "" })
+WoW.click(button, "LeftButton")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
+WoW.bags[0][3] = nil
+WoW.loot = { { link = WoW.link(DUST), count = 2, name = "Strange Dust" }, { link = WoW.link(SHARD), count = 1, name = "Small Glimmering Shard" } }
+WoW.fire("LOOT_READY")
+WoW.loot = { { link = WoW.link(DUST), count = 2, name = "Strange Dust" } }
+WoW.fire("LOOT_OPENED")
+WoW.SetBagItem(0, 10, { itemID = DUST, count = 2 })
+WoW.SetBagItem(0, 11, { itemID = SHARD, count = 1 })
+WoW.loot = {}
+WoW.fire("LOOT_CLOSED")
+WoW.flushTimers()
+bucket = yields() and yields()["2:4:16-20"]
+H.check(bucket and bucket.n == 1 and bucket.materials[SHARD] and bucket.materials[SHARD].drops == 1
+    and bucket.materials[DUST] and bucket.materials[DUST].total == 2, "the shard and the dust, each counted once")
+
+-- 5c. A malformed saved bucket is neither listed nor trusted, and the next
+-- disenchant starts that bucket over.
+button = setup()
+ShatterDB.yields = { ["2:4:16-20"] = { quality = 2, n = "25", materials = { [DUST] = { drops = "x" } } },
+    junk = "not a bucket" }
+SlashCmdList.SHATTER("yields")
+H.check(WoW.chat():find("No disenchants measured yet.", 1, true), "malformed buckets: /shatter yields lists none, no error")
+H.eq(T:GetExpected(vest).measured, false, "a malformed bucket leaves the table in charge")
+disenchant(button, { { link = WoW.link(DUST), count = 2, name = "Strange Dust" } })
+bucket = yields()["2:4:16-20"]
+H.check(bucket.n == 1 and bucket.minLevel == 16 and bucket.materials[DUST].drops == 1, "recording replaces it with a fresh bucket")
 
 -- Mail: two vests from one sender, both received and queued by Mail.
 local function mailSetup()
