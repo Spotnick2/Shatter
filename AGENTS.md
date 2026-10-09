@@ -128,6 +128,9 @@ heavy runtime dependencies.
   after the release metadata commit. (0.2 keeps Forever versions distinct from the TBC addon's
   0.1 line.) Keep `## Version: @project-version@`. Add a top changelog entry, commit, tag, push the
   branch, then the tag. Never push inherited TBC tags to this repo.
-- No CurseForge project ID yet: the Forever project (flavor `forever`, game version type 88568)
-  and its webhook must be created by the owner before the first release; then add
-  `## X-Curse-Project-ID`. Check the real CurseForge artifact, not only the CI dry run.
+- CurseForge: project **1545161** (https://www.curseforge.com/wow/addons/shatter), shared with the
+  TBC addon; `## X-Curse-Project-ID: 1545161` is in the TOC. Files are told apart by flavor
+  (Forever: flavor `forever`, game version type 88568, from `## Interface: 16001`) and by version
+  line (0.2 here, 0.1 for TBC). This repo needs its own CurseForge webhook (set up by the owner)
+  before the first release. Check the real CurseForge artifact, not only the CI dry run: it must be
+  tagged for Forever only, never for TBC.

@@ -11,8 +11,8 @@ H.eq(H.directive("Interface"), "16001",
 H.eq(H.directive("Version"), "@" .. "project-version" .. "@",
     "Version is the packager token; a literal version must never be committed over it")
 H.eq(H.directive("SavedVariables"), "ShatterDB", "one account-wide SavedVariables table")
-H.eq(H.directive("X-Curse-Project-ID"), nil,
-    "no CurseForge ID until the Forever project exists (1545161 is the TBC project)")
+H.eq(H.directive("X-Curse-Project-ID"), "1545161",
+    "the CurseForge project shared with the TBC addon (files told apart by flavor)")
 
 -- Every TOC entry exists, segment by segment, with matching case.
 local function listDir(dir)
