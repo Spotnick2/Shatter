@@ -12,6 +12,8 @@ local DEFAULTS = {
         minExpectedValueCopper = 0,
         useAuctionData = false,
         minimap = { hide = false, angle = 225 },
+        -- The look (Skin.lua): "clear" or "smoked" glass, or "flat".
+        skin = "clear",
         debug = false,
         traceDebug = false,
         simulateDisenchant = false,
@@ -126,6 +128,9 @@ local function NormalizeSettings(settings)
     end
     NormalizeQueueOrder(settings)
     NormalizeWindow(settings.window)
+    if settings.skin ~= "clear" and settings.skin ~= "smoked" and settings.skin ~= "flat" then
+        settings.skin = DEFAULTS.settings.skin
+    end
     return settings
 end
 

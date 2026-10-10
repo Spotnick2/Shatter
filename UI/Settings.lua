@@ -10,13 +10,13 @@ Shatter.RegisterModule("SettingsUI", SettingsUI)
 local function CreatePanelButton(parent, text, width)
     local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
     btn:SetSize(width or 90, 22)
-    Shatter.ApplyBackdrop(btn, 0.12, 0.12, 0.12, 1)
+    Shatter.Skin.Fill(btn, "button", "normal")
     btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     btn.text:SetAllPoints()
     btn.text:SetJustifyH("CENTER")
     btn.text:SetText(text)
-    btn:SetScript("OnEnter", function(self) self:SetBackdropColor(0.18, 0.18, 0.18, 1) end)
-    btn:SetScript("OnLeave", function(self) self:SetBackdropColor(0.12, 0.12, 0.12, 1) end)
+    btn:SetScript("OnEnter", function(self) Shatter.Skin.Hover(self, true) end)
+    btn:SetScript("OnLeave", function(self) Shatter.Skin.Hover(self, false) end)
     return btn
 end
 
@@ -32,7 +32,7 @@ end
 local function AddTooltip(frame, title, text)
     if not frame then return end
     frame:SetScript("OnEnter", function(self)
-        if self.SetBackdropColor and self.text then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end
+        Shatter.Skin.Hover(self, true)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(title, 1, 0.82, 0)
         if text and text ~= "" then
@@ -41,7 +41,7 @@ local function AddTooltip(frame, title, text)
         GameTooltip:Show()
     end)
     frame:SetScript("OnLeave", function(self)
-        if self.SetBackdropColor and self.text then self:SetBackdropColor(0.12, 0.12, 0.12, 1) end
+        Shatter.Skin.Hover(self, false)
         GameTooltip:Hide()
     end)
 end
@@ -53,7 +53,7 @@ function SettingsUI:Create(parent)
     frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, -76)
     frame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 52)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
-    Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(frame, Shatter.C.BG_PANEL)
     frame:Hide()
     self.frame = frame
 
@@ -63,7 +63,7 @@ function SettingsUI:Create(parent)
     self.scroll = scroll
 
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(1, 390)
+    content:SetSize(1, 430)
     scroll:SetScrollChild(content)
     scroll:SetScript("OnSizeChanged", function(self)
         content:SetWidth(math.max(1, self:GetWidth()))
@@ -81,9 +81,37 @@ function SettingsUI:Create(parent)
     title:SetText("Settings")
     Shatter.SetTextColor(title, Shatter.C.ACCENT)
 
+    local skinLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    skinLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+    skinLabel:SetText("Look")
+    self.skinButtons = {}
+    local previousSkin
+    for _, name in ipairs(Shatter.Skin.NAMES) do
+        local button = CreatePanelButton(content, Shatter.Skin.LABELS[name], name == "flat" and 64 or 96)
+        if previousSkin then
+            button:SetPoint("LEFT", previousSkin, "RIGHT", 6, 0)
+        else
+            button:SetPoint("TOPLEFT", skinLabel, "BOTTOMLEFT", 0, -8)
+        end
+        button:SetScript("OnClick", function()
+            Shatter.Skin.Set(name)
+            self:Refresh()
+        end)
+        self.skinButtons[name] = button
+        previousSkin = button
+    end
+    AddTooltip(self.skinButtons.clear, "Clear glass", "Light, translucent glass. Changes apply immediately.")
+    AddTooltip(self.skinButtons.smoked, "Smoked glass", "Darker glass, easier to read over a bright world.")
+    AddTooltip(self.skinButtons.flat, "Flat", "Shatter's opaque dark panels.")
+    if not Shatter.Glass then
+        self.skinNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        self.skinNote:SetPoint("LEFT", previousSkin, "RIGHT", 8, 0)
+        self.skinNote:SetText("LibGlass missing: flat only")
+    end
+
     local maxLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     local profileLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profileLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+    profileLabel:SetPoint("TOPLEFT", self.skinButtons.clear, "BOTTOMLEFT", 0, -12)
     profileLabel:SetText("Settings profile")
 
     local globalProfile = CreatePanelButton(content, "Global", 82)
@@ -93,6 +121,7 @@ function SettingsUI:Create(parent)
 
     local function SetProfile(scope)
         if Shatter.Database then Shatter.Database:SetProfileScope(scope) end
+        Shatter.Skin.Refresh()
         self:Refresh()
         if Shatter.MainFrame then
             Shatter.MainFrame:ApplyPosition()
@@ -319,13 +348,18 @@ function SettingsUI:Refresh()
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end
+    for name, button in pairs(self.skinButtons or {}) do
+        local chosen = name == Shatter.Skin.Name()
+        Shatter.Skin.Paint(button, chosen and "chosen" or "normal")
+        Shatter.SetTextColor(button.text, chosen and Shatter.C.ACCENT or Shatter.C.TEXT_NORM)
+    end
     local profileScope = Shatter.Database and Shatter.Database:GetProfileScope() or Shatter.Constants.PROFILE_SCOPE.GLOBAL
     for scope, button in pairs(self.profileButtons or {}) do
         if scope == profileScope then
-            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.Skin.Paint(button, "chosen")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else
-            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end
@@ -335,30 +369,30 @@ function SettingsUI:Refresh()
     SetShown(self.simulate and self.simulate.label, settings.debug or settings.simulateDisenchant)
     for quality, button in pairs(self.qualityButtons or {}) do
         if quality == settings.maxQuality then
-            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.Skin.Paint(button, "chosen")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else
-            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end
     local order = Shatter.Database and Shatter.Database:GetQueueOrder("solo") or Shatter.Constants.QUEUE_ORDER.BAG_SLOT
     for value, button in pairs(self.queueOrderButtons or {}) do
         if value == order then
-            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.Skin.Paint(button, "chosen")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else
-            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end
     local threshold = tonumber(settings.minExpectedValueCopper) or 0
     for value, button in pairs(self.valueButtons or {}) do
         if value == threshold then
-            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
+            Shatter.Skin.Paint(button, "chosen")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else
-            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end

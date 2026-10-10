@@ -18,7 +18,7 @@ function MailRows.CreateInputRow(parent, index)
     local row = CreateFrame("Button", nil, parent, "BackdropTemplate")
     row:SetHeight(42)
     row.index = index
-    Shatter.ApplyBackdrop(row, unpack(index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD))
+    Shatter.Skin.Fill(row, "row", index % 2 == 0 and "even" or "odd")
 
     row.check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
     row.check:SetSize(22, 22)
@@ -77,7 +77,7 @@ function MailRows.CreateInputRow(parent, index)
     end
 
     row:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(unpack(Shatter.C.BG_HOVER))
+        Shatter.Skin.Hover(self, true)
         if self.inputItem and GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             if self.inputItem.itemLink then
@@ -92,8 +92,7 @@ function MailRows.CreateInputRow(parent, index)
         end
     end)
     row:SetScript("OnLeave", function(self)
-        local color = self.index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD
-        self:SetBackdropColor(unpack(color))
+        Shatter.Skin.Hover(self, false)
         if GameTooltip then GameTooltip:Hide() end
     end)
     return row
@@ -103,7 +102,7 @@ function MailRows.CreateOutputRow(parent, index)
     local row = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     row:SetHeight(44)
     row.index = index
-    Shatter.ApplyBackdrop(row, unpack(index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD))
+    Shatter.Skin.Fill(row, "row", index % 2 == 0 and "even" or "odd")
 
     row.recipient = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.recipient:SetPoint("TOPLEFT", row, "TOPLEFT", 8, -6)

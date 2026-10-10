@@ -114,6 +114,12 @@ heavy runtime dependencies.
   deploy and tell the user whether `/reload` is enough (a brand-new addon folder or new TOC entry
   needs a full client restart).
 - In game: `/console scriptErrors 1` (errors are off by default on this client).
+- **LibGlass-1.0 is embedded** (`.pkgmeta` externals, pinned to a release tag; never committed).
+  The tests load it and the deploy copies it from the sibling checkout `..\LibGlass` (or
+  `$env:LIBGLASS`); CI fetches the pinned tag. Bumping the pin is a `.pkgmeta` change plus a
+  deploy and in-game look. Material changes are LibGlass PRs. `Skin.lua` is the only place that
+  decides colours: widgets report a state (`Skin.Paint`, `Skin.Hover`), and Flat must keep painting
+  the pre-glass colours. See `C:\Projects\References\EMBEDDED-LIBRARIES.md`.
 
 ## Repository Practices
 - Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run

@@ -188,7 +188,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -258,6 +258,17 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Rescan()
         end
         Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
+        return
+    elseif message == "skin" or message:match("^skin ") then
+        local name = message:match("^skin%s+(%S+)$")
+        if name and Shatter.Skin.Set(name) then
+            if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
+            Shatter.Print("Look: " .. Shatter.Skin.LABELS[name] .. "."
+                .. ((name ~= "flat" and not Shatter.Glass) and " LibGlass is missing, so Shatter stays flat." or ""))
+        else
+            Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Name()] or "?") .. ". Use /shatter skin "
+                .. table.concat(Shatter.Skin.NAMES, "|") .. ".")
+        end
         return
     elseif message == "simreset" then
         if Shatter.Session then Shatter.Session:ResetSimulatedItems() end
