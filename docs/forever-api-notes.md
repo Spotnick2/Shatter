@@ -5,7 +5,16 @@ canonical guide, `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`; this file o
 Shatter itself relies on, with the evidence.
 
 Build: **1.60.1.70334** (`_classic_beta_\.build.info`, `References\forever-api-1.60.1.70334.md`).
-Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 70245).
+Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 1.60.1.70291; no
+70334 source has been published, so the source citations below are 70291's).
+
+What was measured in game on 70334, before `MEASURED_ON_BUILD` moved to it: Shatter loads and
+activates on an enchanter, and its SavedVariables come back across a full client exit (the
+persistence canary below, read from `WTF\Account\<id>\SavedVariables\Shatter.lua`: the 70291
+stamps are followed by 20 stamps on 70334, 2026-10-09 19:30 to 2026-10-10 01:01; a build change is
+a client restart, so the first 70334 stamp landing in the same list is the table read back by a new
+process). These are the rows 70291 was measured on too. The rows marked **measure in game** below
+have not been measured on any build yet, 70334 included.
 
 | Shatter needs | On Forever | Evidence | Status |
 |---|---|---|---|
@@ -19,7 +28,7 @@ Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 7
 | Item instance identity | `C_Item.GetItemGUID(ItemLocation)` (non-optional WOWGUID), `C_Item.DoesItemExist`; `ItemLocation:CreateFromBagAndSlot` from Blizzard_ObjectAPI (no game-type restriction). Shatter scans bags for the GUID rather than using `C_Item.GetItemLocation`. If it yields nothing, every copy of the item is held back from Solo and the Mail disenchant is refused | dump 2207, 2232; Blizzard_ObjectAPI/Mainline/ItemLocation.lua | source; **measure in game** (GUID stable across a drag and a bag sort) |
 | Mail frames | `InboxFrame`, `OpenMailFrame`, `MailFrameTab1/2` exist; Blizzard_MailFrame is not LOD | MailFrame.xml | source |
 | Bags | 0-4 unchanged, `NUM_BAG_SLOTS` = 4, reagent bag 5 | guide s3 | measured (guide) |
-| SavedVariables | load back since 70009 | guide s1 | measured (guide) |
+| SavedVariables | load back since 70009 | guide s1; Shatter's load stamps on 70334 (above) | measured (70334) |
 
 Persistence canary: `ShatterDB.loadStamps` gains one `{ time, build }` per login (capped at 30).
 After a FULL client exit, a list that never grows past one entry means SavedVariables are not

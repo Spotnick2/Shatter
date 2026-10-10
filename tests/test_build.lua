@@ -78,7 +78,7 @@ for run = 1, 3 do
     saved = ShatterDB
     H.eq(#saved.loadStamps, run, "load " .. run .. ": " .. run .. " stamp(s)")
 end
-H.eq(saved.loadStamps[3].build, "1.60.1." .. "70334", "each stamp records the build")
+H.eq(saved.loadStamps[3].build, MEASURED, "each stamp records the build")
 
 -- A fresh table (SavedVariables not read back) starts again at one.
 WoW.reset()
