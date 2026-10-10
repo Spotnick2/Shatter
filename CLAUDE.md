@@ -24,7 +24,8 @@ wants to ratchet complexity - this is a single-owner addon.
   split is load-bearing.
 - **The secure `Shatter Next` path** (UI/MainFrame.lua PreClick/PostClick, Disenchant.lua): one
   left click on the activating edge, one cast, one item; disarmed afterwards; nothing in combat
-  that touches the protected main frame.
+  that shows, hides, moves, resizes or rescales the protected main frame, or changes the secure
+  button's attributes (colours are not protected: the live skin switch repaints them in combat).
 - **`ShatterDB` shape** is persisted and loads back on this client; don't break it.
 - **Test stubs model Forever.** A stub returning a Classic-shaped tuple, or a widget method the
   client lacks, makes a broken port pass - stub fidelity is part of the review surface.

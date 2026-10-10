@@ -119,7 +119,8 @@ heavy runtime dependencies.
   `$env:LIBGLASS`); CI fetches the pinned tag. Bumping the pin is a `.pkgmeta` change plus a
   deploy and in-game look. Material changes are LibGlass PRs. `Skin.lua` is the only place that
   decides colours: widgets report a state (`Skin.Paint`, `Skin.Hover`), and Flat must keep painting
-  the pre-glass colours. See `C:\Projects\References\EMBEDDED-LIBRARIES.md`.
+  the pre-glass colours. Rounded masks only go where `Skin.Maskable` allows (LibGlass's sliced
+  masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\References\EMBEDDED-LIBRARIES.md`.
 
 ## Repository Practices
 - Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run

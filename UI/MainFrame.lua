@@ -682,6 +682,7 @@ function MainFrame:Create()
     headerIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     local close = CreateButton(titleBar, "x", 22)
+    self.closeButton = close
     close:SetPoint("RIGHT", titleBar, "RIGHT", -7, 0)
     close:SetScript("OnClick", function() self:RequestShown(false) end)
 
@@ -693,6 +694,7 @@ function MainFrame:Create()
     self.tabSolo = tabSolo
 
     local tabMail = CreateButton(frame, "Mail", 68)
+    self.tabMail = tabMail
     tabMail:SetPoint("LEFT", tabSolo, "RIGHT", 6, 0)
     Shatter.Skin.Paint(tabMail, "dim")
     Shatter.SetTextColor(tabMail.text, Shatter.C.TEXT_DIM)
@@ -717,6 +719,7 @@ function MainFrame:Create()
     end)
 
     local tabRaid = CreateButton(frame, "Raid", 68)
+    self.tabRaid = tabRaid
     tabRaid:SetPoint("LEFT", tabMail, "RIGHT", 6, 0)
     Shatter.Skin.Paint(tabRaid, "dim")
     Shatter.SetTextColor(tabRaid.text, Shatter.C.TEXT_DIM)
@@ -1167,7 +1170,9 @@ function MainFrame:SetActiveView(view)
 end
 
 function MainFrame:UpdateTabs()
-    local function Style(button, active, disabled)
+    -- `idle`: the state of an available tab that isn't the current view. Solo
+    -- is an ordinary button; Mail and Raid have their own hover.
+    local function Style(button, active, disabled, idle)
         if not button then return end
         if active then
             Shatter.Skin.Paint(button, "active")
@@ -1176,13 +1181,13 @@ function MainFrame:UpdateTabs()
             Shatter.Skin.Paint(button, "dim")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_DIM)
         else
-            Shatter.Skin.Paint(button, "normal")
+            Shatter.Skin.Paint(button, idle)
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end
-    Style(self.tabSolo, self.activeView == "solo", false)
-    Style(self.tabMail, self.activeView == "mail", not (Shatter.MailMode and Shatter.MailMode:IsAvailable()))
-    Style(self.tabRaid, false, true)
+    Style(self.tabSolo, self.activeView == "solo", false, "normal")
+    Style(self.tabMail, self.activeView == "mail", not (Shatter.MailMode and Shatter.MailMode:IsAvailable()), "tab")
+    Style(self.tabRaid, false, true, "tab")
 end
 
 function MainFrame:GetBaseStatus()

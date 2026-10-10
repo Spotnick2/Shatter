@@ -266,7 +266,7 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Print("Look: " .. Shatter.Skin.LABELS[name] .. "."
                 .. ((name ~= "flat" and not Shatter.Glass) and " LibGlass is missing, so Shatter stays flat." or ""))
         else
-            Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Name()] or "?") .. ". Use /shatter skin "
+            Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Shown()] or "?") .. ". Use /shatter skin "
                 .. table.concat(Shatter.Skin.NAMES, "|") .. ".")
         end
         return

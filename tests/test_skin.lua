@@ -138,7 +138,76 @@ H.check(same(Skin.Surface(Shatter.MailLaunchPanel.startButton).fill.colorTexture
     same(Skin.Surface(Shatter.MailLaunchPanel.startButton).fill.colorTexture, { 1, 0.82, 0, 0.15 }),
     "its buttons are glass fills")
 
--- 9. No LibGlass (installed from a git clone): flat, whatever the setting.
+-- 9. Flat hovers that differ from an ordinary button's, as before glass.
+main = setup({ savedDB = { settings = { skin = "flat" } } })
+Shatter.MailMode.IsAvailable = function() return true end
+main:UpdateTabs()
+local tabMail = main.tabMail
+tabMail.scripts.OnEnter(tabMail)
+H.check(same(tabMail.backdropColor, { 0.10, 0.10, 0.10, 0.9 }), "Flat: an available Mail tab keeps its own darker hover")
+tabMail.scripts.OnLeave(tabMail)
+H.check(same(tabMail.backdropColor, { 0.12, 0.12, 0.12, 1 }), "...and its grey after")
+main.activeView = "mail"
+main:UpdateTabs()
+H.check(same(tabMail.backdropColor, C.BG_ACTIVE) and same(tabMail.backdropBorderColor, C.ACCENT),
+    "the Mail tab is marked active in the Mail view (it never was: UpdateTabs had no tabMail)")
+main.activeView = "solo"
+main:UpdateTabs()
+main.tabRaid.scripts.OnEnter(main.tabRaid)
+H.check(same(main.tabRaid.backdropColor, { 0.10, 0.10, 0.10, 0.9 }), "Flat: the Raid tab's hover")
+main.tabRaid.scripts.OnLeave(main.tabRaid)
+Shatter.SettingsUI:Toggle()
+local flatButton = Shatter.SettingsUI.skinButtons.flat
+flatButton.scripts.OnEnter(flatButton)
+flatButton.scripts.OnClick(flatButton)
+H.check(same(flatButton.backdropColor, C.BG_ACTIVE), "Flat: a just-chosen option stays BG_ACTIVE under the mouse")
+
+-- 10. Masks only where body_mask_small fits (LibGlass §6): not on the 22 px
+-- close button (small both ways) nor the 14 px cast-bar trough.
+main = setup()
+H.check(Skin.Surface(main.settingsButton).masked and #Skin.Surface(main.settingsButton).fill.masks == 1,
+    "an ordinary button is rounded")
+H.check(not Skin.Surface(main.closeButton).masked and Skin.Surface(main.closeButton).fill.masks == nil,
+    "the close button's fill stays square")
+H.check(not Skin.Surface(main.castBar).masked and Skin.Surface(main.castBar).fill.masks == nil,
+    "the cast-bar trough stays square")
+H.eq(Skin.Maskable(20, 24), false, "Maskable: 20x24 is small both ways")
+H.eq(Skin.Maskable(200, 12), false, "Maskable: under 16 px tall")
+H.eq(Skin.Maskable(66, 22), true, "Maskable: a short, wide button")
+H.eq(Skin.Maskable(0, 0), false, "Maskable: a size not set yet")
+
+-- 11. Painting reads the setting once per Refresh, not on every hover.
+local reads = 0
+local getSettings = Shatter.Database.GetSettings
+Shatter.Database.GetSettings = function(...) reads = reads + 1 return getSettings(...) end
+for _ = 1, 5 do
+    main.settingsButton.scripts.OnEnter(main.settingsButton)
+    main.settingsButton.scripts.OnLeave(main.settingsButton)
+end
+Shatter.Database.GetSettings = getSettings
+H.eq(reads, 0, "hovering a button doesn't re-read the settings")
+Shatter.Database:GetSettings().skin = "flat"
+Skin.Refresh()
+H.check(not Skin.Surface(main.frame).panel:IsShown(), "Refresh re-reads the setting")
+Skin.Set("clear")
+
+-- 12. A frame registered twice keeps one record and one fill.
+local again = CreateFrame("Button", nil, main.frame, "BackdropTemplate")
+again:SetSize(80, 22)
+Skin.Fill(again, "button", "normal")
+local firstFill = Skin.Surface(again).fill
+Skin.Fill(again, "button", "field")
+H.check(Skin.Surface(again).fill == firstFill and #firstFill.masks == 1, "re-registering keeps the fill and its one mask")
+Skin.Set("smoked")
+H.check(same(firstFill.colorTexture, { 0, 0, 0, 0.35 }), "...and Refresh paints the new record")
+Skin.Set("clear")
+
+-- 13. The stubs refuse texture methods on frames (the client does).
+H.raises(function() main.frame:AddMaskTexture(main.frame) end, "a frame has no AddMaskTexture")
+H.raises(function() main.frame:SetGradient("VERTICAL") end, "a frame has no SetGradient")
+H.raises(function() firstFill:CreateMaskTexture() end, "a texture has no CreateMaskTexture")
+
+-- 14. No LibGlass (installed from a git clone): flat, whatever the setting.
 rawset(_G, "LibStub", nil)
 main = setup({ withoutLibs = true })
 H.eq(Shatter.Glass, nil, "no library, no glass instance")
@@ -146,5 +215,9 @@ H.eq(Shatter.Database:GetSettings().skin, "clear", "the setting is still Clear")
 H.eq(Skin.IsGlass(), false, "...but Shatter renders flat")
 H.check(same(main.frame.backdropColor, C.BG_MAIN), "the window keeps its Flat backdrop")
 H.check(Skin.Surface(main.frame).panel == nil, "no glass panel was built")
+Shatter.SettingsUI:Toggle()
+H.check(same(Shatter.SettingsUI.skinButtons.flat.backdropColor, C.BG_ACTIVE)
+    and same(Shatter.SettingsUI.skinButtons.clear.backdropColor, { 0.12, 0.12, 0.12, 1 }),
+    "Settings marks Flat, the look actually drawn")
 
 H.done("test_skin")
