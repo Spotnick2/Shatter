@@ -128,7 +128,7 @@ local function NormalizeSettings(settings)
     end
     NormalizeQueueOrder(settings)
     NormalizeWindow(settings.window)
-    if settings.skin ~= "clear" and settings.skin ~= "smoked" and settings.skin ~= "flat" then
+    if not Shatter.Skin.IsValid(settings.skin) then
         settings.skin = DEFAULTS.settings.skin
     end
     return settings

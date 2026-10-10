@@ -365,18 +365,37 @@ function Widget:CreateTexture(name, layer, template, sublevel)
     t.drawLayer, t.sublevel = layer, sublevel
     return t
 end
--- Masks and sliced/tiled textures (dump: SimpleFrameAPI CreateMaskTexture,
--- SimpleTextureBaseAPI), what LibGlass builds its material from.
-function Widget:CreateMaskTexture(name) return child(self, "MaskTexture", name) end
+-- Masks and sliced/tiled textures, what LibGlass builds its material from,
+-- each only on the object types the dump gives it: CreateMaskTexture on
+-- frames (SimpleFrameAPI), AddMaskTexture on a Texture (SimpleTextureAPI),
+-- the rest on a Texture or a MaskTexture (SimpleTextureBaseAPI). The generic
+-- Widget would otherwise let a frame take a texture's call, which errors on
+-- the client.
+local REGION_KINDS = { Texture = true, MaskTexture = true, FontString = true }
+local TEXTURE = { Texture = true }
+local TEXTURE_BASE = { Texture = true, MaskTexture = true }
+local function only(self, method, kinds)
+    local ok
+    if kinds then ok = kinds[self.kind] else ok = not REGION_KINDS[self.kind] end
+    if not ok then error(tostring(self.kind) .. " has no method " .. method, 3) end
+end
+function Widget:CreateMaskTexture(name)
+    only(self, "CreateMaskTexture")
+    return child(self, "MaskTexture", name)
+end
 function Widget:AddMaskTexture(mask)
+    only(self, "AddMaskTexture", TEXTURE)
     self.masks = self.masks or {}
     self.masks[#self.masks + 1] = mask
 end
-function Widget:SetTextureSliceMargins(...) self.sliceMargins = { ... } end
-function Widget:SetTextureSliceMode(m) self.sliceMode = m end
-function Widget:SetHorizTile(v) self.horizTile = v end
-function Widget:SetVertTile(v) self.vertTile = v end
-function Widget:SetGradient(orientation, minColor, maxColor) self.gradient = { orientation, minColor, maxColor } end
+function Widget:SetTextureSliceMargins(...) only(self, "SetTextureSliceMargins", TEXTURE_BASE) self.sliceMargins = { ... } end
+function Widget:SetTextureSliceMode(m) only(self, "SetTextureSliceMode", TEXTURE_BASE) self.sliceMode = m end
+function Widget:SetHorizTile(v) only(self, "SetHorizTile", TEXTURE_BASE) self.horizTile = v end
+function Widget:SetVertTile(v) only(self, "SetVertTile", TEXTURE_BASE) self.vertTile = v end
+function Widget:SetGradient(orientation, minColor, maxColor)
+    only(self, "SetGradient", TEXTURE_BASE)
+    self.gradient = { orientation, minColor, maxColor }
+end
 function Widget:SetText(t) self._text = t == nil and "" or tostring(t) end
 function Widget:GetText() return self._text end
 function Widget:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end

@@ -58,8 +58,13 @@ local FILLS = {
             fill = White(0.08), fillHover = White(0.14) },
         -- The selected tab or option.
         active = { bg = C.BG_ACTIVE, border = ACCENT, fill = Accent(0.18) },
-        -- The chosen value of a Settings option (no accent border in Flat).
-        chosen = { bg = C.BG_ACTIVE, border = C.BORDER, hover = { 0.18, 0.18, 0.18, 1 }, fill = Accent(0.18) },
+        -- The chosen value of a Settings option (no accent border in Flat). It
+        -- keeps its colour under the mouse: a hover grey would dim it on click.
+        chosen = { bg = C.BG_ACTIVE, border = C.BORDER, fill = Accent(0.18) },
+        -- An available mode tab that isn't the current view (Mail, Raid): its
+        -- own darker hover, as before glass.
+        tab = { bg = { 0.12, 0.12, 0.12, 1 }, border = C.BORDER, hover = { 0.10, 0.10, 0.10, 0.9 },
+            fill = White(0.08), fillHover = White(0.14) },
         -- An unavailable tab: still hoverable for its tooltip.
         dim = { bg = { 0.08, 0.08, 0.08, 0.7 }, border = C.BORDER, hover = { 0.10, 0.10, 0.10, 0.9 },
             fill = White(0.03), fillHover = White(0.07) },
@@ -90,16 +95,30 @@ local surfaces = {}     -- registration order, for Refresh
 local byFrame = {}      -- frame -> its record
 
 -- The current preset, or nil when Shatter renders flat: the Flat skin, or
--- no LibGlass to draw glass with.
+-- no LibGlass to draw glass with. Read from the settings once and kept until
+-- the next Refresh or Set (GetSettings re-normalizes the whole database, too
+-- much for every hover and paint); whatever changes the setting or the
+-- profile calls one of them.
+local preset, resolved = nil, false
+
 local function Preset()
-    local settings = Shatter.Database and Shatter.Database:GetSettings()
-    local p = settings and Skin.PRESETS[settings.skin]
-    return Shatter.Glass and p or nil
+    if not resolved then
+        local settings = Shatter.Database and Shatter.Database:GetSettings()
+        preset = Shatter.Glass and settings and Skin.PRESETS[settings.skin] or nil
+        resolved = true
+    end
+    return preset
 end
 
+-- The saved setting.
 function Skin.Name()
     local settings = Shatter.Database and Shatter.Database:GetSettings()
     return settings and settings.skin or "clear"
+end
+
+-- What is drawn: the setting, or "flat" when LibGlass is missing.
+function Skin.Shown()
+    return Shatter.Glass and Skin.Name() or "flat"
 end
 
 function Skin.IsGlass() return Preset() ~= nil end
@@ -125,9 +144,30 @@ local function Rounded(frame, texture)
     texture:AddMaskTexture(mask)
 end
 
+-- Whether a w x h box takes body_mask_small (sliced at margin 8). LibGlass
+-- GLASS-MATERIAL.md §6: under 16 px on an axis the corners are squeezed (and
+-- a margin must never be shrunk to fit), and a sliced mask on a box small in
+-- BOTH directions (measured broken at 16-22 px, fine at 32) doesn't render.
+-- Those boxes stay square. A size not set yet (0) counts as small.
+function Skin.Maskable(w, h)
+    w, h = w or 0, h or 0
+    return w >= 16 and h >= 16 and (w >= 32 or h >= 32)
+end
+
+-- Each frame has one record: a second registration replaces the first in
+-- place and keeps what was already built (a window's panel, a fill and its
+-- mask): LibGlass has no teardown, and AddMaskTexture appends.
 local function Register(frame, record)
     record.frame = frame
-    if not byFrame[frame] then surfaces[#surfaces + 1] = record end
+    local old = byFrame[frame]
+    if old then
+        record.panel, record.g, record.fill, record.masked = old.panel, old.g, old.fill, old.masked
+        for i, r in ipairs(surfaces) do
+            if r == old then surfaces[i] = record break end
+        end
+    else
+        surfaces[#surfaces + 1] = record
+    end
     byFrame[frame] = record
     return record
 end
@@ -195,7 +235,7 @@ end
 function Skin.Window(frame, flat)
     Shatter.ApplyBackdrop(frame, unpack(flat))
     local record = Register(frame, { kind = "window", flat = flat })
-    if Shatter.Glass then
+    if Shatter.Glass and not record.panel then
         local panel = CreateFrame("Frame", nil, frame)
         panel:SetAllPoints(frame)
         panel:SetFrameLevel(frame:GetFrameLevel())
@@ -210,7 +250,7 @@ end
 function Skin.Pane(frame, flat)
     Shatter.ApplyBackdrop(frame, unpack(flat))
     local record = Register(frame, { kind = "pane", flat = flat })
-    if Shatter.Glass then
+    if Shatter.Glass and not record.fill then
         record.fill = frame:CreateTexture(nil, "BACKGROUND")
         record.fill:SetAllPoints(frame)
         Rounded(frame, record.fill)
@@ -219,18 +259,24 @@ function Skin.Pane(frame, flat)
 end
 
 -- A filled widget of a FILLS family ("button", "row", "track") in `state`.
--- Buttons and the track are rounded; rows sit inside a pane and stay square.
+-- Buttons and the track are inset by the border and rounded when their size
+-- (set before this call) takes the mask; rows sit inside a pane and stay
+-- square.
 function Skin.Fill(frame, family, state)
     Shatter.ApplyBackdrop(frame, unpack(FILLS[family][state].bg))
     local record = Register(frame, { kind = "fill", family = family, state = state, default = state })
-    if Shatter.Glass then
+    if Shatter.Glass and not record.fill then
         record.fill = frame:CreateTexture(nil, "BACKGROUND")
         if family == "row" then
             record.fill:SetAllPoints(frame)
         else
             record.fill:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
             record.fill:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
-            Rounded(frame, record.fill)
+            local w, h = frame:GetSize()
+            if Skin.Maskable((w or 0) - 2, (h or 0) - 2) then
+                Rounded(frame, record.fill)
+                record.masked = true
+            end
         end
     end
     Apply(record)
@@ -262,8 +308,10 @@ end
 -- or a filled widget, plus its state. For tests and debugging; read only.
 function Skin.Surface(frame) return byFrame[frame] end
 
--- Repaint every surface in the current skin.
+-- Repaint every surface in the current skin (re-reading the setting: a
+-- profile switch changes it).
 function Skin.Refresh()
+    resolved = false
     for _, record in ipairs(surfaces) do Apply(record) end
 end
 

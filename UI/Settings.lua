@@ -349,7 +349,7 @@ function SettingsUI:Refresh()
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end
     for name, button in pairs(self.skinButtons or {}) do
-        local chosen = name == Shatter.Skin.Name()
+        local chosen = name == Shatter.Skin.Shown()
         Shatter.Skin.Paint(button, chosen and "chosen" or "normal")
         Shatter.SetTextColor(button.text, chosen and Shatter.C.ACCENT or Shatter.C.TEXT_NORM)
     end
