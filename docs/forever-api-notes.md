@@ -4,18 +4,22 @@ Measured or source-verified facts this addon depends on. Addon-agnostic findings
 canonical guide, `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`; this file only records what
 Shatter itself relies on, with the evidence.
 
-Build: **1.60.1.70338** (`_classic_beta_\.build.info`, `References\forever-api-1.60.1.70338.md`).
-Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 1.60.1.70291; no
-newer source has been published, so the source citations below are 70291's).
+Build: **1.60.1.70338** (`.build.info` in the World of Warcraft root, row `wow_classic_beta`;
+`References\forever-api-1.60.1.70338.md`).
+Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 1.60.1.70338,
+commit 943764493). From 70291 to 70338 only `version.txt` changed, so the source citations below
+hold on 70338.
 
 70338's dump declares the same documented API as 70334's (functions, events, tables, widget
 methods and the dump line numbers cited below are unchanged); its `_G` walk adds 35 Raid UI
 functions Shatter doesn't use.
 
-What was measured in game on 70338, before `MEASURED_ON_BUILD` moved to it: **pending** (the
-persistence canary below: a 70338 stamp following the 70334 ones in
-`WTF\Account\<id>\SavedVariables\Shatter.lua`, after a full client exit). On 70334 that canary
-showed Shatter loading and its SavedVariables read back across a full client exit: the 70291
+What was measured in game on 70338, before `MEASURED_ON_BUILD` moved to it: **pending**. The
+probe: log in a character that knows Disenchant (Shatter stays inactive and stamps nothing on any
+other, so its file reads `ShatterDB = nil`), exit the client fully, and find a 70338 stamp
+following the 70334 ones in `WTF\Account\<id>\SavedVariables\Shatter.lua`. On 70334 that probe
+showed Shatter loading and activating on an enchanter, and its SavedVariables read back across a
+full client exit: the 70291
 stamps were followed by 20 stamps on 70334, 2026-10-09 19:30 to 2026-10-10 01:01 (a build change is
 a client restart, so the first new-build stamp in the same list is the table read back by a new
 process). The rows marked **measure in game** below have not been measured on any build yet.
