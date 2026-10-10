@@ -8,7 +8,8 @@ function Rows.CreateQueueRow(parent, index)
     local row = CreateFrame("Button", nil, parent, "BackdropTemplate")
     row:SetHeight(34)
     row.index = index
-    Shatter.ApplyBackdrop(row, unpack(index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD))
+    row.parity = index % 2 == 0 and "even" or "odd"
+    Shatter.Skin.Fill(row, "row", row.parity)
 
     row.selectedStripe = row:CreateTexture(nil, "OVERLAY")
     row.selectedStripe:SetWidth(2)
@@ -41,9 +42,7 @@ function Rows.CreateQueueRow(parent, index)
         if Shatter.Queue then Shatter.Queue:Select(self.index) end
     end)
     row:SetScript("OnEnter", function(self)
-        if not self.selected then
-            self:SetBackdropColor(unpack(Shatter.C.BG_HOVER))
-        end
+        Shatter.Skin.Hover(self, true)
         if self.item and GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink(self.item.itemLink)
@@ -51,29 +50,24 @@ function Rows.CreateQueueRow(parent, index)
         end
     end)
     row:SetScript("OnLeave", function(self)
-        if not self.selected then
-            local color = self.index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD
-            self:SetBackdropColor(unpack(color))
-        end
+        Shatter.Skin.Hover(self, false)
         if GameTooltip then GameTooltip:Hide() end
     end)
 
+    -- Flat: the row's border is its item's quality, dimmed.
+    local function QualityBorder(self)
+        if not self.item then return nil end
+        local r, g, b = Shatter.GetQualityColor(self.item.quality)
+        return { r * 0.45, g * 0.45, b * 0.45, 0.85 }
+    end
+
     function row:SetSelected(selected)
         self.selected = selected
+        Shatter.Skin.Paint(self, selected and "selected" or self.parity, QualityBorder(self))
         if selected then
-            self:SetBackdropColor(0.22, 0.18, 0.08, 0.98)
-            self:SetBackdropBorderColor(0.95, 0.78, 0.08, 1)
             self.selectedStripe:Show()
             self.selectedStripe:SetWidth(3)
         else
-            local color = self.index % 2 == 0 and Shatter.C.BG_ROW_EVEN or Shatter.C.BG_ROW_ODD
-            self:SetBackdropColor(unpack(color))
-            if self.item then
-                local r, g, b = Shatter.GetQualityColor(self.item.quality)
-                self:SetBackdropBorderColor(r * 0.45, g * 0.45, b * 0.45, 0.85)
-            else
-                self:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
-            end
             self.selectedStripe:Hide()
             self.selectedStripe:SetWidth(2)
         end
@@ -90,7 +84,7 @@ function Rows.CreateQueueRow(parent, index)
         self.name:SetText(item.itemLink or item.itemName or "Unknown item")
         local r, g, b = Shatter.GetQualityColor(item.quality)
         self.name:SetTextColor(r, g, b)
-        self:SetBackdropBorderColor(r * 0.45, g * 0.45, b * 0.45, 0.85)
+        Shatter.Skin.Paint(self, self.selected and "selected" or self.parity, QualityBorder(self))
         self.iconBorder:SetBackdropBorderColor(r, g, b, 1)
         self.meta:SetText(string.format("Item Level %s  Bag %d, Slot %d", tostring(item.itemLevel or "?"), item.bag or 0, item.slot or 0))
     end

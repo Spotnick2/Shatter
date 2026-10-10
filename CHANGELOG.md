@@ -2,6 +2,7 @@
 
 ## Forever port (unreleased)
 
+- Glass skins: Shatter's window and the Mail launch panel can be **Clear glass** (the new default), **Smoked glass** or **Flat** (the previous opaque look), matching the other Glass addons. Choose under Settings > Look or with `/shatter skin clear|smoked|flat`; the change applies immediately, even in combat. The glass comes from the embedded LibGlass-1.0.
 - Expected materials learn from your disenchants: each real disenchant read from the loot window is counted for its quality, armor/weapon and item-level bracket, and from 20 disenchants a bracket's estimate blends the measured odds with the built-in table (shown as "measured"); the more you measure, the more it follows your results, and a rare material you have not seen yet keeps a share. Items above item level 92 are measured separately from Vanilla items. `/shatter yields` lists them, `/shatter yields reset` clears them.
 - Shatter now targets World of Warcraft: Forever (Interface 16001). This repository was forked with full history from the TBC Anniversary addon at `Spotnick2/Shatter@25886ea`; the TBC entries below are that addon's history.
 - Ported item, spell, container and addon calls to the Forever (Retail) APIs through a `Shatter.API` adapter; the bag scan no longer errors on the removed `GetItemInfo`.

@@ -30,12 +30,15 @@ Other early commands:
 /shatter scan
 /shatter yields
 /shatter yields reset
+/shatter skin clear|smoked|flat
 /shatter debug
 /shatter trace
 /shatter sim
 /shatter simreset
 /shatter reset
 ```
+
+Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is the shared material of the Glass addons, embedded as LibGlass-1.0.
 
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
 

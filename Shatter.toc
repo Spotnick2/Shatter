@@ -6,10 +6,13 @@
 ## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
 ## SavedVariables: ShatterDB
 
+Libs\LibGlass-1.0\LibGlass-1.0.xml
 Compat.lua
 Core.lua
 Constants.lua
 Theme.lua
+Glass.lua
+Skin.lua
 Database.lua
 Debug.lua
 Events.lua

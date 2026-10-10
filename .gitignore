@@ -19,3 +19,7 @@ docs/captures/
 !.claude/skills/
 .vscode/
 .idea/
+
+# The embedded LibGlass-1.0: the packager fetches it (.pkgmeta externals) and
+# Tools/deploy.ps1 copies it from ../LibGlass. Never committed.
+Libs/LibGlass-1.0/

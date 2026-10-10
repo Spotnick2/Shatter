@@ -15,7 +15,7 @@ function SummaryUI:Create(parent)
     frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, -76)
     frame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 44)
     frame:SetFrameLevel(parent:GetFrameLevel() + 20)
-    Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(frame, Shatter.C.BG_PANEL)
     frame:Hide()
     self.frame = frame
 

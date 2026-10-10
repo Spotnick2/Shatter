@@ -16,6 +16,11 @@
 
     The TBC addon lives in _anniversary_ under the same folder name. This script
     refuses that client: the Forever build there would overwrite the TBC one.
+
+    The embedded LibGlass-1.0 (the TOC's Libs\ line) is not in this repo: it
+    comes from the LibGlass checkout ($env:LIBGLASS, else ..\LibGlass) through
+    that library's own Tools\deploy.ps1, first. A checkout off the .pkgmeta pin
+    is a warning, not a failure: it tests a library the release won't ship.
 #>
 
 param(
@@ -40,10 +45,11 @@ if (-not ($tocLines | Where-Object { $_ -match '^##\s*Interface:\s*16001\s*$' })
 }
 
 # Every non-blank, non-# line is a file the client loads, relative to the TOC.
+# Libs\ lines are the embedded library's, deployed from its own checkout.
 $files = @()
 foreach ($line in $tocLines) {
     $entry = $line.Trim()
-    if ($entry -eq "" -or $entry.StartsWith("#")) { continue }
+    if ($entry -eq "" -or $entry.StartsWith("#") -or $entry.StartsWith("Libs\")) { continue }
     $files += $entry
 }
 
@@ -65,6 +71,15 @@ if ($missing.Count -gt 0) {
     throw "Shatter.toc names files that are missing or differ in case:`n  " + ($missing -join "`n  ")
 }
 
+$LibGlass = if ($env:LIBGLASS) { $env:LIBGLASS } else { Join-Path (Split-Path -Parent $RepoRoot) "LibGlass" }
+if (-not (Test-Path -LiteralPath (Join-Path $LibGlass "Tools\deploy.ps1"))) {
+    throw "LibGlass checkout not found at $LibGlass (clone github.com/Spotnick2/LibGlass there, or set `$env:LIBGLASS)."
+}
+. (Join-Path $PSScriptRoot "LibGlassPin.ps1")
+Write-LibGlassPinStatus $RepoRoot $LibGlass "this deploy tests a library the release won't ship"
+& pwsh -NoProfile -File (Join-Path $LibGlass "Tools\deploy.ps1") -Addon Shatter -AddOnsPath $AddOnsPath
+if ($LASTEXITCODE -ne 0) { throw "LibGlass deploy refused; Shatter was not touched." }
+
 $dest = Join-Path $AddOnsPath "Shatter"
 Write-Host "Deploying Shatter (Forever) -> $dest" -ForegroundColor Cyan
 
@@ -83,7 +98,7 @@ Write-Host "  copied $($files.Count + 2) files" -ForegroundColor DarkGray
 # the client but misleading when diagnosing; name them rather than delete.
 $expected = @{}
 foreach ($rel in @("Shatter.toc", "LICENSE") + $files) { $expected[$rel.ToLowerInvariant()] = $true }
-foreach ($item in Get-ChildItem -LiteralPath $dest -Recurse -File) {
+foreach ($item in Get-ChildItem -LiteralPath $dest -Recurse -File | Where-Object { $_.FullName -notlike (Join-Path $dest "Libs\*") }) {
     $rel = $item.FullName.Substring($dest.Length + 1)
     if (-not $expected.ContainsKey($rel.ToLowerInvariant())) {
         Write-Host "  note: $rel is in the deployed folder but not in the TOC" -ForegroundColor DarkYellow

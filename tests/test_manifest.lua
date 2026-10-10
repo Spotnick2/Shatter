@@ -62,6 +62,27 @@ for _, dev in ipairs({ "tests", "Tools", "docs", ".github", ".claude", "AGENTS.m
 end
 H.check(not ignored["LICENSE"], "LICENSE ships with the package")
 
+-- LibGlass-1.0 is embedded through .pkgmeta externals, pinned to a release
+-- tag, loaded before every Shatter file, and never committed. The packager
+-- ignores an external's own ignore list, so it is repeated here (its LICENSE
+-- ships).
+local libs = H.tocFiles(true)
+H.eq(#libs, 1, "one embedded library in the TOC")
+H.eq(libs[1], "Libs\\LibGlass-1.0\\LibGlass-1.0.xml", "...LibGlass-1.0's XML")
+local firstFile
+for _, line in ipairs(H.tocLines()) do
+    firstFile = firstFile or line:match("^%s*([^#%s].-)%s*$")
+end
+H.eq(firstFile, libs[1], "the library loads before Shatter's own files")
+local pin = pkgmeta:match("\n  Libs/LibGlass%-1%.0:\n    url: https://github%.com/Spotnick2/LibGlass\n    tag: (%S+)\n")
+H.check(pin and pin:match("^r%d+$"), ".pkgmeta externals pin LibGlass-1.0 to a release tag (" .. tostring(pin) .. ")")
+for _, dev in ipairs({ "tests", "docs", "Tools", "AGENTS.md", "CLAUDE.md", "README.md" }) do
+    H.check(ignored["Libs/LibGlass-1.0/" .. dev], ".pkgmeta ignores Libs/LibGlass-1.0/" .. dev)
+end
+H.check(not ignored["Libs/LibGlass-1.0/LICENSE"], "LibGlass's LICENSE ships")
+local gitignore = H.readFile(".gitignore") or ""
+H.check(gitignore:find("\nLibs/LibGlass%-1%.0/\n"), "the embedded library is never committed")
+
 -- The deploy script targets the Forever client and refuses the TBC one.
 local deploy = assert(H.readFile("Tools/deploy.ps1"))
 H.check(deploy:find("_classic_beta_", 1, true), "deploy targets _classic_beta_")

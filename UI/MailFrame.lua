@@ -12,13 +12,13 @@ Shatter.RegisterModule("MailFrame", MailFrame)
 local function CreateButton(parent, text, width)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(width or 82, 22)
-    Shatter.ApplyBackdrop(button, 0.12, 0.12, 0.12, 1)
+    Shatter.Skin.Fill(button, "button", "normal")
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
-    button:SetScript("OnEnter", function(self) if self:IsEnabled() then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end end)
-    button:SetScript("OnLeave", function(self) self:SetBackdropColor(0.12, 0.12, 0.12, 1) end)
+    button:SetScript("OnEnter", function(self) if self:IsEnabled() then Shatter.Skin.Hover(self, true) end end)
+    button:SetScript("OnLeave", function(self) Shatter.Skin.Hover(self, false) end)
     return button
 end
 
@@ -36,10 +36,10 @@ function MailFrame:Create(parent)
     self.frame = frame
 
     local left = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    Shatter.ApplyBackdrop(left, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(left, Shatter.C.BG_PANEL)
     self.inputPanel = left
     local right = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    Shatter.ApplyBackdrop(right, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(right, Shatter.C.BG_PANEL)
     self.outputPanel = right
 
     self.inputTitle = left:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

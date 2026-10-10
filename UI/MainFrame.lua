@@ -50,13 +50,13 @@ local function CreateButton(parent, text, width, secure)
     else
         button:RegisterForClicks("LeftButtonUp")
     end
-    Shatter.ApplyBackdrop(button, 0.12, 0.12, 0.12, 1)
+    Shatter.Skin.Fill(button, "button", "normal")
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
     button:SetScript("OnEnter", function(self)
-        if self:IsEnabled() then self:SetBackdropColor(0.18, 0.18, 0.18, 1) end
+        if self:IsEnabled() then Shatter.Skin.Hover(self, true) end
         if self.mailDisabledReason and GameTooltip then
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText(self.mailDisabledReason, 1, 0.82, 0, true)
@@ -64,7 +64,7 @@ local function CreateButton(parent, text, width, secure)
         end
     end)
     button:SetScript("OnLeave", function(self)
-        self:SetBackdropColor(0.12, 0.12, 0.12, 1)
+        Shatter.Skin.Hover(self, false)
         if self.mailDisabledReason and GameTooltip then GameTooltip:Hide() end
     end)
     return button
@@ -622,7 +622,7 @@ function MainFrame:Create()
     frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
     frame:EnableMouse(true)
     frame:Hide()
-    Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_MAIN))
+    Shatter.Skin.Window(frame, Shatter.C.BG_MAIN)
     SetEscapeCloses(true)
     self.frame = frame
 
@@ -650,6 +650,7 @@ function MainFrame:Create()
     local titleBg = titleBar:CreateTexture(nil, "BACKGROUND")
     titleBg:SetAllPoints()
     titleBg:SetColorTexture(unpack(Shatter.C.BG_HEADER))
+    Shatter.Skin.Band(titleBg)
 
     local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("CENTER", titleBar, "CENTER", 0, 0)
@@ -686,15 +687,14 @@ function MainFrame:Create()
 
     local tabSolo = CreateButton(frame, "Solo", 68)
     tabSolo:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -TITLE_H - 7)
-    tabSolo:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
-    tabSolo:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
+    Shatter.Skin.Paint(tabSolo, "active")
     Shatter.SetTextColor(tabSolo.text, Shatter.C.ACCENT)
     tabSolo:SetScript("OnClick", function() self:SetActiveView("solo") end)
     self.tabSolo = tabSolo
 
     local tabMail = CreateButton(frame, "Mail", 68)
     tabMail:SetPoint("LEFT", tabSolo, "RIGHT", 6, 0)
-    tabMail:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+    Shatter.Skin.Paint(tabMail, "dim")
     Shatter.SetTextColor(tabMail.text, Shatter.C.TEXT_DIM)
     tabMail:SetScript("OnClick", function()
         if Shatter.MailMode and Shatter.MailMode:IsAvailable() then
@@ -704,30 +704,32 @@ function MainFrame:Create()
         end
     end)
     tabMail:SetScript("OnEnter", function(selfButton)
-        selfButton:SetBackdropColor(0.10, 0.10, 0.10, 0.9)
+        Shatter.Skin.Hover(selfButton, true)
         GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
         GameTooltip:SetText("Mail Mode", 1, 0.82, 0)
         GameTooltip:AddLine("Opens automatically at the mailbox. Sessions stay active until you close them.", 0.82, 0.82, 0.82, true)
         GameTooltip:Show()
     end)
     tabMail:SetScript("OnLeave", function(selfButton)
+        Shatter.Skin.Hover(selfButton, false)
         MainFrame:UpdateTabs()
         GameTooltip:Hide()
     end)
 
     local tabRaid = CreateButton(frame, "Raid", 68)
     tabRaid:SetPoint("LEFT", tabMail, "RIGHT", 6, 0)
-    tabRaid:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
+    Shatter.Skin.Paint(tabRaid, "dim")
     Shatter.SetTextColor(tabRaid.text, Shatter.C.TEXT_DIM)
     tabRaid:SetScript("OnClick", function() self:SetStatus("Raid / Trade Mode is planned for Phase 4.", false) end)
     tabRaid:SetScript("OnEnter", function(selfButton)
-        selfButton:SetBackdropColor(0.10, 0.10, 0.10, 0.9)
+        Shatter.Skin.Hover(selfButton, true)
         GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
         GameTooltip:SetText("Raid / Trade Mode", 1, 0.82, 0)
         GameTooltip:AddLine("Planned for Phase 4. Disabled in the Phase 1 Solo MVP.", 0.82, 0.82, 0.82, true)
         GameTooltip:Show()
     end)
     tabRaid:SetScript("OnLeave", function(selfButton)
+        Shatter.Skin.Hover(selfButton, false)
         MainFrame:UpdateTabs()
         GameTooltip:Hide()
     end)
@@ -735,7 +737,7 @@ function MainFrame:Create()
     local queuePanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     queuePanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -76)
     queuePanel:SetSize(350, 252)
-    Shatter.ApplyBackdrop(queuePanel, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(queuePanel, Shatter.C.BG_PANEL)
     self.queuePanel = queuePanel
 
     local queueTitle = queuePanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -780,7 +782,7 @@ function MainFrame:Create()
     local detailPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     detailPanel:SetPoint("TOPLEFT", queuePanel, "TOPRIGHT", 8, 0)
     detailPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, CONTENT_BOTTOM)
-    Shatter.ApplyBackdrop(detailPanel, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Pane(detailPanel, Shatter.C.BG_PANEL)
     self.detailPanel = detailPanel
 
     detailPanel.selectedLabel = detailPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -939,7 +941,7 @@ function MainFrame:Create()
     castBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 48)
     castBar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -30, 48)
     castBar:SetHeight(14)
-    Shatter.ApplyBackdrop(castBar, 0.04, 0.04, 0.04, 0.95)
+    Shatter.Skin.Fill(castBar, "track", "normal")
     castBar.fill = castBar:CreateTexture(nil, "ARTWORK")
     castBar.fill:SetTexture("Interface\\Buttons\\WHITE8X8")
     castBar.fill:SetColorTexture(0.85, 0.58, 0.10, 0.78)
@@ -1004,8 +1006,7 @@ function MainFrame:Create()
     local primary = CreateButton(footer, "Shatter Next", 110, true)
     primary:SetPoint("RIGHT", ignore, "LEFT", -8, 0)
     primary:SetHeight(30)
-    primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
-    primary:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
+    Shatter.Skin.Paint(primary, "go")
     primary:SetScript("PreClick", function(button, mouseButton, down)
         -- Every registered edge and mouse button arrives here; only the one
         -- the secure handler acts on may arm or change state.
@@ -1169,16 +1170,13 @@ function MainFrame:UpdateTabs()
     local function Style(button, active, disabled)
         if not button then return end
         if active then
-            button:SetBackdropColor(unpack(Shatter.C.BG_ACTIVE))
-            button:SetBackdropBorderColor(unpack(Shatter.C.ACCENT))
+            Shatter.Skin.Paint(button, "active")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         elseif disabled then
-            button:SetBackdropColor(0.08, 0.08, 0.08, 0.7)
-            button:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
+            Shatter.Skin.Paint(button, "dim")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_DIM)
         else
-            button:SetBackdropColor(0.12, 0.12, 0.12, 1)
-            button:SetBackdropBorderColor(unpack(Shatter.C.BORDER))
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
     end
@@ -1253,11 +1251,11 @@ function MainFrame:Update()
             if enabled then
                 SetButtonEnabled(self.primary, true)
                 Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
-                self.primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
+                Shatter.Skin.Paint(self.primary, "go")
             else
                 SetButtonEnabled(self.primary, false)
                 Shatter.SetTextColor(self.primary.text, Shatter.C.TEXT_DIM)
-                self.primary:SetBackdropColor(0.10, 0.10, 0.10, 1)
+                Shatter.Skin.Paint(self.primary, "goOff")
             end
         end
         SetShown(self.ignoreButton, false)
@@ -1344,11 +1342,11 @@ function MainFrame:Update()
         if canAct then
             SetButtonEnabled(self.primary, true)
             Shatter.SetTextColor(self.primary.text, Shatter.C.ACCENT)
-            self.primary:SetBackdropColor(0.20, 0.15, 0.03, 1)
+            Shatter.Skin.Paint(self.primary, "go")
         else
             SetButtonEnabled(self.primary, false)
             Shatter.SetTextColor(self.primary.text, Shatter.C.TEXT_DIM)
-            self.primary:SetBackdropColor(0.10, 0.10, 0.10, 1)
+            Shatter.Skin.Paint(self.primary, "goOff")
         end
     end
 end
