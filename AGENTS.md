@@ -15,7 +15,7 @@ heavy runtime dependencies.
 - **The porting guide is canonical:** `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`. Read the
   sections you touch. New addon-agnostic findings go there; Shatter-specific ones go in
   `docs/forever-api-notes.md`.
-- **The API dump for the measured build:** `C:\Projects\References\forever-api-1.60.1.70334.md`.
+- **The API dump for the measured build:** `C:\Projects\References\forever-api-1.60.1.70338.md`.
   `Constants.MEASURED_ON_BUILD` must match it (and the literal in the tests).
 - **The client's own UI source:** `C:\Projects\wow-ui-source` (`forever` branch). Read
   `SecureTemplates.lua`, `Blizzard_MailFrame`, etc. before reasoning about Blizzard behaviour.

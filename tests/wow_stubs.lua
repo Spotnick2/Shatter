@@ -11,7 +11,7 @@
 --
 -- Three kinds of strictness, all on purpose:
 --   * Reading a global this file doesn't define is an error. The stub is the
---     list of APIs verified present on build 1.60.1.70334 (the API dump in
+--     list of APIs verified present on build 1.60.1.70338 (the API dump in
 --     C:\Projects\References and the client UI source), so it models the
 --     ABSENCES too. KNOWN_ABSENT models a client with the Blizzard_Deprecated*
 --     fallbacks switched off (CVar loadDeprecationFallbacks), which is the
@@ -30,7 +30,7 @@
 WoW = {}
 local WoW = WoW
 
-local MEASURED_BUILD = "70334"
+local MEASURED_BUILD = "70338"
 
 function WoW.reset()
     WoW.frames        = {}  -- every frame created, in order
@@ -652,7 +652,7 @@ tinsert, tremove = table.insert, table.remove
 format = string.format
 
 ------------------------------------------------------------
--- Namespaces (shapes from the 70334 dump)
+-- Namespaces (shapes from the 70338 dump)
 ------------------------------------------------------------
 
 C_Timer = {}
