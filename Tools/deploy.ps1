@@ -3,7 +3,7 @@
 
     Usage:
         pwsh Tools/deploy.ps1
-        pwsh Tools/deploy.ps1 -AddOnsPath "D:\Games\WoW\_classic_beta_\Interface\AddOns"
+        pwsh Tools/deploy.ps1 -AddOnsPath "D:\Games\WoW\_forever_\Interface\AddOns"
 
     TOC-driven: the deployed folder gets Shatter.toc, LICENSE and exactly the
     files the TOC loads, each at its own relative path (Data\, Mail\, Modes\,
@@ -24,7 +24,7 @@
 #>
 
 param(
-    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns"
+    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"
 )
 
 $ErrorActionPreference = "Stop"
