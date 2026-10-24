@@ -29,3 +29,16 @@ wants to ratchet complexity - this is a single-owner addon.
 - **`ShatterDB` shape** is persisted and loads back on this client; don't break it.
 - **Test stubs model Forever.** A stub returning a Classic-shaped tuple, or a widget method the
   client lacks, makes a broken port pass - stub fidelity is part of the review surface.
+
+## Consulting Codex
+
+The shared `codex-consult` skill (user level) has the invocation and the gotchas. For this repo:
+
+For Shatter specifically, good things to hand Codex: the secure `Shatter Next` click path
+(`UI/MainFrame.lua` PreClick/PostClick, `Disenchant.lua` BeginSecureClick and the macro text), an
+adapter mapping in `Compat.lua` (struct-vs-tuple), queue ownership between Solo and Mail, mail
+attachment identity, and anything touching `ShatterDB`'s shape. Hand it
+`docs/forever-api-notes.md` and the porting guide alongside the diff: those findings are measured
+on the live client, and a cold reviewer will otherwise argue from Classic-era API behaviour.
+
+Use it for plan or design reviews the owner asks for. PR code review is done manually by the owner; do not run this skill on PRs unasked.
