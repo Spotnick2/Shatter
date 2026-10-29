@@ -21,6 +21,7 @@ Debug.lua
 Events.lua
 MaterialTracker.lua
 Data\DisenchantTables.lua
+Data\NoDisenchant.lua
 ItemScanner.lua
 Tooltip.lua
 Queue.lua

@@ -53,6 +53,17 @@ try {
         if ($LASTEXITCODE -ne 0) { $failed++ }
     }
 
+    # Tools/gen_no_disenchant.py (#6), when Python is here (CI always runs it).
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($python) {
+        Write-Host "-- test_gen_no_disenchant.py " -NoNewline -ForegroundColor Cyan
+        $out = & $python.Source (Join-Path $PSScriptRoot "test_gen_no_disenchant.py") 2>&1
+        Write-Host ($out | Select-Object -Last 1)
+        if ($LASTEXITCODE -ne 0) { $out | Write-Host; $failed++ }
+    } else {
+        Write-Host "-- test_gen_no_disenchant.py skipped: no python on PATH" -ForegroundColor DarkGray
+    }
+
     if ($failed -gt 0) {
         Write-Host "$failed test file(s) FAILED" -ForegroundColor Red
         exit 1

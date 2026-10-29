@@ -72,6 +72,10 @@ jobs:
             lua5.1 "$f" || exit 1
           done
 
+      # Tools/gen_no_disenchant.py (#6), on fixture tables.
+      - name: Generator tests
+        run: python3 tests/test_gen_no_disenchant.py
+
       # On a manual run GITHUB_REF is main, and the packager names the build
       # after whichever tag at HEAD it sorts first (release.sh 613-628 prefers
       # GITHUB_REF_NAME only on a tag push). An alpha promoted to a release

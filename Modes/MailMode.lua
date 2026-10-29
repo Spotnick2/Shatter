@@ -542,7 +542,18 @@ function MailMode:PrepareDisenchantQueue()
     for _, input in ipairs(session.inputItems or {}) do
         if input.disenchantStatus == "waiting" and input.bag and input.slot and Shatter.ItemScanner then
             local item = Shatter.ItemScanner:BuildItem(input.bag, input.slot)
-            if item and item.itemID == input.itemID then
+            local can, why = true, nil
+            if item and item.itemID == input.itemID then can, why = Shatter.ItemScanner:CanBeDisenchanted(item) end
+            if item and item.itemID == input.itemID and not can then
+                -- Received but not disenchantable (a session older than the
+                -- rule): failed like a refused cast, still the sender's and
+                -- still reserved; the session keeps it outstanding.
+                input.disenchantStatus = "failed"
+                input.status = "failed"
+                if Shatter.MailSession then
+                    Shatter.MailSession:Log("warn", "%s %s: not queued.", item.itemLink or item.itemName or "Item", tostring(why))
+                end
+            elseif item and item.itemID == input.itemID then
                 item.mode = Shatter.Constants.MODES.MAIL
                 item.sourceId = input.inputItemId
                 item.sourceSender = input.sourceSender
@@ -672,7 +683,15 @@ function MailMode:GetStatus()
     if not mailboxOpen then return "Open the mailbox to continue Mail Mode.", true end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_DISENCHANT then return "Mail items ready to disenchant.", false end
     if session.status == Shatter.Constants.MAIL_STATE.READY_TO_RETURN then return "Materials ready to return.", false end
-    if session.status == Shatter.Constants.MAIL_STATE.COMPLETE then return "Mail session complete.", false end
+    if session.status == Shatter.Constants.MAIL_STATE.COMPLETE then
+        local left = Shatter.MailSession:CountReceivedFailed()
+        if left > 0 then
+            return string.format("Mail session done: %d item%s couldn't be disenchanted and %s still in your bags. "
+                .. "Return them by hand, then Close Session (asks to confirm).",
+                left, left == 1 and "" or "s", left == 1 and "is" or "are"), true
+        end
+        return "Mail session complete.", false
+    end
     if session.status == Shatter.Constants.MAIL_STATE.TAKING then return "Taking attachment...", false end
     return "Mail Mode active.", false
 end
