@@ -30,6 +30,8 @@ Other early commands:
 /shatter scan
 /shatter yields
 /shatter yields reset
+/shatter ignored
+/shatter unignore <itemID or link>
 /shatter skin clear|smoked|flat
 /shatter debug
 /shatter trace
@@ -38,7 +40,9 @@ Other early commands:
 /shatter reset
 ```
 
-Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is the shared material of the Glass addons, embedded as LibGlass-1.0.
+Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is Pearl, the shared material of the Glass addons, embedded as LibGlass-1.0. With Glass UI installed, Shatter follows its look (body and accent) unless you choose Flat; a change made in Glass UI applies after a /reload.
+
+Skip leaves the selected item out until a /reload. Ignore keeps it out for good: Settings > Ignored items lists those items, with Remove for each and Reset all, and `/shatter unignore` removes one from chat.
 
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
 

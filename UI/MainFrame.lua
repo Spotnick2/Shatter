@@ -55,17 +55,25 @@ local function CreateButton(parent, text, width, secure)
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
+    -- A tooltip: why Mail is unavailable, else the button's own `tooltip`
+    -- ({ title, text }).
     button:SetScript("OnEnter", function(self)
         if self:IsEnabled() then Shatter.Skin.Hover(self, true) end
-        if self.mailDisabledReason and GameTooltip then
+        if not GameTooltip then return end
+        if self.mailDisabledReason then
             GameTooltip:SetOwner(self, "ANCHOR_TOP")
             GameTooltip:SetText(self.mailDisabledReason, 1, 0.82, 0, true)
+            GameTooltip:Show()
+        elseif self.tooltip then
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(self.tooltip[1], 1, 0.82, 0)
+            GameTooltip:AddLine(self.tooltip[2], 0.82, 0.82, 0.82, true)
             GameTooltip:Show()
         end
     end)
     button:SetScript("OnLeave", function(self)
         Shatter.Skin.Hover(self, false)
-        if self.mailDisabledReason and GameTooltip then GameTooltip:Hide() end
+        if (self.mailDisabledReason or self.tooltip) and GameTooltip then GameTooltip:Hide() end
     end)
     return button
 end
@@ -997,6 +1005,7 @@ function MainFrame:Create()
     skip:SetScript("OnClick", function()
         if Shatter.Queue then Shatter.Queue:SkipSelected() end
     end)
+    skip.tooltip = { "Skip", "Leave this item out for now. It comes back after a /reload, or if you move it to another bag slot." }
     self.skipButton = skip
 
     local ignore = CreateButton(footer, "Ignore", 64)
@@ -1004,6 +1013,7 @@ function MainFrame:Create()
     ignore:SetScript("OnClick", function()
         if Shatter.Queue then Shatter.Queue:IgnoreSelected() end
     end)
+    ignore.tooltip = { "Ignore", "Never queue this item again, until you remove it from Settings (Ignored items)." }
     self.ignoreButton = ignore
 
     local primary = CreateButton(footer, "Shatter Next", 110, true)

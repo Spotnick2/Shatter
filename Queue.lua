@@ -133,5 +133,33 @@ function Queue:IgnoreSelected()
     if self.selectedIndex > #self.items then self.selectedIndex = #self.items end
     if self.selectedIndex < 1 then self.selectedIndex = 1 end
     if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.ITEM_IGNORED, false, 2) end
+    Shatter.Print(string.format("%s is ignored from now on. Undo it in Settings (Ignored items) or with /shatter unignore %d.",
+        item.itemLink or item.itemName or ("Item " .. tostring(item.itemID)), item.itemID))
     if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("ITEM_IGNORED", 0.05) end
+end
+
+-- After an unignore (#4): the item is eligible again, so both queues rescan
+-- (Mail only during a session with the mailbox open) and Settings redraws.
+local function Unignored(reason)
+    if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan(reason, 0.05) end
+    if Shatter.MailMode and Shatter.MailSession and Shatter.MailSession:Get() and IsMailboxOpen() then
+        Shatter.MailMode:ScheduleScan(reason, 0.05)
+    end
+    if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
+end
+
+-- False when the item wasn't ignored.
+function Queue:Unignore(itemID)
+    itemID = tonumber(itemID)
+    if not itemID or not Shatter.Database:IsIgnored(itemID) then return false end
+    Shatter.Database:SetIgnored(itemID, false)
+    Unignored("ITEM_UNIGNORED")
+    return true
+end
+
+-- Returns how many items were ignored.
+function Queue:ClearIgnored()
+    local count = Shatter.Database:ClearIgnored()
+    if count > 0 then Unignored("IGNORED_CLEARED") end
+    return count
 end
