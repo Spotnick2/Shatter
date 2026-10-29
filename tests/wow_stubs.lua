@@ -60,6 +60,8 @@ function WoW.reset()
     WoW.ctrl          = false
     WoW.tooltipPostCalls = {}  -- [tooltipType] = { fn, ... } (TooltipDataProcessor)
     WoW.tooltipRefreshes = 0   -- RefreshData calls
+    WoW.skillLines    = {}  -- C_SkillInfo rows: { skillID, name, rank, maxRank, isHeader, isCollapsed }
+    WoW.gameErrors    = {}  -- [errorType] = errorName (GetGameMessageInfo)
     WoW.cursor        = { 0, 0 }
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
     WoW.messages      = {}
@@ -701,6 +703,33 @@ function WoW.showItemTooltip(itemID, tooltip)
     return tooltip.lines
 end
 
+-- dump 3414-3417, 9141: SkillLineAttributes tables; an index past the end, or
+-- an unknown ID, gives nil. A collapsed header hides the lines under it (the
+-- Skills tab's behaviour; to be measured, #5).
+C_SkillInfo = {}
+local function visibleSkillLines()
+    local list, hidden = {}, false
+    for _, line in ipairs(WoW.skillLines) do
+        if line.isHeader then
+            list[#list + 1] = line
+            hidden = line.isCollapsed == true
+        elseif not hidden then
+            list[#list + 1] = line
+        end
+    end
+    return list
+end
+function C_SkillInfo.GetNumSkillLines() return #visibleSkillLines() end
+function C_SkillInfo.GetSkillLineInfo(index) return visibleSkillLines()[index] end
+function C_SkillInfo.GetSkillLineInfoByID(id)
+    for _, line in ipairs(WoW.skillLines) do
+        if line.skillID == id then return line end
+    end
+end
+-- dump 6610, 4911.
+function issecretvalue() return false end
+function GetGameMessageInfo(errorType) return WoW.gameErrors[errorType] end
+
 C_ClassColor = {}
 -- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
 local CLASS_COLORS = { MAGE = { 0.25, 0.78, 0.92 }, PRIEST = { 1, 1, 1 }, WARRIOR = { 0.78, 0.61, 0.43 } }
@@ -904,6 +933,8 @@ local KNOWN_ABSENT = {
     -- Optional third-party addons: absent unless a test installs them.
     TSM_API = true, Auctionator = true, AucAdvanced = true, Postal = true, Postal_Select = true,
     Gargul = true, GL = true, GlassUI = true,
+    -- The probe host and its modules' saved tables (Tools/ShatterProbe).
+    ForeverProbe = true, ForeverProbeDB = true, ShatterProbeDB = true,
     -- The addon's own globals, nil until it creates them / SavedVariables load.
     Shatter = true, ShatterDB = true,
     -- Embedded LibStub (LibGlass-1.0's bundled copy) reads it before creating it.
@@ -1023,6 +1054,30 @@ function WoW.loadAddon(opts)
     WoW.fire("ADDON_LOADED", "Shatter")
     if opts.login ~= false then WoW.fire("PLAYER_LOGIN") end
     return ns
+end
+
+-- ForeverProbe, the private local probe host (Tools/ShatterProbe's tests):
+-- its TOC's files from $FOREVERPROBE, else ../ForeverProbe, then its
+-- ADDON_LOADED. In CI (FOREVERPROBE_OPTIONAL=1) a missing checkout skips the
+-- calling test file; locally it's an error.
+function WoW.loadForeverProbe()
+    local root = (os.getenv("FOREVERPROBE") or "../ForeverProbe"):gsub("\\", "/"):gsub("/$", "")
+    local toc = io.open(root .. "/ForeverProbe.toc", "rb")
+    if not toc then
+        if os.getenv("FOREVERPROBE_OPTIONAL") == "1" then
+            io.write("SKIPPED: ForeverProbe isn't here (private, local only); the probe tests run locally\n")
+            os.exit(0)
+        end
+        error("ForeverProbe checkout not found at " .. root .. ": clone it there or set FOREVERPROBE", 0)
+    end
+    local files = {}
+    for line in toc:read("*a"):gmatch("[^\r\n]+") do
+        if line:match("%.lua$") and not line:match("^#") then files[#files + 1] = root .. "/" .. line end
+    end
+    toc:close()
+    for _, file in ipairs(files) do assert(loadfile(file))("ForeverProbe", {}) end
+    WoW.fire("ADDON_LOADED", "ForeverProbe")
+    return rawget(_G, "ForeverProbe")
 end
 
 -- Most tests want an active enchanter with an empty backpack.

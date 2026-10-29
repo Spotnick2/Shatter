@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: ShatterProbe
+## Notes: Throwaway probe for Shatter: reading the Enchanting skill (#5) and what a refused Disenchant looks like (#6). A ForeverProbe module: /fp sh
+## Author: Spotnick
+## Version: dev
+## Dependencies: ForeverProbe
+## OptionalDeps: Shatter
+## SavedVariables: ShatterProbeDB
+
+ShatterProbe.lua
