@@ -136,6 +136,16 @@ heavy runtime dependencies.
   after the release metadata commit. (0.2 keeps Forever versions distinct from the TBC addon's
   0.1 line.) Keep `## Version: @project-version@`. Add a top changelog entry, commit, tag, push the
   branch, then the tag. The `v0.1.*` tags are the TBC releases: never move or delete them.
+- **A tag publishes three times** (`C:\Projects\WoW\References\Docs\RELEASING.md`): CurseForge
+  builds its own file from the webhook. `.github/workflows/package-check.yml` checks the zip, then
+  its `release` job makes the GitHub Release (zip, `release.json`, the tag's changelog section)
+  and its `wago` job uploads the same zip to Wago. The notes are the `## v0.2.N-alpha` section, else
+  `## v0.2.N`, else `## Unreleased`. The TBC history's own unreleased heading must never read
+  `## Unreleased` again. Republish a tag where it failed with `gh workflow run package-check.yml -f
+  tag=<tag> -f publish=github|wago|both`.
+- Wago Addons: project **v63QE4Gb** (`## X-Wago-ID` in the TOC, https://addons.wago.io/addons/v63QE4Gb);
+  the `WAGO_API_TOKEN` repo secret is set. The upload stops if Wago doesn't list the TOC's Forever
+  patch yet; run the tag again once it does.
 - CurseForge: project **1545161** (https://www.curseforge.com/wow/addons/shatter), the same project
   as the TBC releases; `## X-Curse-Project-ID: 1545161` is in the TOC. Files are told apart by
   flavor (Forever: flavor `forever`, game version type 88568, from `## Interface: 16001`) and by
