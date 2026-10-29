@@ -4,7 +4,6 @@ Run by tests/run.ps1 and CI: python tests/test_gen_no_disenchant.py
 """
 
 import os
-import subprocess
 import sys
 import tempfile
 
