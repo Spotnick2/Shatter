@@ -11,7 +11,7 @@
 --
 -- Three kinds of strictness, all on purpose:
 --   * Reading a global this file doesn't define is an error. The stub is the
---     list of APIs verified present on build 1.60.1.70334 (the API dump in
+--     list of APIs verified present on build 1.60.1.70532 (the API dump in
 --     C:\Projects\WoW\References\Forever\api and the client UI source), so it models the
 --     ABSENCES too. KNOWN_ABSENT models a client with the Blizzard_Deprecated*
 --     fallbacks switched off (CVar loadDeprecationFallbacks), which is the
@@ -30,7 +30,7 @@
 WoW = {}
 local WoW = WoW
 
-local MEASURED_BUILD = "70334"
+local MEASURED_BUILD = "70532"
 
 function WoW.reset()
     WoW.frames        = {}  -- every frame created, in order
@@ -618,7 +618,7 @@ end
 function GetRealmName() return WoW.player.realm end
 function GetNormalizedRealmName() return (WoW.player.realm:gsub("%s", "")) end
 function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end end
--- dump 6405: className, classFilename, classID.
+-- dump 6418: className, classFilename, classID.
 local CLASS_IDS = { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, SHAMAN = 7, MAGE = 8, WARLOCK = 9, DRUID = 11 }
 function UnitClass(unit)
     if unit ~= "player" then return nil end
@@ -635,7 +635,7 @@ function UnitCastingInfo(unit)
     if not c then return nil end
     return c.name, c.name, 136244, c.startMs, c.endMs, false, "cast-1", false, c.spellID
 end
--- Channels are reported here, not by UnitCastingInfo (dump 6403).
+-- Channels are reported here, not by UnitCastingInfo (dump 6416).
 function UnitChannelInfo(unit)
     local c = unit == "player" and WoW.channeling
     if not c then return nil end
@@ -660,11 +660,11 @@ tinsert, tremove = table.insert, table.remove
 format = string.format
 
 ------------------------------------------------------------
--- Namespaces (shapes from the 70334 dump)
+-- Namespaces (shapes from the 70532 dump)
 ------------------------------------------------------------
 
 C_ClassColor = {}
--- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
+-- dump 771: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
 local CLASS_COLORS = { MAGE = { 0.25, 0.78, 0.92 }, PRIEST = { 1, 1, 1 }, WARRIOR = { 0.78, 0.61, 0.43 } }
 function C_ClassColor.GetClassColor(className)
     local c = CLASS_COLORS[className]
@@ -764,7 +764,7 @@ local function bagItemAt(location)
     return b and location.slotIndex and b[location.slotIndex]
 end
 function C_Item.DoesItemExist(location) return bagItemAt(location) ~= nil end
--- dump 2232: non-optional WOWGUID; an empty location is a usage error.
+-- dump 2235: non-optional WOWGUID; an empty location is a usage error.
 function C_Item.GetItemGUID(location)
     local s = bagItemAt(location)
     if not s then error("C_Item.GetItemGUID: invalid item location", 2) end
