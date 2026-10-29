@@ -4,6 +4,7 @@
 
 - The glass is now LibGlass's **Pearl**, the Glass suite's theme: no grain, a softer light and a quieter outline. Clear and Smoked glass are bodies over it.
 - Shatter follows **Glass UI**: with Glass UI loaded and its "Use Glass UI appearance" on for Shatter, the glass takes the suite's body (clear, smoked or class) and its accent. Settings then offers Glass UI or Flat, and Clear and Smoked are set in Glass UI. Choosing Flat in Shatter still turns the glass off. A change made in Glass UI applies after a /reload.
+- Ignored items can be brought back: Settings lists them (Ignored items) with Remove for each and Reset all, which asks again before clearing. `/shatter ignored` lists them, and `/shatter unignore <itemID or link>` removes one. A removed item is back in the queue at once. Ignoring an item now says how to undo it, and the Skip and Ignore buttons explain the difference: Skip lasts until a /reload, Ignore until you remove it.
 
 ## v0.2.80-alpha - 2026-10-29
 

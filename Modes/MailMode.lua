@@ -442,6 +442,9 @@ function MailMode:ContinueSessionFromLaunchPanel()
     return true
 end
 
+-- For other modules (Queue's unignore): the client has no global for it.
+function MailMode:IsMailboxOpen() return IsMailboxOpen() end
+
 function MailMode:ScheduleScan(reason, delay)
     if self.scanScheduled then return end
     self.scanScheduled = true

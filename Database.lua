@@ -278,6 +278,28 @@ function Database:SetIgnored(itemID, ignored)
     settings.ignoredItems[itemID] = ignored and true or nil
 end
 
+-- Every ignored itemID, ascending (#4). The saved shape stays [itemID] = true.
+function Database:GetIgnoredItems()
+    local list = {}
+    for itemID, ignored in pairs(self:GetSettings().ignoredItems) do
+        itemID = tonumber(itemID)
+        if itemID and ignored == true then list[#list + 1] = itemID end
+    end
+    table.sort(list)
+    return list
+end
+
+-- Forgets every ignored item; returns how many there were.
+function Database:ClearIgnored()
+    local ignoredItems = self:GetSettings().ignoredItems
+    local count = 0
+    for itemID in pairs(ignoredItems) do
+        ignoredItems[itemID] = nil
+        count = count + 1
+    end
+    return count
+end
+
 function Database:SaveWindow(frame)
     if not frame then return end
     local settings = self:GetSettings()

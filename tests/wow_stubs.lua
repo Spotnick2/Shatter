@@ -47,6 +47,7 @@ function WoW.reset()
     WoW.spellbookReady = true
     WoW.items         = {}  -- [itemID] = { name, quality, itemLevel, classID, subclassID, equipLoc, sellPrice, icon }
     WoW.cacheMiss     = {}  -- [itemID] = true -> C_Item.GetItemInfo returns nothing
+    WoW.itemRequests  = {}  -- itemIDs passed to C_Item.RequestLoadItemDataByID
     WoW.bags          = {}  -- [bag] = { size = n, [slot] = { itemID, count, locked, bound } }
     WoW.inbox         = {}  -- list of { sender, subject, items = { [attachmentIndex] = { itemID, count } } }
     WoW.loot          = {}  -- list of { link, count, name }
@@ -723,6 +724,11 @@ function C_Item.GetItemInfo(item)
     return i.name, WoW.link(id), i.quality, i.itemLevel, i.reqLevel or 1,
         i.classID == 2 and "Weapon" or "Armor", "Misc", 1, i.equipLoc or "INVTYPE_CHEST",
         i.icon or 134400, i.sellPrice or 0, i.classID, i.subclassID or 0, i.bindType or 2, 0, nil, false
+end
+-- No return: the client fetches the item and fires GET_ITEM_INFO_RECEIVED.
+-- Recorded here; a test clears WoW.cacheMiss and fires the event itself.
+function C_Item.RequestLoadItemDataByID(item)
+    WoW.itemRequests[#WoW.itemRequests + 1] = itemIDFrom(item)
 end
 -- Seven returns, no cache needed.
 function C_Item.GetItemInfoInstant(item)

@@ -190,7 +190,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter ignored, /shatter unignore, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -260,6 +260,32 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Rescan()
         end
         Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
+        return
+    elseif message == "ignored" then
+        local ids = Shatter.Database:GetIgnoredItems()
+        if #ids == 0 then
+            Shatter.Print("No ignored items.")
+            return
+        end
+        Shatter.Print(string.format("Ignored items (%d):", #ids))
+        for _, itemID in ipairs(ids) do
+            local name, link = Shatter.API.GetItemInfo(itemID)
+            Shatter.Print(string.format("  %s (%d)", link or name or "Item", itemID))
+        end
+        Shatter.Print("Remove one with /shatter unignore <itemID or link>, or all of them in Settings.")
+        return
+    elseif message == "unignore" or message:match("^unignore ") then
+        -- The message is lowercased, but a link's "item:<id>" survives that.
+        local arg = message:match("^unignore%s+(.+)$")
+        local itemID = arg and (tonumber(arg) or tonumber(arg:match("item:(%d+)")))
+        if not itemID then
+            Shatter.Print("Use /shatter unignore <itemID or item link> (/shatter ignored lists them).")
+        elseif Shatter.Queue:Unignore(itemID) then
+            local name, link = Shatter.API.GetItemInfo(itemID)
+            Shatter.Print(string.format("No longer ignored: %s (%d).", link or name or "Item", itemID))
+        else
+            Shatter.Print(string.format("Item %d isn't ignored.", itemID))
+        end
         return
     elseif message == "skin" or message:match("^skin ") then
         local name = message:match("^skin%s+(%S+)$")

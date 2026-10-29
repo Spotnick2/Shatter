@@ -294,8 +294,51 @@ function SettingsUI:Create(parent)
     AddTooltip(useValues, "Filter by expected value", "Use installed TSM, Auctioneer, or Auctionator prices to filter the queue by the selected minimum expected value. Items stay visible if no pricing data is available.")
     self.useValues = useValues
 
+    -- Ignored items (#4): what Ignore put away, each with Remove, and Reset
+    -- all. Reset asks again in place, not through a StaticPopup (Blizzard's
+    -- popups can taint), and the list grows the scroll content.
+    local ignoredLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    ignoredLabel:SetPoint("TOPLEFT", useValues, "BOTTOMLEFT", 4, -12)
+    self.ignoredLabel = ignoredLabel
+
+    local resetIgnored = CreatePanelButton(content, "Reset all", 96)
+    resetIgnored:SetPoint("LEFT", ignoredLabel, "RIGHT", 10, 0)
+    resetIgnored:SetScript("OnClick", function(button)
+        if button.armed then
+            button.armed = nil
+            Shatter.Queue:ClearIgnored()
+        else
+            -- Armed for a few seconds; a later click re-arms with its own token.
+            button.armed = true
+            local token = (button.armToken or 0) + 1
+            button.armToken = token
+            C_Timer.After(5, function()
+                if button.armToken ~= token or not button.armed then return end
+                button.armed = nil
+                SettingsUI:RefreshIgnored()
+            end)
+        end
+        SettingsUI:RefreshIgnored()
+    end)
+    AddTooltip(resetIgnored, "Reset all", "Forget every ignored item, so they can be queued again. Click twice to confirm.")
+    self.resetIgnored = resetIgnored
+
+    local ignoredList = CreateFrame("Frame", nil, content)
+    ignoredList:SetPoint("TOPLEFT", ignoredLabel, "BOTTOMLEFT", 0, -8)
+    ignoredList:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+    ignoredList:SetHeight(16)
+    self.ignoredList = ignoredList
+    self.ignoredRows = {}
+    self.ignoredEmpty = ignoredList:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    self.ignoredEmpty:SetPoint("TOPLEFT", ignoredList, "TOPLEFT", 0, -2)
+    self.ignoredEmpty:SetText("None. Ignore keeps an item out of the queue for good; it is listed here.")
+    -- Names that weren't cached come in later.
+    Shatter.Events:Register("GET_ITEM_INFO_RECEIVED", self, function()
+        if self.ignoredLoading and self.frame:IsShown() then self:RefreshIgnored() end
+    end)
+
     local debug = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    debug:SetPoint("TOPLEFT", useValues, "BOTTOMLEFT", 0, -6)
+    debug:SetPoint("TOPLEFT", ignoredList, "BOTTOMLEFT", -4, -8)
     debug:SetSize(24, 24)
     debug.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     debug.label:SetPoint("LEFT", debug, "RIGHT", 4, 0)
@@ -351,8 +394,85 @@ function SettingsUI:Create(parent)
     return frame
 end
 
+-- The scroll content's height without the ignored list's rows.
+local CONTENT_HEIGHT = 450
+local IGNORED_ROW = 24
+
+local function IgnoredRow(self, index)
+    local row = self.ignoredRows[index]
+    if row then return row end
+    row = CreateFrame("Frame", nil, self.ignoredList)
+    row:SetHeight(IGNORED_ROW)
+    row:SetPoint("TOPLEFT", self.ignoredList, "TOPLEFT", 0, -(index - 1) * IGNORED_ROW)
+    row:SetPoint("RIGHT", self.ignoredList, "RIGHT", 0, 0)
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(16, 16)
+    row.icon:SetPoint("LEFT", row, "LEFT", 0, 0)
+    row.remove = CreatePanelButton(row, "Remove", 64)
+    row.remove:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+    row.remove:SetScript("OnClick", function() Shatter.Queue:Unignore(row.itemID) end)
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.text:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.text:SetPoint("RIGHT", row.remove, "LEFT", -6, 0)
+    row.text:SetJustifyH("LEFT")
+    self.ignoredRows[index] = row
+    return row
+end
+
+-- One ignored item: its link (or name), icon, and whether it is still loading.
+local function DescribeIgnored(itemID)
+    local name, link = Shatter.API.GetItemInfo(itemID)
+    local _, _, _, _, icon = Shatter.API.GetItemInfoInstant(itemID)
+    if not name then
+        C_Item.RequestLoadItemDataByID(itemID)
+        return { itemID = itemID, text = "Item " .. itemID, icon = icon, loading = true }
+    end
+    return { itemID = itemID, text = link or name, sortName = strlower(name), icon = icon }
+end
+
+-- Alphabetical; items still loading go last, by ID.
+local function IgnoredOrder(a, b)
+    if a.sortName and b.sortName then
+        if a.sortName ~= b.sortName then return a.sortName < b.sortName end
+        return a.itemID < b.itemID
+    end
+    if a.sortName or b.sortName then return a.sortName ~= nil end
+    return a.itemID < b.itemID
+end
+
+function SettingsUI:RefreshIgnored()
+    if not self.ignoredList then return end
+    local entries, loading = {}, false
+    for _, itemID in ipairs(Shatter.Database:GetIgnoredItems()) do
+        local entry = DescribeIgnored(itemID)
+        loading = loading or entry.loading == true
+        entries[#entries + 1] = entry
+    end
+    table.sort(entries, IgnoredOrder)
+    self.ignoredLoading = loading
+    self.ignoredLabel:SetText(#entries > 0 and string.format("Ignored items (%d)", #entries) or "Ignored items")
+    for i, entry in ipairs(entries) do
+        local row = IgnoredRow(self, i)
+        row.itemID = entry.itemID
+        row.icon:SetTexture(entry.icon or 134400)
+        row.text:SetText(entry.text)
+        row:Show()
+    end
+    for i = #entries + 1, #self.ignoredRows do self.ignoredRows[i]:Hide() end
+    SetShown(self.ignoredEmpty, #entries == 0)
+    if #entries == 0 then self.resetIgnored.armed = nil end
+    SetShown(self.resetIgnored, #entries > 0)
+    local armed = self.resetIgnored.armed
+    self.resetIgnored.text:SetText(armed and "Click to confirm" or "Reset all")
+    Shatter.Skin.Paint(self.resetIgnored, armed and "emphasis" or "normal")
+    local height = math.max(16, #entries * IGNORED_ROW)
+    self.ignoredList:SetHeight(height)
+    self.content:SetHeight(CONTENT_HEIGHT + height)
+end
+
 function SettingsUI:Refresh()
     if not self.frame then return end
+    self:RefreshIgnored()
     local settings = Shatter.Database:GetSettings()
     if self.soulbound then self.soulbound:SetChecked(settings.includeSoulbound) end
     if self.minimap then self.minimap:SetChecked(not (settings.minimap and settings.minimap.hide)) end
