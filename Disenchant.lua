@@ -300,7 +300,7 @@ function Disenchant:StartTimeout()
         if self:PendingItemStillExists() then
             self:Fail("Failed: item still exists after timeout.")
         else
-            self:Finish("timeout item disappeared")
+            self:Finish("timeout")
         end
     end)
 end
@@ -347,7 +347,9 @@ function Disenchant:Simulate(item)
     end)
 end
 
-function Disenchant:Finish()
+-- `trigger` says what ended the attempt ("loot closed", "bag update",
+-- "timeout"), for the late-loot trace (#10).
+function Disenchant:Finish(trigger)
     ClearButtonAction(self.button)
     if not self.pending or self.finalizing then return end
     self.finalizing = true
@@ -376,6 +378,12 @@ function Disenchant:Finish()
 
         self.pending = nil
         self.finalizing = false
+        -- Kept for the late-loot trace only (#10); never persisted.
+        self.lastResolved = {
+            itemID = pending.item.itemID, at = GetTime(), by = trigger or "?",
+            lootEvent = pending.lootEvent == true,
+            lootRead = not (Shatter.MaterialTracker and Shatter.MaterialTracker:IsEmpty(pending.loot)),
+        }
 
         if Shatter.Debug then
             Shatter.Debug:Log("trace", "Disenchant result: %s", Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
@@ -405,7 +413,48 @@ function Disenchant:Fail(reason)
     end
 end
 
+-- Item ids and counts, plainly: "10940x2 10978x1", or "nothing".
+local function LootText(loot)
+    local parts = {}
+    for itemID, count in pairs(loot or {}) do parts[#parts + 1] = itemID .. "x" .. count end
+    table.sort(parts)
+    return #parts > 0 and table.concat(parts, " ") or "nothing"
+end
+
+-- #10: a loot window that opens after the attempt resolved isn't measured,
+-- and one that opens while the NEXT attempt is pending is taken as that
+-- attempt's (the handler below doesn't wait for success). Neither is fixed
+-- before the order is observed on Forever: until then, with tracing on, every
+-- loot event says what it read, how long after which attempt resolved (and
+-- whether that attempt had a loot event, and read any loot), and what is
+-- pending now. Built only while tracing: Debug:Log formats before it checks.
+function Disenchant:TraceLoot(event, ...)
+    local settings = Shatter.Database and Shatter.Database:GetSettings()
+    if not (settings and settings.traceDebug) then return end
+    local flags = ""
+    if event == "LOOT_OPENED" then
+        local autoLoot, isFromItem = ...
+        flags = string.format(" (autoLoot %s, isFromItem %s)", tostring(autoLoot), tostring(isFromItem))
+    elseif event == "LOOT_READY" then
+        flags = string.format(" (autoloot %s)", tostring((...)))
+    end
+    local reads = ""
+    if event ~= "LOOT_CLOSED" and Shatter.MaterialTracker then
+        reads = ", reads " .. LootText(Shatter.MaterialTracker:ReadLoot())
+    end
+    local last, p = self.lastResolved, self.pending
+    local since = last and string.format("%.2f s after item %s resolved (%s; loot event %s, loot read %s)",
+        GetTime() - last.at, tostring(last.itemID), last.by, last.lootEvent and "yes" or "none",
+        last.lootRead and "yes" or "none") or "no attempt resolved yet"
+    local now = p and string.format("attempt %s pending, %s", tostring(p.item and p.item.itemID),
+        p.succeeded and "succeeded" or "not succeeded") or "nothing pending"
+    self:Trace("Loot event %s%s%s; %s; %s", event, flags, reads, since, now)
+end
+
 function Disenchant:OnEvent(event, ...)
+    if event == "LOOT_READY" or event == "LOOT_OPENED" or event == "LOOT_CLOSED" then
+        self:TraceLoot(event, ...)
+    end
     -- Every error is traced, pending or not: a refusal may arrive after the
     -- cast's FAILED has cleared the attempt (Nov 4: which error, in which
     -- order, for the "can't be disenchanted" learning #6 deferred).
@@ -421,6 +470,7 @@ function Disenchant:OnEvent(event, ...)
     self:Trace("Event received while pending: %s", tostring(event))
 
     if event == "LOOT_OPENED" or event == "LOOT_READY" then
+        self.pending.lootEvent = true
         -- Autoloot can empty slots between LOOT_READY and LOOT_OPENED, so a
         -- later read may miss what an earlier one saw: keep the most seen
         -- of each item rather than the last read.
@@ -434,7 +484,7 @@ function Disenchant:OnEvent(event, ...)
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false) end
         return
     elseif event == "LOOT_CLOSED" then
-        self:Finish()
+        self:Finish("loot closed")
         return
     elseif event == "BAG_UPDATE" then
         self.pending.bagUpdated = true
@@ -442,7 +492,7 @@ function Disenchant:OnEvent(event, ...)
     elseif event == "BAG_UPDATE_DELAYED" then
         self.pending.bagUpdated = true
         if self.pending.succeeded or not self:PendingItemStillExists() then
-            self:Finish()
+            self:Finish("bag update")
         end
         return
     elseif event == "CHAT_MSG_LOOT" then
