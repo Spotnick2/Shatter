@@ -149,4 +149,50 @@ ignore(SWORD)
 ui:Refresh()
 H.check(ui.content:GetHeight() > base, "more rows, taller content")
 
+-- 7. With a mail session: the Mail queue rescans only while the mailbox is
+-- open, and nothing errors either way (the client has no IsMailboxOpen
+-- global: MailMode's own check is used).
+main = setup()
+WoW.inbox = { { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = BOOTS } } } }
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+Shatter.MailMode:StartNewSessionFromLaunchPanel()
+WoW.flushTimers()
+H.check(Shatter.MailSession:HasActiveSession(), "a mail session is active")
+local mailScans = {}
+local scheduleScan = Shatter.MailMode.ScheduleScan
+Shatter.MailMode.ScheduleScan = function(self, reason, ...)
+    mailScans[#mailScans + 1] = reason
+    return scheduleScan(self, reason, ...)
+end
+ignore(VEST)
+Shatter.SettingsUI:Toggle()
+ui = Shatter.SettingsUI
+H.ok(function() ui.ignoredRows[1].remove.scripts.OnClick(ui.ignoredRows[1].remove) end,
+    "mailbox open: Remove doesn't error")
+H.eq(mailScans[#mailScans], "ITEM_UNIGNORED", "...and rescans the Mail queue")
+H.check(ui.ignoredEmpty:IsShown(), "...and Settings redraws")
+
+MailFrame:Hide()
+WoW.fire("MAIL_CLOSED")
+WoW.flushTimers()
+H.check(Shatter.MailSession:HasActiveSession(), "the session outlives the closed mailbox")
+-- The queue may be the session's now, so the item is ignored directly.
+-- Whether the Mail queue rescans here is MailMode's IsMailboxOpen to say
+-- (it counts a shown InboxFrame under a hidden MailFrame as open: #26).
+Shatter.Database:SetIgnored(VEST, true)
+ui:Refresh()
+H.ok(function() SlashCmdList.SHATTER("unignore 2589") end, "mailbox closed: /shatter unignore doesn't error")
+H.eq(Shatter.Database:IsIgnored(VEST), false, "...the item is no longer ignored")
+H.check(ui.ignoredEmpty:IsShown(), "...Settings redraws")
+Shatter.Database:SetIgnored(VEST, true)
+ui:Refresh()
+H.ok(function()
+    ui.resetIgnored.scripts.OnClick(ui.resetIgnored)
+    ui.resetIgnored.scripts.OnClick(ui.resetIgnored)
+end, "mailbox closed: Reset all doesn't error")
+H.eq(#Shatter.Database:GetIgnoredItems(), 0, "...and clears the list")
+Shatter.MailMode.ScheduleScan = scheduleScan
+
 H.done("test_ignored")

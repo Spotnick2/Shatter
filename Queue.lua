@@ -142,7 +142,8 @@ end
 -- (Mail only during a session with the mailbox open) and Settings redraws.
 local function Unignored(reason)
     if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan(reason, 0.05) end
-    if Shatter.MailMode and Shatter.MailSession and Shatter.MailSession:Get() and IsMailboxOpen() then
+    if Shatter.MailMode and Shatter.MailSession and Shatter.MailSession:HasActiveSession()
+        and Shatter.MailMode:IsMailboxOpen() then
         Shatter.MailMode:ScheduleScan(reason, 0.05)
     end
     if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
