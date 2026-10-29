@@ -27,6 +27,7 @@ have not been measured on any build yet, 70334 included.
 | Mail receive slots | `ATTACHMENTS_MAX` = 16 receive, 12 send | Blizzard_MailFrame/MailFrame.lua:3-4 | source |
 | Item instance identity | `C_Item.GetItemGUID(ItemLocation)` (non-optional WOWGUID), `C_Item.DoesItemExist`; `ItemLocation:CreateFromBagAndSlot` from Blizzard_ObjectAPI (no game-type restriction). Shatter scans bags for the GUID rather than using `C_Item.GetItemLocation`. If it yields nothing, every copy of the item is held back from Solo and the Mail disenchant is refused | dump 2207, 2232; Blizzard_ObjectAPI/Mainline/ItemLocation.lua | source; **measure in game** (GUID stable across a drag and a bag sort) |
 | Mail frames | `InboxFrame`, `OpenMailFrame`, `MailFrameTab1/2` exist; Blizzard_MailFrame is not LOD | MailFrame.xml | source |
+| Class colour (Glass UI's class body) | `UnitClass("player")` → name, filename, id; `C_ClassColor.GetClassColor(filename)` → a colorRGB with `r`, `g`, `b` | dump 6405, 768 | source |
 | Bags | 0-4 unchanged, `NUM_BAG_SLOTS` = 4, reagent bag 5 | guide s3 | measured (guide) |
 | SavedVariables | load back since 70009 | guide s1; Shatter's load stamps on 70334 (above) | measured (70334) |
 

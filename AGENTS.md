@@ -122,6 +122,15 @@ heavy runtime dependencies.
   decides colours: widgets report a state (`Skin.Paint`, `Skin.Hover`), and Flat must keep painting
   the pre-glass colours. Rounded masks only go where `Skin.Maskable` allows (LibGlass's sliced
   masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\WoW\References\Docs\EMBEDDED-LIBRARIES.md`.
+- **The material is Pearl** (`Glass.lua`, LibGlass r11; classic if an older copy wins). A skin is a
+  body over it: a tint, plus grain and wash as factors of the instance's own `STYLE`. Nothing writes
+  that `STYLE`.
+- **Glass UI** (`Suite.lua`; `..\GlassUI\docs\SUITE.md`): Shatter is a dynamic member. At the first
+  activation, before any window is built, it asks `GlassUI.Suite.Theme("Shatter")` once. When it
+  follows, the suite's body (`Suite.Body`) replaces Clear/Smoked, which stay saved, and its accent
+  is written into `C.ACCENT` and the accent fills. It reports `live = false`: suite changes apply
+  after a /reload. Flat is still the player's and is reported as `declined`. An inactive character
+  never asks.
 
 ## Repository Practices
 - Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run

@@ -3,10 +3,16 @@ local _, Shatter = ...
 -- What Shatter's windows are made of (#14): Clear glass, Smoked glass, or
 -- Flat (the opaque look Shatter always had).
 --
--- The glass presets are AltStable's and GlassMailbox's numbers, so the Glass
--- addons look alike side by side. They change the body (tint, grain, wash)
--- and the panes, never the rim: LibGlass GLASS-MATERIAL.md, a darkened rim
--- reads as smoked plastic.
+-- The glass is Pearl (Glass.lua). A skin is a body over it: a tint, and
+-- grain and wash as factors of the material's own (Pearl has no grain), the
+-- way Glass UI's Suite.Body states them. The tints are Glass UI's Suite.BODY
+-- numbers (also AltStable's and GlassMailbox's), so the Glass addons look
+-- alike side by side. A skin changes the body and the panes, never the rim:
+-- LibGlass GLASS-MATERIAL.md, a darkened rim reads as smoked plastic.
+--
+-- Following Glass UI (Suite.lua): the suite's body replaces Clear and Smoked,
+-- which stay saved for when Shatter doesn't follow. Flat is still the
+-- player's: choosing it declines the suite's look.
 --
 -- The switch is live (GlassMailbox's way, not AltStable's reload). Every
 -- surface is built once, for both looks:
@@ -28,24 +34,34 @@ local Skin = {}
 Shatter.Skin = Skin
 Shatter.RegisterModule("Skin", Skin)
 
+-- grain and wash are factors of the instance's STYLE.grain and STYLE.wash.
+-- Smoked's are its old absolute numbers over the classic material's (0.35 of
+-- 0.45, 0.14 of 0.18), so the classic fallback looks as it always did.
 Skin.PRESETS = {
     clear = {
-        tint = { 0.13, 0.16, 0.22, 0.24 }, grain = 0.45, wash = 0.18,
+        tint = { 0.13, 0.16, 0.22, 0.24 }, grain = 1, wash = 1,
         pane = { 0.04, 0.05, 0.07, 0.62 },
     },
     smoked = {
-        tint = { 0.05, 0.06, 0.08, 0.62 }, grain = 0.35, wash = 0.14,
+        tint = { 0.05, 0.06, 0.08, 0.62 }, grain = 0.35 / 0.45, wash = 0.14 / 0.18,
         pane = { 0.03, 0.03, 0.04, 0.80 },
     },
 }
 -- Every value of the setting, in the order Settings lists them.
 Skin.NAMES = { "clear", "smoked", "flat" }
-Skin.LABELS = { clear = "Clear glass", smoked = "Smoked glass", flat = "Flat" }
+-- "suite" is never saved: it is what is shown while Shatter follows Glass UI.
+Skin.LABELS = { clear = "Clear glass", smoked = "Smoked glass", flat = "Flat", suite = "Glass UI" }
 
 local C = Shatter.C
 local ACCENT = C.ACCENT
 
-local function Accent(a) return { ACCENT[1], ACCENT[2], ACCENT[3], a } end
+-- The accent's tints, kept so a suite accent (Skin.SetAccent) reaches them.
+local accentTints = {}
+local function Accent(a)
+    local t = { ACCENT[1], ACCENT[2], ACCENT[3], a }
+    accentTints[#accentTints + 1] = t
+    return t
+end
 local function White(a) return { 1, 1, 1, a } end
 local NONE = { 0, 0, 0, 0 }
 
@@ -101,10 +117,17 @@ local byFrame = {}      -- frame -> its record
 -- profile calls one of them.
 local preset, resolved = nil, false
 
+local function Following()
+    return Shatter.Suite ~= nil and Shatter.Suite.Offered()
+end
+
 local function Preset()
     if not resolved then
         local settings = Shatter.Database and Shatter.Database:GetSettings()
-        preset = Shatter.Glass and settings and Skin.PRESETS[settings.skin] or nil
+        preset = nil
+        if Shatter.Glass and settings and settings.skin ~= "flat" then
+            preset = Following() and Shatter.Suite.Body() or Skin.PRESETS[settings.skin]
+        end
         resolved = true
     end
     return preset
@@ -116,9 +139,13 @@ function Skin.Name()
     return settings and settings.skin or "clear"
 end
 
--- What is drawn: the setting, or "flat" when LibGlass is missing.
+-- What is drawn: the setting, "suite" for glass while following Glass UI, or
+-- "flat" when LibGlass is missing.
 function Skin.Shown()
-    return Shatter.Glass and Skin.Name() or "flat"
+    if not Shatter.Glass then return "flat" end
+    local name = Skin.Name()
+    if name ~= "flat" and Following() then return "suite" end
+    return name
 end
 
 function Skin.IsGlass() return Preset() ~= nil end
@@ -127,14 +154,6 @@ function Skin.IsValid(name) return name == "flat" or Skin.PRESETS[name] ~= nil e
 
 local function SetColor(fn, target, color)
     fn(target, color[1], color[2], color[3], color[4] or 1)
-end
-
--- The preset's body into this instance's STYLE before an Apply: COPIED, never
--- aliased (AltStable #184: the library fills STYLE in place).
-local function PushStyle(p)
-    local style = Shatter.Glass.STYLE
-    style.tint = { p.tint[1], p.tint[2], p.tint[3], p.tint[4] }
-    style.grain, style.wash = p.grain, p.wash
 end
 
 -- A rounded mask on `frame`, applied to `texture` (a mask only affects the
@@ -177,10 +196,18 @@ local function ApplyWindow(record, p)
     if p then
         frame:SetBackdropColor(0, 0, 0, 0)
         frame:SetBackdropBorderColor(0, 0, 0, 0)
-        local g = record.g
-        Shatter.Glass.SetSurfaceTint(g, p.tint[1], p.tint[2], p.tint[3], p.tint[4])
-        g.grain:SetAlpha(p.grain)
-        g.wash:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, p.wash))
+        -- The body over the material: STYLE stays the preset's own (nothing
+        -- here writes it), so its grain and wash are the bases.
+        local Glass, g = Shatter.Glass, record.g
+        local style = Glass.STYLE
+        Glass.SetSurfaceTint(g, p.tint[1], p.tint[2], p.tint[3], p.tint[4])
+        g.grain:SetAlpha((style.grain or 0) * p.grain)
+        local wash = (style.wash or 0) * p.wash
+        if Glass.SetWash then
+            Glass.SetWash(g, wash)
+        else
+            g.wash:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, wash))
+        end
     else
         SetColor(frame.SetBackdropColor, frame, record.flat)
         SetColor(frame.SetBackdropBorderColor, frame, C.BORDER)
@@ -239,7 +266,6 @@ function Skin.Window(frame, flat)
         local panel = CreateFrame("Frame", nil, frame)
         panel:SetAllPoints(frame)
         panel:SetFrameLevel(frame:GetFrameLevel())
-        PushStyle(Preset() or Skin.PRESETS.clear)
         record.panel = panel
         record.g = Shatter.Glass.Apply(panel, "large")
     end
@@ -309,16 +335,31 @@ end
 function Skin.Surface(frame) return byFrame[frame] end
 
 -- Repaint every surface in the current skin (re-reading the setting: a
--- profile switch changes it).
+-- profile switch changes it), and tell Glass UI when Flat came or went.
 function Skin.Refresh()
     resolved = false
     for _, record in ipairs(surfaces) do Apply(record) end
+    if Shatter.Suite then Shatter.Suite.Report() end
 end
 
 -- The one setter, for Settings and /shatter skin. False for an unknown name.
+-- While following Glass UI, Clear and Smoked are its to set: they're refused
+-- (false, "suite") unless Flat is on, when either one is the way back to
+-- the suite's glass.
 function Skin.Set(name)
     if not Skin.IsValid(name) or not Shatter.Database then return false end
-    Shatter.Database:GetSettings().skin = name
+    local settings = Shatter.Database:GetSettings()
+    if name ~= "flat" and settings.skin ~= "flat" and Following() then return false, "suite" end
+    settings.skin = name
     Skin.Refresh()
     return true
+end
+
+-- The suite's accent ({ r, g, b }), set once before any frame is built
+-- (Suite.lua): C.ACCENT and the accent's fill tints, in place.
+function Skin.SetAccent(rgb)
+    for i = 1, 3 do ACCENT[i] = rgb[i] end
+    for _, t in ipairs(accentTints) do
+        for i = 1, 3 do t[i] = rgb[i] end
+    end
 end

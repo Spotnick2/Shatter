@@ -33,6 +33,11 @@ local CLEAR = { 0, 0, 0, 0 }
 -- 1. Default: Clear glass on the window, a pane, a button and the title.
 local main = setup()
 H.check(Shatter.Glass ~= nil, "LibGlass-1.0 loaded from the TOC")
+H.eq(Shatter.Glass.preset, "pearl", "the material is Pearl (LibGlass r11)")
+H.eq(Shatter.GlassPreset, "pearl", "...and Shatter knows it")
+local style = Shatter.Glass.STYLE
+local pearlGrain, pearlWash = style.grain, style.wash
+H.eq(pearlGrain, 0, "Pearl has no grain")
 H.eq(Shatter.Database:GetSettings().skin, "clear", "Clear glass is the default")
 local frame = main.frame
 local window = Skin.Surface(frame)
@@ -40,6 +45,8 @@ H.check(window and window.panel and window.panel:IsShown(), "the window's glass 
 H.check(same(frame.backdropColor, CLEAR) and same(frame.backdropBorderColor, CLEAR), "...and its square backdrop is cleared")
 local tint = Skin.PRESETS.clear.tint
 H.check(same(window.g.tint.colorTexture, tint), "the body carries the Clear tint")
+H.eq(window.g.grain:GetAlpha(), 0, "...no grain on the body")
+H.eq(window.g.wash.gradient[3].a, pearlWash, "...and Pearl's own wash")
 local rimAlpha = window.g.rim:GetAlpha()
 local pane = Skin.Surface(main.queuePanel)
 H.check(pane.fill:IsShown() and same(pane.fill.colorTexture, Skin.PRESETS.clear.pane), "the queue pane: translucent Clear fill")
@@ -70,11 +77,12 @@ H.check(same(main.primary.backdropBorderColor, C.ACCENT), "Shatter Next keeps it
 -- 3. Smoked: the body and panes darken; the rim never changes.
 SlashCmdList.SHATTER("skin smoked")
 H.check(window.panel:IsShown() and same(window.g.tint.colorTexture, Skin.PRESETS.smoked.tint), "Smoked tint on the body")
-H.eq(window.g.grain:GetAlpha(), Skin.PRESETS.smoked.grain, "Smoked grain")
-H.eq(window.g.wash.gradient[3].a, Skin.PRESETS.smoked.wash, "Smoked wash")
+H.eq(window.g.grain:GetAlpha(), 0, "Smoked: still no grain over Pearl")
+H.check(math.abs(window.g.wash.gradient[3].a - pearlWash * 0.14 / 0.18) < 1e-9, "Smoked wash: Pearl's, scaled as Smoked always was")
 H.check(same(pane.fill.colorTexture, Skin.PRESETS.smoked.pane), "Smoked pane")
 H.eq(window.g.rim:GetAlpha(), rimAlpha, "the rim is untouched")
-H.check(Shatter.Glass.STYLE.tint ~= Skin.PRESETS.clear.tint, "STYLE holds a copy of the tint, never the preset itself")
+H.check(Shatter.Glass.STYLE.tint ~= Skin.PRESETS.clear.tint, "STYLE never holds a preset's own table")
+H.check(style.grain == pearlGrain and style.wash == pearlWash, "...and a skin never writes the material's STYLE")
 
 -- 4. Queue rows: odd/even, hover, selected; Flat keeps the quality border.
 local VEST = 2589

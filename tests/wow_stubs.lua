@@ -40,7 +40,7 @@ function WoW.reset()
     WoW.inCombat      = false
     WoW.build         = MEASURED_BUILD
     WoW.version       = "v0.2.0-alpha"
-    WoW.player        = { name = "Example Surname", realm = "ClassicBetaPvE" }
+    WoW.player        = { name = "Example Surname", realm = "ClassicBetaPvE", class = "MAGE" }
     WoW.cvars         = { ActionButtonUseKeyDown = "1" }
     WoW.knownSpells   = {}  -- [spellID] = true
     WoW.spellNames    = { [13262] = "Disenchant", [7411] = "Enchanting" }
@@ -617,6 +617,13 @@ end
 function GetRealmName() return WoW.player.realm end
 function GetNormalizedRealmName() return (WoW.player.realm:gsub("%s", "")) end
 function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end end
+-- dump 6405: className, classFilename, classID.
+local CLASS_IDS = { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, SHAMAN = 7, MAGE = 8, WARLOCK = 9, DRUID = 11 }
+function UnitClass(unit)
+    if unit ~= "player" then return nil end
+    local class = WoW.player.class
+    return class:sub(1, 1) .. class:sub(2):lower(), class, CLASS_IDS[class]
+end
 -- Present on this client but returns nothing (measured, porting guide 960).
 function GetProfessions() return nil end
 function GetProfessionInfo() return nil end
@@ -654,6 +661,14 @@ format = string.format
 ------------------------------------------------------------
 -- Namespaces (shapes from the 70334 dump)
 ------------------------------------------------------------
+
+C_ClassColor = {}
+-- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
+local CLASS_COLORS = { MAGE = { 0.25, 0.78, 0.92 }, PRIEST = { 1, 1, 1 }, WARRIOR = { 0.78, 0.61, 0.43 } }
+function C_ClassColor.GetClassColor(className)
+    local c = CLASS_COLORS[className]
+    if c then return { r = c[1], g = c[2], b = c[3] } end
+end
 
 C_Timer = {}
 function C_Timer.After(delay, fn) WoW.timers[#WoW.timers + 1] = { due = WoW.time + (delay or 0), fn = fn } end
@@ -844,7 +859,7 @@ local KNOWN_ABSENT = {
     PickupContainerItem = true, MouseIsOver = true, MAX_PLAYER_LEVEL = true,
     -- Optional third-party addons: absent unless a test installs them.
     TSM_API = true, Auctionator = true, AucAdvanced = true, Postal = true, Postal_Select = true,
-    Gargul = true, GL = true,
+    Gargul = true, GL = true, GlassUI = true,
     -- The addon's own globals, nil until it creates them / SavedVariables load.
     Shatter = true, ShatterDB = true,
     -- Embedded LibStub (LibGlass-1.0's bundled copy) reads it before creating it.

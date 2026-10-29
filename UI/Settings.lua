@@ -85,8 +85,12 @@ function SettingsUI:Create(parent)
     skinLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
     skinLabel:SetText("Look")
     self.skinButtons = {}
+    -- Following Glass UI (Suite.lua), its look replaces Clear and Smoked:
+    -- "Glass UI" goes back to it from Flat, or opens Glass UI's page.
+    local following = Shatter.Suite and Shatter.Suite.Offered()
+    local names = following and { "suite", "flat" } or Shatter.Skin.NAMES
     local previousSkin
-    for _, name in ipairs(Shatter.Skin.NAMES) do
+    for _, name in ipairs(names) do
         local button = CreatePanelButton(content, Shatter.Skin.LABELS[name], name == "flat" and 64 or 96)
         if previousSkin then
             button:SetPoint("LEFT", previousSkin, "RIGHT", 6, 0)
@@ -94,7 +98,13 @@ function SettingsUI:Create(parent)
             button:SetPoint("TOPLEFT", skinLabel, "BOTTOMLEFT", 0, -8)
         end
         button:SetScript("OnClick", function()
-            Shatter.Skin.Set(name)
+            if name ~= "suite" then
+                Shatter.Skin.Set(name)
+            elseif Shatter.Skin.Shown() == "suite" then
+                Shatter.Suite.Open()
+            else
+                Shatter.Skin.Set("clear")
+            end
             self:Refresh()
         end)
         self.skinButtons[name] = button
@@ -102,6 +112,8 @@ function SettingsUI:Create(parent)
     end
     AddTooltip(self.skinButtons.clear, "Clear glass", "Light, translucent glass. Changes apply immediately.")
     AddTooltip(self.skinButtons.smoked, "Smoked glass", "Darker glass, easier to read over a bright world.")
+    AddTooltip(self.skinButtons.suite, "Glass UI", "Shatter follows the Glass suite's look, set in Glass UI (/glassui). "
+        .. "Click again to open Glass UI. Changes made there apply after a /reload.")
     AddTooltip(self.skinButtons.flat, "Flat", "Shatter's opaque dark panels.")
     if not Shatter.Glass then
         self.skinNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -111,7 +123,7 @@ function SettingsUI:Create(parent)
 
     local maxLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     local profileLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profileLabel:SetPoint("TOPLEFT", self.skinButtons.clear, "BOTTOMLEFT", 0, -12)
+    profileLabel:SetPoint("TOPLEFT", self.skinButtons[names[1]], "BOTTOMLEFT", 0, -12)
     profileLabel:SetText("Settings profile")
 
     local globalProfile = CreatePanelButton(content, "Global", 82)
