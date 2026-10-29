@@ -5,6 +5,7 @@
 - The glass is now LibGlass's **Pearl**, the Glass suite's theme: no grain, a softer light and a quieter outline. Clear and Smoked glass are bodies over it.
 - Shatter follows **Glass UI**: with Glass UI loaded and its "Use Glass UI appearance" on for Shatter, the glass takes the suite's body (clear, smoked or class) and its accent. Settings then offers Glass UI or Flat, and Clear and Smoked are set in Glass UI. Choosing Flat in Shatter still turns the glass off. A change made in Glass UI applies after a /reload.
 - Ignored items can be brought back: Settings lists them (Ignored items) with Remove for each and Reset all, which asks again before clearing. `/shatter ignored` lists them, and `/shatter unignore <itemID or link>` removes one. A removed item is back in the queue at once. Ignoring an item now says how to undo it, and the Skip and Ignore buttons explain the difference: Skip lasts until a /reload, Ignore until you remove it.
+- Measured on client build 1.60.1.70532, so the one-line build notice no longer shows on it.
 
 ## v0.2.80-alpha - 2026-10-29
 
@@ -33,7 +34,7 @@ The first Forever alpha.
 - Mail sessions saved before sessions were per character go back to the character that started them.
 - Mail Mode reads all 16 attachment slots of a mail, and waits for item data the client has not cached yet instead of skipping those attachments.
 - Mail actions (taking attachments and disenchanting mail items) are off until the mail flow has been validated on Forever; `/shatter mailtest` enables them for the current session.
-- On a client build other than the one Shatter was measured on (1.60.1.70532), Shatter prints a one-line notice when it first activates (at login, or later if the spellbook loads late or login happened in combat).
+- On a client build other than the one Shatter was measured on (1.60.1.70334), Shatter prints a one-line notice when it first activates (at login, or later if the spellbook loads late or login happened in combat).
 - Price lookups through other addons (Auctionator, Auctioneer, TSM) can no longer raise errors in Shatter; a failing lookup simply shows no price.
 - Dragging the minimap button now follows the cursor correctly when the minimap is scaled in Edit Mode.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.

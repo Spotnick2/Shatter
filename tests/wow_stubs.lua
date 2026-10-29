@@ -618,7 +618,7 @@ end
 function GetRealmName() return WoW.player.realm end
 function GetNormalizedRealmName() return (WoW.player.realm:gsub("%s", "")) end
 function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end end
--- dump 6405: className, classFilename, classID.
+-- dump 6418: className, classFilename, classID.
 local CLASS_IDS = { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, SHAMAN = 7, MAGE = 8, WARLOCK = 9, DRUID = 11 }
 function UnitClass(unit)
     if unit ~= "player" then return nil end
@@ -664,7 +664,7 @@ format = string.format
 ------------------------------------------------------------
 
 C_ClassColor = {}
--- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
+-- dump 771: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
 local CLASS_COLORS = { MAGE = { 0.25, 0.78, 0.92 }, PRIEST = { 1, 1, 1 }, WARRIOR = { 0.78, 0.61, 0.43 } }
 function C_ClassColor.GetClassColor(className)
     local c = CLASS_COLORS[className]
