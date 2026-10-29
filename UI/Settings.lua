@@ -85,7 +85,7 @@ function SettingsUI:Create(parent)
     skinLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
     skinLabel:SetText("Look")
     self.skinButtons = {}
-    -- Following Glass UI (Suite.lua), its look replaces Clear and Smoked:
+    -- Following Glass UI (Suite.lua), its look replaces all but Flat:
     -- "Glass UI" goes back to it from Flat, or opens Glass UI's page.
     local following = Shatter.Suite and Shatter.Suite.Offered()
     local names = following and { "suite", "flat" } or Shatter.Skin.NAMES
@@ -103,13 +103,14 @@ function SettingsUI:Create(parent)
             elseif Shatter.Skin.Shown() == "suite" then
                 Shatter.Suite.Open()
             else
-                Shatter.Skin.Set("clear")
+                Shatter.Skin.Set("forever")
             end
             self:Refresh()
         end)
         self.skinButtons[name] = button
         previousSkin = button
     end
+    AddTooltip(self.skinButtons.forever, "WoW Forever", "The game's own window style. Changes apply immediately.")
     AddTooltip(self.skinButtons.clear, "Clear glass", "Light, translucent glass. Changes apply immediately.")
     AddTooltip(self.skinButtons.smoked, "Smoked glass", "Darker glass, easier to read over a bright world.")
     AddTooltip(self.skinButtons.suite, "Glass UI", "Shatter follows the Glass suite's look, set in Glass UI (/glassui). "
@@ -118,7 +119,7 @@ function SettingsUI:Create(parent)
     if not Shatter.Glass then
         self.skinNote = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         self.skinNote:SetPoint("LEFT", previousSkin, "RIGHT", 8, 0)
-        self.skinNote:SetText("LibGlass missing: flat only")
+        self.skinNote:SetText("LibGlass missing: no glass")
     end
 
     local maxLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")

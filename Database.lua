@@ -13,7 +13,7 @@ local DEFAULTS = {
         useAuctionData = false,
         minimap = { hide = false, angle = 225 },
         -- The look (Skin.lua): "clear" or "smoked" glass, or "flat".
-        skin = "clear",
+        skin = "forever",
         -- Item tooltips (Tooltip.lua): "always", "modifier" (Shift, Alt or
         -- Ctrl held) or "never".
         tooltip = "always",
