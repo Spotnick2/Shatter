@@ -1,6 +1,6 @@
 # Changelog
 
-## Forever port (unreleased)
+## Unreleased
 
 - Glass skins: Shatter's window and the Mail launch panel can be **Clear glass** (the new default), **Smoked glass** or **Flat** (the previous opaque look), matching the other Glass addons. Choose under Settings > Look or with `/shatter skin clear|smoked|flat`; the change applies immediately, even in combat. The glass comes from the embedded LibGlass-1.0. Without the library (a git checkout without `Libs`), Shatter stays Flat and Settings says so.
 - The Mail tab is now marked as the current tab in the Mail view, and hovering the Mail or Raid tab no longer leaves it highlighted.
@@ -32,7 +32,7 @@
 
 ## TBC Anniversary history (before the fork)
 
-## Unreleased
+## TBC: unreleased at the fork
 
 - Improved Mail launch panel UX with tighter layout flow, clearer section spacing, and persistent funnel selector visibility.
 - Improved Postal integration detection for Mail launch filters and now surfaces a Postal selected-mail option when Postal is installed, with a clear inactive-state hint when its Select module controls are unavailable.

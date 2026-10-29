@@ -13,6 +13,7 @@ H.eq(H.directive("Version"), "@" .. "project-version" .. "@",
 H.eq(H.directive("SavedVariables"), "ShatterDB", "one account-wide SavedVariables table")
 H.eq(H.directive("X-Curse-Project-ID"), "1545161",
     "the CurseForge project shared with the TBC addon (files told apart by flavor)")
+H.eq(H.directive("X-Wago-ID"), "v63QE4Gb", "the Wago Addons project CI uploads each tag to")
 
 -- Every TOC entry exists, segment by segment, with matching case.
 local function listDir(dir)
