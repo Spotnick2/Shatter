@@ -33,7 +33,7 @@ Other early commands:
 /shatter ignored
 /shatter unignore <itemID or link>
 /shatter tooltip always|modifier|never
-/shatter skin clear|smoked|flat
+/shatter skin forever|clear|smoked|flat
 /shatter debug
 /shatter trace
 /shatter sim
@@ -41,7 +41,7 @@ Other early commands:
 /shatter reset
 ```
 
-Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is Pearl, the shared material of the Glass addons, embedded as LibGlass-1.0. With Glass UI installed, Shatter follows its look (body and accent) unless you choose Flat; a change made in Glass UI applies after a /reload.
+Shatter's window looks like the game's own (WoW Forever: the tooltip's border and background) by default; Settings > Look (or `/shatter skin`) switches to Clear glass, Smoked glass or Flat, the original opaque look, immediately. The glass is Pearl, the shared material of the Glass addons, embedded as LibGlass-1.0. With Glass UI installed, Shatter follows its look (body and accent) unless you choose Flat; a change made in Glass UI applies after a /reload.
 
 An item's tooltip shows what it disenchants into: each material with its chance and amount, and the expected value when a pricing addon has prices. Settings > Item tooltips (or `/shatter tooltip`) shows them always, only with Shift, Alt or Ctrl held, or never.
 

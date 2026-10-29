@@ -659,6 +659,7 @@ function MainFrame:Create()
     titleBg:SetAllPoints()
     titleBg:SetColorTexture(unpack(Shatter.C.BG_HEADER))
     Shatter.Skin.Band(titleBg)
+    self.titleBand = titleBg
 
     local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("CENTER", titleBar, "CENTER", 0, 0)

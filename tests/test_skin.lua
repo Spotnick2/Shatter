@@ -1,9 +1,13 @@
 ------------------------------------------------------------
--- test_skin.lua - the look (#14): Clear glass (default), Smoked glass, Flat.
+-- test_skin.lua - the look (#14, #23): WoW Forever (default), Clear glass,
+-- Smoked glass, Flat.
+--   * WoW Forever is the tooltip's backdrop, on a panel of its own under each
+--     window; panes, buttons and rows keep a 1 px backdrop, recoloured;
 --   * glass is LibGlass-1.0, on a panel of its own under each window;
 --   * Flat paints exactly the colours Shatter used before glass;
---   * the switch is live, both ways, and safe in combat;
---   * without LibGlass (a git clone without Libs) every skin renders flat.
+--   * the switch is live, every way, and safe in combat;
+--   * without LibGlass (a git clone without Libs) the glass looks render
+--     WoW Forever.
 ------------------------------------------------------------
 
 local H = dofile("tests/harness.lua")
@@ -29,19 +33,57 @@ local function same(a, b)
     return true
 end
 local CLEAR = { 0, 0, 0, 0 }
+-- A fresh saved table each time: the addon writes into it.
+local function AsClear() return { savedDB = { settings = { skin = "clear" } } } end
 
--- 1. Default: Clear glass on the window, a pane, a button and the title.
+-- 0. Default: WoW Forever, the tooltip's window.
 local main = setup()
+H.eq(Shatter.Database:GetSettings().skin, "forever", "WoW Forever is the default")
+H.eq(Skin.Shown(), "forever", "...and is drawn")
+H.eq(Skin.IsGlass(), false, "...without glass")
+local fw = Skin.Surface(main.frame)
+H.check(fw.forever and fw.forever:IsShown(), "the window's WoW Forever panel is shown")
+H.check(not fw.panel:IsShown(), "...the glass panel hidden")
+H.check(same(main.frame.backdropColor, CLEAR) and same(main.frame.backdropBorderColor, CLEAR),
+    "...and the window's own 1 px backdrop cleared")
+H.eq(fw.forever.backdrop.edgeFile, "Interface\\Tooltips\\UI-Tooltip-Border", "the tooltip's border")
+H.eq(fw.forever.backdrop.bgFile, "Interface\\Tooltips\\UI-Tooltip-Background", "...over the tooltip's background")
+H.check(same(fw.forever.backdropColor, Skin.FOREVER.window), "...in the tooltip's navy")
+H.check(same(main.queuePanel.backdropColor, Skin.FOREVER.pane) and same(main.queuePanel.backdropBorderColor, Skin.FOREVER.edge),
+    "a pane: darkened into the window, a slate edge")
+H.check(not Skin.Surface(main.queuePanel).fill:IsShown(), "...no glass fill")
+local sb = main.settingsButton
+H.check(same(sb.backdropColor, { 1, 1, 1, 0.08 }) and same(sb.backdropBorderColor, Skin.FOREVER.edge),
+    "a button: a faint white fill, a slate edge")
+sb.scripts.OnEnter(sb)
+H.check(same(sb.backdropColor, { 1, 1, 1, 0.14 }), "...brighter while hovered")
+sb.scripts.OnLeave(sb)
+H.check(same(main.primary.backdropBorderColor, C.ACCENT), "Shatter Next keeps its accent edge")
+H.check(same(main.tabSolo.backdropBorderColor, C.ACCENT), "...as does the active tab")
+H.check(not main.titleBand:IsShown(), "no title band: the border frames the window")
+-- Live, to glass and back.
+Skin.Set("clear")
+H.check(not fw.forever:IsShown() and fw.panel:IsShown(), "to Clear: the glass panel replaces it")
+Skin.Set("flat")
+H.check(not fw.forever:IsShown() and same(main.frame.backdropColor, C.BG_MAIN), "to Flat: the window's own backdrop")
+H.check(main.titleBand:IsShown(), "...with the title band")
+Skin.Set("forever")
+H.check(fw.forever:IsShown() and not fw.panel:IsShown(), "back to WoW Forever")
+H.check(same(sb.backdropColor, { 1, 1, 1, 0.08 }), "...its button fills again")
+
+-- 1. Clear glass on the window, a pane, a button and the title.
+main = setup(AsClear())
 H.check(Shatter.Glass ~= nil, "LibGlass-1.0 loaded from the TOC")
 H.eq(Shatter.Glass.preset, "pearl", "the material is Pearl (LibGlass r11)")
 H.eq(Shatter.GlassPreset, "pearl", "...and Shatter knows it")
 local style = Shatter.Glass.STYLE
 local pearlGrain, pearlWash = style.grain, style.wash
 H.eq(pearlGrain, 0, "Pearl has no grain")
-H.eq(Shatter.Database:GetSettings().skin, "clear", "Clear glass is the default")
+H.eq(Shatter.Database:GetSettings().skin, "clear", "Clear glass, as saved")
 local frame = main.frame
 local window = Skin.Surface(frame)
 H.check(window and window.panel and window.panel:IsShown(), "the window's glass panel is shown")
+H.check(not window.forever:IsShown(), "...WoW Forever's hidden")
 H.check(same(frame.backdropColor, CLEAR) and same(frame.backdropBorderColor, CLEAR), "...and its square backdrop is cleared")
 local tint = Skin.PRESETS.clear.tint
 H.check(same(window.g.tint.colorTexture, tint), "the body carries the Clear tint")
@@ -116,35 +158,45 @@ WoW.inCombat = true
 H.ok(function() SlashCmdList.SHATTER("skin flat") end, "a switch in combat is allowed")
 H.check(same(main.primary.backdropBorderColor, C.ACCENT), "...Shatter Next repainted Flat")
 H.ok(function() SlashCmdList.SHATTER("skin smoked") end, "...and back to glass")
+H.ok(function() SlashCmdList.SHATTER("skin forever") end, "...and to WoW Forever")
+H.check(same(main.primary.backdropBorderColor, C.ACCENT), "...Shatter Next repainted WoW Forever")
+H.ok(function() SlashCmdList.SHATTER("skin smoked") end, "...and back to glass")
 WoW.inCombat = false
 WoW.fire("PLAYER_REGEN_ENABLED")
 
 -- 6. Unknown names: refused by the command, normalised when saved.
 SlashCmdList.SHATTER("skin pink")
 H.eq(Shatter.Database:GetSettings().skin, "smoked", "an unknown skin is refused")
-H.check(WoW.chat():find("Use /shatter skin clear|smoked|flat", 1, true), "...with the choices")
+H.check(WoW.chat():find("Use /shatter skin forever|clear|smoked|flat", 1, true), "...with the choices")
 setup({ savedDB = { settings = { skin = "pink" } } })
-H.eq(Shatter.Database:GetSettings().skin, "clear", "an unknown saved skin falls back to Clear")
+H.eq(Shatter.Database:GetSettings().skin, "forever", "an unknown saved skin falls back to WoW Forever")
 
--- 7. Settings lists the three skins and switches live.
-main = setup()
+-- 7. Settings lists the four looks and switches live.
+main = setup(AsClear())
 Shatter.SettingsUI:Toggle()
 local buttons = Shatter.SettingsUI.skinButtons
-H.check(buttons.clear and buttons.smoked and buttons.flat, "Settings offers Clear glass, Smoked glass and Flat")
+H.check(buttons.forever and buttons.clear and buttons.smoked and buttons.flat,
+    "Settings offers WoW Forever, Clear glass, Smoked glass and Flat")
 H.check(same(Skin.Surface(buttons.clear).fill.colorTexture, { 1, 0.82, 0, 0.18 }), "...the current one marked")
 buttons.flat.scripts.OnClick(buttons.flat)
 H.eq(Shatter.Database:GetSettings().skin, "flat", "clicking Flat saves it")
 H.check(not Skin.Surface(main.frame).panel:IsShown(), "...and the window turns flat at once")
 H.check(same(buttons.flat.backdropColor, C.BG_ACTIVE), "...Flat now marked")
+buttons.forever.scripts.OnClick(buttons.forever)
+H.eq(Shatter.Database:GetSettings().skin, "forever", "clicking WoW Forever saves it")
+H.check(Skin.Surface(main.frame).forever:IsShown(), "...and the window takes it at once")
+H.check(same(buttons.forever.backdropColor, { 1, 0.82, 0, 0.18 }), "...WoW Forever now marked")
 
--- 8. The Mail launch panel is a glass window too.
-setup()
+-- 8. The Mail launch panel is a glass window too, and a WoW Forever one.
+setup(AsClear())
 Shatter.MailLaunchPanel:Create()
 local launch = Skin.Surface(Shatter.MailLaunchPanel.frame)
 H.check(launch and launch.panel and launch.panel:IsShown(), "the launch panel has its own glass panel")
 H.check(same(Skin.Surface(Shatter.MailLaunchPanel.startButton).fill.colorTexture, { 1, 1, 1, 0.08 }) or
     same(Skin.Surface(Shatter.MailLaunchPanel.startButton).fill.colorTexture, { 1, 0.82, 0, 0.15 }),
     "its buttons are glass fills")
+Skin.Set("forever")
+H.check(launch.forever:IsShown() and not launch.panel:IsShown(), "...its WoW Forever panel, live")
 
 -- 9. Flat hovers that differ from an ordinary button's, as before glass.
 main = setup({ savedDB = { settings = { skin = "flat" } } })
@@ -172,7 +224,7 @@ H.check(same(flatButton.backdropColor, C.BG_ACTIVE), "Flat: a just-chosen option
 
 -- 10. Masks only where body_mask_small fits (LibGlass §6): not on the 22 px
 -- close button (small both ways) nor the 14 px cast-bar trough.
-main = setup()
+main = setup(AsClear())
 H.check(Skin.Surface(main.settingsButton).masked and #Skin.Surface(main.settingsButton).fill.masks == 1,
     "an ordinary button is rounded")
 H.check(not Skin.Surface(main.closeButton).masked and Skin.Surface(main.closeButton).fill.masks == nil,
@@ -215,17 +267,21 @@ H.raises(function() main.frame:AddMaskTexture(main.frame) end, "a frame has no A
 H.raises(function() main.frame:SetGradient("VERTICAL") end, "a frame has no SetGradient")
 H.raises(function() firstFill:CreateMaskTexture() end, "a texture has no CreateMaskTexture")
 
--- 14. No LibGlass (installed from a git clone): flat, whatever the setting.
+-- 14. No LibGlass (installed from a git clone): a glass look renders WoW
+-- Forever, which needs no library.
 rawset(_G, "LibStub", nil)
-main = setup({ withoutLibs = true })
+main = setup({ withoutLibs = true, savedDB = { settings = { skin = "clear" } } })
 H.eq(Shatter.Glass, nil, "no library, no glass instance")
 H.eq(Shatter.Database:GetSettings().skin, "clear", "the setting is still Clear")
-H.eq(Skin.IsGlass(), false, "...but Shatter renders flat")
-H.check(same(main.frame.backdropColor, C.BG_MAIN), "the window keeps its Flat backdrop")
+H.eq(Skin.IsGlass(), false, "...but Shatter renders no glass")
+H.eq(Skin.Shown(), "forever", "...it renders WoW Forever")
+H.check(Skin.Surface(main.frame).forever:IsShown(), "the window's WoW Forever panel is shown")
 H.check(Skin.Surface(main.frame).panel == nil, "no glass panel was built")
 Shatter.SettingsUI:Toggle()
-H.check(same(Shatter.SettingsUI.skinButtons.flat.backdropColor, C.BG_ACTIVE)
-    and same(Shatter.SettingsUI.skinButtons.clear.backdropColor, { 0.12, 0.12, 0.12, 1 }),
-    "Settings marks Flat, the look actually drawn")
+H.check(same(Shatter.SettingsUI.skinButtons.forever.backdropColor, { 1, 0.82, 0, 0.18 })
+    and same(Shatter.SettingsUI.skinButtons.clear.backdropColor, { 1, 1, 1, 0.08 }),
+    "Settings marks WoW Forever, the look actually drawn")
+SlashCmdList.SHATTER("skin flat")
+H.check(same(main.frame.backdropColor, C.BG_MAIN), "Flat still works without the library")
 
 H.done("test_skin")

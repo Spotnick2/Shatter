@@ -1,7 +1,15 @@
 local _, Shatter = ...
 
--- What Shatter's windows are made of (#14): Clear glass, Smoked glass, or
--- Flat (the opaque look Shatter always had).
+-- What Shatter's windows are made of (#14, #23): WoW Forever (the game's own
+-- window, the default), Clear glass, Smoked glass, or Flat (the opaque look
+-- Shatter always had).
+--
+-- WoW Forever is Blizzard's tooltip window: UI-Tooltip-Background under the
+-- UI-Tooltip-Border edge, in the tooltip's own navy. It needs no LibGlass, so
+-- it is also what Clear and Smoked show without it. Its window body is a
+-- backdrop panel of its own, like the glass; panes, buttons and rows keep
+-- their 1 px backdrop (the layout is Flat's), with the glass's translucent
+-- fills and a slate edge.
 --
 -- The glass is Pearl (Glass.lua). A skin is a body over it: a tint, and
 -- grain and wash as factors of the material's own (Pearl has no grain), the
@@ -10,14 +18,15 @@ local _, Shatter = ...
 -- alike side by side. A skin changes the body and the panes, never the rim:
 -- LibGlass GLASS-MATERIAL.md, a darkened rim reads as smoked plastic.
 --
--- Following Glass UI (Suite.lua): the suite's body replaces Clear and Smoked,
--- which stay saved for when Shatter doesn't follow. Flat is still the
--- player's: choosing it declines the suite's look.
+-- Following Glass UI (Suite.lua): the suite's body replaces WoW Forever,
+-- Clear and Smoked, which stay saved for when Shatter doesn't follow. Flat is
+-- still the player's: choosing it declines the suite's look.
 --
 -- The switch is live (GlassMailbox's way, not AltStable's reload). Every
--- surface is built once, for both looks:
---   * a window's glass is on its own child panel, shown or hidden (LibGlass
---     has no teardown, so a surface is never applied twice);
+-- surface is built once, for every look:
+--   * a window's glass and its WoW Forever body are each on a child panel of
+--     their own, shown or hidden (LibGlass has no teardown, so a surface is
+--     never applied twice);
 --   * a pane or a filled widget keeps its backdrop for Flat and gets a fill
 --     texture for glass, masked to a rounded shape where it stands alone.
 -- Widgets never pick colours themselves: they tell Skin their state
@@ -48,9 +57,10 @@ Skin.PRESETS = {
     },
 }
 -- Every value of the setting, in the order Settings lists them.
-Skin.NAMES = { "clear", "smoked", "flat" }
+Skin.NAMES = { "forever", "clear", "smoked", "flat" }
 -- "suite" is never saved: it is what is shown while Shatter follows Glass UI.
-Skin.LABELS = { clear = "Clear glass", smoked = "Smoked glass", flat = "Flat", suite = "Glass UI" }
+Skin.LABELS = { forever = "WoW Forever", clear = "Clear glass", smoked = "Smoked glass", flat = "Flat",
+                suite = "Glass UI" }
 
 local C = Shatter.C
 local ACCENT = C.ACCENT
@@ -64,6 +74,21 @@ local function Accent(a)
 end
 local function White(a) return { 1, 1, 1, a } end
 local NONE = { 0, 0, 0, 0 }
+
+-- WoW Forever: the tooltip's backdrop (GameTooltip's 16 px edge and 5 px
+-- insets) in its default colours (TOOLTIP_DEFAULT_BACKGROUND_COLOR, a
+-- client constant: 0.09, 0.09, 0.19), a pane darkened into it, and the slate
+-- edge of everything drawn with Flat's 1 px backdrop.
+local FOREVER_BACKDROP = {
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 5, right = 5, top = 5, bottom = 5 },
+}
+Skin.FOREVER = {
+    window = { 0.09, 0.09, 0.19, 0.94 }, border = { 1, 1, 1, 1 },
+    pane = { 0, 0, 0, 0.30 }, edge = { 0.32, 0.34, 0.42, 0.90 },
+}
 
 -- Filled widgets, per family and state: the Flat backdrop (bg, border, and
 -- the bg while hovered, nil = no change) and the glass fill (fill, hover).
@@ -110,47 +135,50 @@ local FILLS = {
 local surfaces = {}     -- registration order, for Refresh
 local byFrame = {}      -- frame -> its record
 
--- The current preset, or nil when Shatter renders flat: the Flat skin, or
--- no LibGlass to draw glass with. Read from the settings once and kept until
--- the next Refresh or Set (GetSettings re-normalizes the whole database, too
--- much for every hover and paint); whatever changes the setting or the
--- profile calls one of them.
-local preset, resolved = nil, false
+-- What is drawn: a glass preset (look "glass"), or nil with look "forever"
+-- or "flat". Read from the settings once and kept until the next Refresh or
+-- Set (GetSettings re-normalizes the whole database, too much for every hover
+-- and paint); whatever changes the setting or the profile calls one of them.
+local preset, look, resolved = nil, "forever", false
 
 local function Following()
     return Shatter.Suite ~= nil and Shatter.Suite.Offered()
 end
 
-local function Preset()
-    if not resolved then
-        local settings = Shatter.Database and Shatter.Database:GetSettings()
-        preset = nil
-        if Shatter.Glass and settings and settings.skin ~= "flat" then
-            preset = Following() and Shatter.Suite.Body() or Skin.PRESETS[settings.skin]
-        end
-        resolved = true
-    end
-    return preset
-end
-
 -- The saved setting.
 function Skin.Name()
     local settings = Shatter.Database and Shatter.Database:GetSettings()
-    return settings and settings.skin or "clear"
+    return settings and settings.skin or "forever"
 end
 
 -- What is drawn: the setting, "suite" for glass while following Glass UI, or
--- "flat" when LibGlass is missing.
+-- "forever" for a glass look without LibGlass.
 function Skin.Shown()
-    if not Shatter.Glass then return "flat" end
     local name = Skin.Name()
-    if name ~= "flat" and Following() then return "suite" end
+    if name == "flat" then return "flat" end
+    if Following() then return "suite" end
+    if Skin.PRESETS[name] and not Shatter.Glass then return "forever" end
     return name
 end
 
-function Skin.IsGlass() return Preset() ~= nil end
+local function Resolve()
+    if not resolved then
+        local shown = Skin.Shown()
+        preset = nil
+        if shown == "suite" then
+            preset = Shatter.Suite.Body()
+        elseif Skin.PRESETS[shown] then
+            preset = Skin.PRESETS[shown]
+        end
+        look = preset and "glass" or shown
+        resolved = true
+    end
+    return preset, look
+end
 
-function Skin.IsValid(name) return name == "flat" or Skin.PRESETS[name] ~= nil end
+function Skin.IsGlass() return (Resolve()) ~= nil end
+
+function Skin.IsValid(name) return name == "flat" or name == "forever" or Skin.PRESETS[name] ~= nil end
 
 local function SetColor(fn, target, color)
     fn(target, color[1], color[2], color[3], color[4] or 1)
@@ -181,6 +209,7 @@ local function Register(frame, record)
     local old = byFrame[frame]
     if old then
         record.panel, record.g, record.fill, record.masked = old.panel, old.g, old.fill, old.masked
+        record.forever = old.forever
         for i, r in ipairs(surfaces) do
             if r == old then surfaces[i] = record break end
         end
@@ -191,9 +220,12 @@ local function Register(frame, record)
     return record
 end
 
-local function ApplyWindow(record, p)
+local function ApplyWindow(record, p, kind)
     local frame = record.frame
-    if p then
+    if kind == "forever" then
+        frame:SetBackdropColor(0, 0, 0, 0)
+        frame:SetBackdropBorderColor(0, 0, 0, 0)
+    elseif p then
         frame:SetBackdropColor(0, 0, 0, 0)
         frame:SetBackdropBorderColor(0, 0, 0, 0)
         -- The body over the material: STYLE stays the preset's own (nothing
@@ -213,11 +245,15 @@ local function ApplyWindow(record, p)
         SetColor(frame.SetBackdropBorderColor, frame, C.BORDER)
     end
     if record.panel then record.panel:SetShown(p ~= nil) end
+    record.forever:SetShown(kind == "forever")
 end
 
-local function ApplyPane(record, p)
+local function ApplyPane(record, p, kind)
     local frame = record.frame
-    if p then
+    if kind == "forever" then
+        SetColor(frame.SetBackdropColor, frame, Skin.FOREVER.pane)
+        SetColor(frame.SetBackdropBorderColor, frame, Skin.FOREVER.edge)
+    elseif p then
         frame:SetBackdropColor(0, 0, 0, 0)
         frame:SetBackdropBorderColor(0, 0, 0, 0)
         SetColor(record.fill.SetColorTexture, record.fill, p.pane)
@@ -228,10 +264,25 @@ local function ApplyPane(record, p)
     if record.fill then record.fill:SetShown(p ~= nil) end
 end
 
-local function ApplyFill(record, p)
+-- WoW Forever's 1 px edge for a filled widget: the accent where Flat has it,
+-- a row's quality (or nothing), else slate.
+local function ForeverEdge(record, state)
+    if record.family == "row" then
+        if record.state == "selected" then return state.border end
+        return record.border or NONE
+    end
+    if state.border == ACCENT then return ACCENT end
+    return Skin.FOREVER.edge
+end
+
+local function ApplyFill(record, p, kind)
     local frame = record.frame
     local state = FILLS[record.family][record.state] or FILLS[record.family][record.default]
-    if p then
+    if kind == "forever" then
+        SetColor(frame.SetBackdropColor, frame, record.hovered and state.fillHover or state.fill)
+        SetColor(frame.SetBackdropBorderColor, frame, ForeverEdge(record, state))
+        if record.fill then record.fill:SetShown(false) end
+    elseif p then
         frame:SetBackdropColor(0, 0, 0, 0)
         frame:SetBackdropBorderColor(0, 0, 0, 0)
         local color = record.hovered and state.fillHover or state.fill
@@ -247,27 +298,38 @@ local function ApplyFill(record, p)
     end
 end
 
-local function ApplyBand(record, p)
-    record.frame:SetShown(p == nil)
+local function ApplyBand(record, p, kind)
+    record.frame:SetShown(kind == "flat")
 end
 
 local APPLY = { window = ApplyWindow, pane = ApplyPane, fill = ApplyFill, band = ApplyBand }
 
 local function Apply(record)
-    APPLY[record.kind](record, Preset())
+    APPLY[record.kind](record, Resolve())
 end
 
--- The window body: Flat is its backdrop in `flat`; glass is a LibGlass
--- panel just under the window's content, built once.
+-- A plain child panel just under the window's content, built once.
+local function Panel(frame)
+    local panel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    panel:SetAllPoints(frame)
+    panel:SetFrameLevel(frame:GetFrameLevel())
+    return panel
+end
+
+-- The window body: Flat is its backdrop in `flat`; WoW Forever and glass are
+-- each a panel just under the window's content, built once.
 function Skin.Window(frame, flat)
     Shatter.ApplyBackdrop(frame, unpack(flat))
     local record = Register(frame, { kind = "window", flat = flat })
+    if not record.forever then
+        record.forever = Panel(frame)
+        record.forever:SetBackdrop(FOREVER_BACKDROP)
+        SetColor(record.forever.SetBackdropColor, record.forever, Skin.FOREVER.window)
+        SetColor(record.forever.SetBackdropBorderColor, record.forever, Skin.FOREVER.border)
+    end
     if Shatter.Glass and not record.panel then
-        local panel = CreateFrame("Frame", nil, frame)
-        panel:SetAllPoints(frame)
-        panel:SetFrameLevel(frame:GetFrameLevel())
-        record.panel = panel
-        record.g = Shatter.Glass.Apply(panel, "large")
+        record.panel = Panel(frame)
+        record.g = Shatter.Glass.Apply(record.panel, "large")
     end
     Apply(record)
 end
@@ -308,7 +370,8 @@ function Skin.Fill(frame, family, state)
     Apply(record)
 end
 
--- A title bar's band: Flat only (the glass's own wash lights the top).
+-- A title bar's band: Flat only (the glass's own wash lights the top, and
+-- WoW Forever's edge frames it).
 function Skin.Band(texture)
     Apply(Register(texture, { kind = "band" }))
 end
@@ -330,7 +393,7 @@ function Skin.Hover(frame, hovered)
     Apply(record)
 end
 
--- What Skin built for a frame: { panel, g } for a window, { fill } for a pane
+-- What Skin built for a frame: { panel, g, forever } for a window, { fill } for a pane
 -- or a filled widget, plus its state. For tests and debugging; read only.
 function Skin.Surface(frame) return byFrame[frame] end
 
@@ -343,8 +406,8 @@ function Skin.Refresh()
 end
 
 -- The one setter, for Settings and /shatter skin. False for an unknown name.
--- While following Glass UI, Clear and Smoked are its to set: they're refused
--- (false, "suite") unless Flat is on, when either one is the way back to
+-- While following Glass UI, the looks other than Flat are its to set: they're
+-- refused (false, "suite") unless Flat is on, when any one is the way back to
 -- the suite's glass.
 function Skin.Set(name)
     if not Skin.IsValid(name) or not Shatter.Database then return false end

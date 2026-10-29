@@ -14,10 +14,10 @@ local _, Shatter = ...
 -- suite change waits for a reload, and the report says so (`live = false`),
 -- so Glass UI's page compares the look reported here with its current one.
 --
--- While following, Clear and Smoked are suspended, not lost: they stay saved
--- for a session that doesn't follow. Flat stays the player's, live as ever:
--- it is reported as declined ("its own look by its choice"), and Clear or
--- Smoked is the way back. The accent is set once, before the frames are
+-- While following, WoW Forever, Clear and Smoked are suspended, not lost:
+-- they stay saved for a session that doesn't follow. Flat stays the player's,
+-- live as ever: it is reported as declined ("its own look by its choice"),
+-- and any other look is the way back. The accent is set once, before the frames are
 -- built, so a Flat chosen before the reload keeps Shatter's gold until the
 -- next one. The body's backing is never painted (the panes keep their own
 -- colours), so the report claims it as Shatter's own.
@@ -134,8 +134,8 @@ function Suite.Start()
     Shatter.Skin.Refresh()
 end
 
--- Glass UI offered its look and this session built it: Clear and Smoked are
--- suspended. Flat may still be on (Skin.Shown says which).
+-- Glass UI offered its look and this session built it: the looks other than
+-- Flat are suspended. Flat may still be on (Skin.Shown says which).
 function Suite.Offered() return offered end
 
 -- The suite's body, in Skin.PRESETS' shape, while offered.

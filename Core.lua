@@ -307,7 +307,7 @@ SlashCmdList.SHATTER = function(message)
         if ok then
             if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
             Shatter.Print("Look: " .. Shatter.Skin.LABELS[Shatter.Skin.Shown()] .. "."
-                .. ((name ~= "flat" and not Shatter.Glass) and " LibGlass is missing, so Shatter stays flat." or ""))
+                .. ((Shatter.Skin.PRESETS[name] and not Shatter.Glass) and " LibGlass is missing, so Shatter shows WoW Forever." or ""))
         elseif why == "suite" then
             Shatter.Print("Shatter follows Glass UI's look: set it in Glass UI (/glassui), or use /shatter skin flat.")
         else
