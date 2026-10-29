@@ -85,7 +85,7 @@ H.check(gitignore:find("\nLibs/LibGlass%-1%.0/\n"), "the embedded library is nev
 
 -- The deploy script targets the Forever client and refuses the TBC one.
 local deploy = assert(H.readFile("Tools/deploy.ps1"))
-H.check(deploy:find("_classic_beta_", 1, true), "deploy targets _classic_beta_")
+H.check(deploy:find("_forever_", 1, true), "deploy targets _forever_")
 H.check(deploy:find("Refusing to deploy the Forever build into the TBC", 1, true), "deploy refuses _anniversary_")
 
 H.done("test_manifest")

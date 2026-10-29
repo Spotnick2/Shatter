@@ -12,12 +12,12 @@ It must stay lightweight, native-feeling, and independent of ElvUI, TSM, Postal,
 heavy runtime dependencies.
 
 ## Forever first
-- **The porting guide is canonical:** `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`. Read the
+- **The porting guide is canonical:** `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md`. Read the
   sections you touch. New addon-agnostic findings go there; Shatter-specific ones go in
   `docs/forever-api-notes.md`.
-- **The API dump for the measured build:** `C:\Projects\References\forever-api-1.60.1.70334.md`.
+- **The API dump for the measured build:** `C:\Projects\WoW\References\Forever\api\forever-api-1.60.1.70334.md`.
   `Constants.MEASURED_ON_BUILD` must match it (and the literal in the tests).
-- **The client's own UI source:** `C:\Projects\wow-ui-source` (`forever` branch). Read
+- **The client's own UI source:** `C:\Projects\WoW\wow-ui-source` (`forever` branch). Read
   `SecureTemplates.lua`, `Blizzard_MailFrame`, etc. before reasoning about Blizzard behaviour.
 - **Removed globals go through `Shatter.API`** (`Compat.lua`), never bare and never injected into
   `_G`. Struct-vs-tuple matters: `C_Container.GetContainerItemInfo` returns a struct,
@@ -109,7 +109,7 @@ heavy runtime dependencies.
   errors), strict widgets (no catch-all methods), and a list of known absences. Never add a stub
   because a test failed; confirm the API in the dump or source first.
 - `pwsh Tools/deploy.ps1` copies the TOC, LICENSE and every TOC-listed file to
-  `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\Shatter`, preserving
+  `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter`, preserving
   relative paths, and refuses the `_anniversary_` client. After each implementation iteration,
   deploy and tell the user whether `/reload` is enough (a brand-new addon folder or new TOC entry
   needs a full client restart).
@@ -120,7 +120,7 @@ heavy runtime dependencies.
   deploy and in-game look. Material changes are LibGlass PRs. `Skin.lua` is the only place that
   decides colours: widgets report a state (`Skin.Paint`, `Skin.Hover`), and Flat must keep painting
   the pre-glass colours. Rounded masks only go where `Skin.Maskable` allows (LibGlass's sliced
-  masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\References\EMBEDDED-LIBRARIES.md`.
+  masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\WoW\References\Docs\EMBEDDED-LIBRARIES.md`.
 
 ## Repository Practices
 - Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run

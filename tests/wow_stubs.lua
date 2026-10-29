@@ -12,7 +12,7 @@
 -- Three kinds of strictness, all on purpose:
 --   * Reading a global this file doesn't define is an error. The stub is the
 --     list of APIs verified present on build 1.60.1.70334 (the API dump in
---     C:\Projects\References and the client UI source), so it models the
+--     C:\Projects\WoW\References\Forever\api and the client UI source), so it models the
 --     ABSENCES too. KNOWN_ABSENT models a client with the Blizzard_Deprecated*
 --     fallbacks switched off (CVar loadDeprecationFallbacks), which is the
 --     state an addon must survive.

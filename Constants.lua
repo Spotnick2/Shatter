@@ -7,7 +7,7 @@ Shatter.RegisterModule("Constants", Constants)
 Constants.SPELL_DISENCHANT = 13262
 
 -- The client build the Forever port was last measured on (API dump
--- References/forever-api-1.60.1.70334.md). A human bumps it after
+-- References/Forever/api/forever-api-1.60.1.70334.md). A human bumps it after
 -- re-measuring; tests/test_build.lua holds the same literal on purpose, so a
 -- stale constant cannot agree with itself.
 Constants.MEASURED_ON_BUILD = "1.60.1.70334"

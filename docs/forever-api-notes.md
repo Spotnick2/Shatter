@@ -1,11 +1,11 @@
 # Forever API notes (Shatter-specific)
 
 Measured or source-verified facts this addon depends on. Addon-agnostic findings belong in the
-canonical guide, `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`; this file only records what
+canonical guide, `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md`; this file only records what
 Shatter itself relies on, with the evidence.
 
-Build: **1.60.1.70334** (`_classic_beta_\.build.info`, `References\forever-api-1.60.1.70334.md`).
-Client UI source: `C:\Projects\wow-ui-source`, `forever` branch (`version.txt` 1.60.1.70291; no
+Build: **1.60.1.70334** (`_classic_beta_\.build.info`, `References\Forever\api\forever-api-1.60.1.70334.md`).
+Client UI source: `C:\Projects\WoW\wow-ui-source`, `forever` branch (`version.txt` 1.60.1.70291; no
 70334 source has been published, so the source citations below are 70291's).
 
 What was measured in game on 70334, before `MEASURED_ON_BUILD` moved to it: Shatter loads and
