@@ -171,6 +171,13 @@ Constants.MATERIAL_ITEM_IDS = {
 }
 
 Constants.NON_DISENCHANTABLE = {
-    -- Equipment that cannot be disenchanted despite its class and slot.
-    -- Add entries only when the client has refused one in game.
+    -- Equipment that cannot be disenchanted despite its class and slot, and
+    -- that the client's own flag (Data/NoDisenchant.lua) misses. Add entries
+    -- only when the client has refused one in game.
 }
+
+-- The client's no-disenchant flag (Data/NoDisenchant.lua, #6). Taken from
+-- the client's item data, not measured against the server yet: the Nov 4
+-- check (a flagged wand refused, an unflagged green accepted) comes before
+-- the next release. false turns the list off.
+Constants.USE_NO_DISENCHANT_LIST = true

@@ -18,8 +18,9 @@ local _, Shatter = ...
 -- on every refresh. Forbidden tooltips are left alone. The required-skill
 -- line waits for #5.
 --
--- Shown for items Disenchant takes at all (green or better weapons and
--- armor, not denylisted) whatever the queue's filters, except an ignored item.
+-- Shown for items Disenchant takes at all (ItemScanner:CanBeDisenchanted:
+-- green or better weapons and armor, not flagged by the client) whatever the
+-- queue's filters, except an ignored item.
 --
 -- "With Shift, Alt or Ctrl" has to follow a key pressed or released while the
 -- tooltip is open. A bag button rebuilds its tooltip every TOOLTIP_UPDATE_TIME
@@ -51,9 +52,7 @@ local function EstimateFor(itemID)
     if not name then return nil end
     local item = { itemID = itemID, itemLink = link, quality = quality, itemLevel = itemLevel,
                    equipLoc = equipLoc, classID = classID, subclassID = subclassID }
-    if quality and quality >= Shatter.Constants.QUALITY_UNCOMMON
-        and not Shatter.Constants.NON_DISENCHANTABLE[itemID]
-        and Shatter.ItemScanner:IsDisenchantableKind(item) then
+    if Shatter.ItemScanner:CanBeDisenchanted(item) then
         local e = Shatter.DisenchantTables:GetExpected(item)
         if e and e.materials and #e.materials > 0 then estimate = e end
     end

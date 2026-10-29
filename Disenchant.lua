@@ -406,6 +406,17 @@ function Disenchant:Fail(reason)
 end
 
 function Disenchant:OnEvent(event, ...)
+    -- Every error is traced, pending or not: a refusal may arrive after the
+    -- cast's FAILED has cleared the attempt (Nov 4: which error, in which
+    -- order, for the "can't be disenchanted" learning #6 deferred).
+    if event == "UI_ERROR_MESSAGE" then
+        local errorType, message = ...
+        local p = self.pending
+        self:Trace("UI error %s: %s (attempt: %s)", tostring(errorType), tostring(message),
+            p and string.format("item %s%s%s", tostring(p.item and p.item.itemID),
+                p.simulated and ", simulated" or "", p.succeeded and ", succeeded" or "") or "none")
+        return
+    end
     if not self.pending then return end
     self:Trace("Event received while pending: %s", tostring(event))
 
@@ -441,10 +452,6 @@ function Disenchant:OnEvent(event, ...)
         if not self.pending.succeeded and not SpellIsTargeting() and self:PendingItemStillExists() then
             self:Trace("Spell targeting ended without success")
         end
-        return
-    elseif event == "UI_ERROR_MESSAGE" then
-        local message = select(2, ...) or select(1, ...)
-        self:Trace("UI error: %s", tostring(message))
         return
     end
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Items the game says can't be disenchanted (enchanter-made wands, PvP insignias and rank gear, some quest items) are no longer queued, taken from the mail or given a disenchant tooltip. The list comes from the game's own item data. In a Mail session, such an item already received is marked failed rather than queued, and a received item left over keeps Close Session behind its confirm click.
 - New default look, **WoW Forever**: the game's own window style (the tooltip's border and background), with matching buttons, panes and rows. Settings > Look (or `/shatter skin forever|clear|smoked|flat`) switches between WoW Forever, Clear glass, Smoked glass and Flat, immediately, even in combat. Without LibGlass, the glass looks show WoW Forever instead of Flat. With Glass UI loaded and followed, Glass UI's look still replaces every look but Flat.
 - The glass is now LibGlass's **Pearl**, the Glass suite's theme: no grain, a softer light and a quieter outline. Clear and Smoked glass are bodies over it.
 - Shatter follows **Glass UI**: with Glass UI loaded and its "Use Glass UI appearance" on for Shatter, the glass takes the suite's body (clear, smoked or class) and its accent. Settings then offers Glass UI or Flat, and the other looks are set in Glass UI. Choosing Flat in Shatter still turns the glass off. A change made in Glass UI applies after a /reload.

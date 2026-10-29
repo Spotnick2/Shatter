@@ -124,6 +124,11 @@ heavy runtime dependencies.
   its own; panes, buttons and rows keep Flat's 1 px backdrop, recoloured, so the layout never
   depends on the look. It needs no LibGlass, so it is also the fallback for the glass looks. Rounded masks only go where `Skin.Maskable` allows (LibGlass's sliced
   masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\WoW\References\Docs\EMBEDDED-LIBRARIES.md`.
+- **`Data/NoDisenchant.lua` is generated** (#6): `python Tools/gen_no_disenchant.py --sparse
+  <forever-itemsparse-B.csv> --item <forever-item-B.csv>` from `References\Forever\db` (one build for
+  both; the shared wago-tools skill fetches them). Never edit it by hand: hand additions go in
+  `Constants.NON_DISENCHANTABLE`. `ItemScanner:CanBeDisenchanted` is the one intrinsic check (queue,
+  Mail, tooltip); `IsCandidateDisenchantable` adds the player's choices.
 - **The material is Pearl** (`Glass.lua`, LibGlass r11; classic if an older copy wins). A skin is a
   body over it: a tint, plus grain and wash as factors of the instance's own `STYLE`. Nothing writes
   that `STYLE`.

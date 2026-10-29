@@ -28,15 +28,32 @@ function ItemScanner:HasDisenchantSpell()
     return API.IsSpellKnown(Shatter.Constants.SPELL_DISENCHANT)
 end
 
+-- Whether Disenchant takes the item at all, whatever the player's settings:
+-- uncommon or better, a weapon or armor piece in an equip slot, and not
+-- refused by the client's flag (Data/NoDisenchant.lua) or by hand
+-- (Constants.NON_DISENCHANTABLE). Shared by the queue, Mail and the tooltip.
+function ItemScanner:CanBeDisenchanted(item)
+    if not item or not item.itemID then return false, "missing item" end
+    if Shatter.Constants.NON_DISENCHANTABLE[item.itemID] then return false, "denylisted" end
+    local list = Shatter.NoDisenchant
+    if Shatter.Constants.USE_NO_DISENCHANT_LIST and list and list.ids[item.itemID] then
+        return false, "can't be disenchanted"
+    end
+    if not item.quality or item.quality < Shatter.Constants.QUALITY_UNCOMMON then return false, "quality too low" end
+    return self:IsDisenchantableKind(item)
+end
+
+-- CanBeDisenchanted, and the player's own choices: ignored items, the
+-- quality cap, soulbound.
 function ItemScanner:IsCandidateDisenchantable(item)
     local settings = Shatter.Database:GetSettings()
     if not item or not item.itemID then return false, "missing item" end
     if Shatter.Database:IsIgnored(item.itemID) then return false, "ignored" end
-    if Shatter.Constants.NON_DISENCHANTABLE[item.itemID] then return false, "denylisted" end
-    if not item.quality or item.quality < Shatter.Constants.QUALITY_UNCOMMON then return false, "quality too low" end
+    local ok, reason = self:CanBeDisenchanted(item)
+    if not ok then return false, reason end
     if item.quality > (settings.maxQuality or Shatter.Constants.DEFAULT_MAX_QUALITY) then return false, "quality too high" end
     if item.isSoulbound and not settings.includeSoulbound then return false, "soulbound" end
-    return self:IsDisenchantableKind(item)
+    return true
 end
 
 -- Weapons and armor worn in a slot: what Disenchant takes, whatever the

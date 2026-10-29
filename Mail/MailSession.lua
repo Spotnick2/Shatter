@@ -179,6 +179,19 @@ function MailSession:CountSelected()
     return selected, disenchantable
 end
 
+-- Received items (in the bags, the sender's) whose disenchant failed or
+-- that can't be disenchanted: they're still to be dealt with by hand.
+-- Selection doesn't matter: it governs intake, and unticking a row (or None)
+-- doesn't give a received item back.
+function MailSession:CountReceivedFailed()
+    local session = self:Get()
+    local n = 0
+    for _, item in ipairs(session and session.inputItems or {}) do
+        if item.disenchantStatus == "failed" then n = n + 1 end
+    end
+    return n
+end
+
 function MailSession:HasUnresolvedWork()
     local session = self:Get()
     if not session then return false end
@@ -187,6 +200,9 @@ function MailSession:HasUnresolvedWork()
             return true
         end
     end
+    -- A received item that failed is still in the bags: an ordinary Close
+    -- is refused, so closing over it takes the explicit Confirm Close.
+    if self:CountReceivedFailed() > 0 then return true end
     for _, bucket in pairs(session.outputRecipients or {}) do
         if bucket.status ~= "sent" and bucket.status ~= "waiting" and bucket.status ~= "kept" then
             return true
