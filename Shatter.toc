@@ -22,6 +22,7 @@ Events.lua
 MaterialTracker.lua
 Data\DisenchantTables.lua
 ItemScanner.lua
+Tooltip.lua
 Queue.lua
 Session.lua
 Mail\MailSession.lua

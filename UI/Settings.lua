@@ -123,7 +123,32 @@ function SettingsUI:Create(parent)
 
     local maxLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     local profileLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    profileLabel:SetPoint("TOPLEFT", self.skinButtons[names[1]], "BOTTOMLEFT", 0, -12)
+    -- What items disenchant into, on their tooltips (Tooltip.lua, #3).
+    local tooltipLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    tooltipLabel:SetPoint("TOPLEFT", self.skinButtons[names[1]], "BOTTOMLEFT", 0, -12)
+    tooltipLabel:SetText("Item tooltips: what an item disenchants into")
+    self.tooltipButtons = {}
+    local previousTooltip
+    for _, mode in ipairs(Shatter.Constants.TOOLTIP_MODE_NAMES) do
+        local label = Shatter.Constants.TOOLTIP_MODE_LABELS[mode]
+        local button = CreatePanelButton(content, label, mode == "modifier" and 150 or 64)
+        if previousTooltip then
+            button:SetPoint("LEFT", previousTooltip, "RIGHT", 6, 0)
+        else
+            button:SetPoint("TOPLEFT", tooltipLabel, "BOTTOMLEFT", 0, -8)
+        end
+        button:SetScript("OnClick", function()
+            Shatter.Tooltip:SetMode(mode)
+            self:Refresh()
+        end)
+        self.tooltipButtons[mode] = button
+        previousTooltip = button
+    end
+    AddTooltip(self.tooltipButtons.always, "Always", "Show the materials, their chances and the expected value on every disenchantable item's tooltip.")
+    AddTooltip(self.tooltipButtons.modifier, "With Shift, Alt or Ctrl", "Show them only while Shift, Alt or Ctrl is held when the tooltip opens.")
+    AddTooltip(self.tooltipButtons.never, "Never", "Keep item tooltips as they are.")
+
+    profileLabel:SetPoint("TOPLEFT", self.tooltipButtons.always, "BOTTOMLEFT", 0, -12)
     profileLabel:SetText("Settings profile")
 
     local globalProfile = CreatePanelButton(content, "Global", 82)
@@ -395,7 +420,7 @@ function SettingsUI:Create(parent)
 end
 
 -- The scroll content's height without the ignored list's rows.
-local CONTENT_HEIGHT = 450
+local CONTENT_HEIGHT = 500
 local IGNORED_ROW = 24
 
 local function IgnoredRow(self, index)
@@ -480,6 +505,11 @@ function SettingsUI:Refresh()
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end
+    for mode, button in pairs(self.tooltipButtons or {}) do
+        local chosen = mode == settings.tooltip
+        Shatter.Skin.Paint(button, chosen and "chosen" or "normal")
+        Shatter.SetTextColor(button.text, chosen and Shatter.C.ACCENT or Shatter.C.TEXT_NORM)
+    end
     for name, button in pairs(self.skinButtons or {}) do
         local chosen = name == Shatter.Skin.Shown()
         Shatter.Skin.Paint(button, chosen and "chosen" or "normal")

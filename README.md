@@ -32,6 +32,7 @@ Other early commands:
 /shatter yields reset
 /shatter ignored
 /shatter unignore <itemID or link>
+/shatter tooltip always|modifier|never
 /shatter skin clear|smoked|flat
 /shatter debug
 /shatter trace
@@ -41,6 +42,8 @@ Other early commands:
 ```
 
 Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is Pearl, the shared material of the Glass addons, embedded as LibGlass-1.0. With Glass UI installed, Shatter follows its look (body and accent) unless you choose Flat; a change made in Glass UI applies after a /reload.
+
+An item's tooltip shows what it disenchants into: each material with its chance and amount, and the expected value when a pricing addon has prices. Settings > Item tooltips (or `/shatter tooltip`) shows them always, only with Shift, Alt or Ctrl held, or never.
 
 Skip leaves the selected item out until a /reload. Ignore keeps it out for good: Settings > Ignored items lists those items, with Remove for each and Reset all, and `/shatter unignore` removes one from chat.
 

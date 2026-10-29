@@ -36,7 +36,13 @@ function ItemScanner:IsCandidateDisenchantable(item)
     if not item.quality or item.quality < Shatter.Constants.QUALITY_UNCOMMON then return false, "quality too low" end
     if item.quality > (settings.maxQuality or Shatter.Constants.DEFAULT_MAX_QUALITY) then return false, "quality too high" end
     if item.isSoulbound and not settings.includeSoulbound then return false, "soulbound" end
+    return self:IsDisenchantableKind(item)
+end
 
+-- Weapons and armor worn in a slot: what Disenchant takes, whatever the
+-- player's filters. The queue adds its settings on top; the item tooltip
+-- (Tooltip.lua) asks only this, plus quality and the denylist.
+function ItemScanner:IsDisenchantableKind(item)
     local classID = item.classID
     local equipLoc = item.equipLoc
     local isEquipmentClass = classID == Shatter.Constants.ITEM_CLASS_WEAPON or classID == Shatter.Constants.ITEM_CLASS_ARMOR
@@ -46,7 +52,6 @@ function ItemScanner:IsCandidateDisenchantable(item)
     if not equipLoc or not Shatter.Constants.DISENCHANT_EQUIP_LOCS[equipLoc] then
         return false, "not equipment"
     end
-
     return true
 end
 
