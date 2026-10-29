@@ -25,6 +25,10 @@ heavy runtime dependencies.
   `C_Item.GetItemInfo` keeps the Classic tuple and returns nothing on a cache miss.
 - **Content is Vanilla:** level cap 60, profession cap 300, no Outland materials or items.
 - **Measured beats reasoned.** A function in the dump is not a working function; probe in game.
+  The probe is ShatterProbe, a ForeverProbe module (`Tools/ShatterProbe`, `/fp sh`;
+  `pwsh Tools/deploy.ps1 -Probe`). Its open questions and results are in `docs/FOREVER-PROBE.md`.
+  Its tests need the private `..\ForeverProbe` checkout, so they run locally only (CI sets
+  `FOREVERPROBE_OPTIONAL=1`).
 - **Persistence is verified only by a full client exit**, never by `/reload`.
 - When `GetBuildInfo()` changes: re-dump the API (AltStable's `Tools/ForeverAPIDump`), diff,
   and land a PR titled `Measured on 1.60.1.NNNNN: ...` that bumps `MEASURED_ON_BUILD`.

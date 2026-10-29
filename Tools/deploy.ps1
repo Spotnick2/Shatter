@@ -3,6 +3,8 @@
 
     Usage:
         pwsh Tools/deploy.ps1
+        pwsh Tools/deploy.ps1 -Probe        # ...and ShatterProbe (needs ../ForeverProbe)
+        pwsh Tools/deploy.ps1 -ProbeOnly    # just ShatterProbe
         pwsh Tools/deploy.ps1 -AddOnsPath "D:\Games\WoW\_forever_\Interface\AddOns"
 
     TOC-driven: the deployed folder gets Shatter.toc, LICENSE and exactly the
@@ -24,7 +26,11 @@
 #>
 
 param(
-    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"
+    [string]$AddOnsPath = "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns",
+    # ...and ShatterProbe (Tools\ShatterProbe), a ForeverProbe module.
+    [switch]$Probe,
+    # Just ShatterProbe.
+    [switch]$ProbeOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +42,37 @@ if ($AddOnsPath -match '_anniversary_') {
 }
 if (-not (Test-Path -LiteralPath $AddOnsPath)) {
     throw "AddOns path not found: $AddOnsPath"
+}
+
+$ForeverProbe = if ($env:FOREVERPROBE) { $env:FOREVERPROBE } else { Join-Path (Split-Path -Parent $RepoRoot) "ForeverProbe" }
+
+# ShatterProbe is a ForeverProbe module: the host goes first, and a refusal
+# leaves the probe as it was (ForeverProbe docs/GUIDE.md, section 6).
+function Deploy-Probe {
+    if (-not (Test-Path -LiteralPath (Join-Path $ForeverProbe "Tools\deploy.ps1"))) {
+        throw "ForeverProbe checkout not found at $ForeverProbe (or set `$env:FOREVERPROBE)"
+    }
+    & pwsh -NoProfile -File (Join-Path $ForeverProbe "Tools\deploy.ps1") -AddOnsPath $AddOnsPath
+    if ($LASTEXITCODE -ne 0) { throw "ForeverProbe deploy refused; ShatterProbe was not touched" }
+    $dest = Join-Path $AddOnsPath "ShatterProbe"
+    Write-Host "Deploying ShatterProbe -> $dest" -ForegroundColor Cyan
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    $files = @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot "Tools\ShatterProbe") -File -Include *.toc, *.lua -Recurse)
+    foreach ($f in $files) {
+        Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $dest $f.Name) -Force
+        Write-Host "  $($f.Name)"
+    }
+    $keep = $files | ForEach-Object Name
+    Get-ChildItem -LiteralPath $dest -File | Where-Object { $keep -notcontains $_.Name } | ForEach-Object {
+        Write-Host "  removing stale $($_.Name)" -ForegroundColor DarkYellow
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
+    Write-Host "  in game: /reload, then /fp steps sh skill or /fp steps sh refuse" -ForegroundColor Yellow
+}
+
+if ($ProbeOnly) {
+    Deploy-Probe
+    exit 0
 }
 
 $tocPath = Join-Path $RepoRoot "Shatter.toc"
@@ -117,6 +154,8 @@ $deployedToc = Join-Path $dest "Shatter.toc"
 (Get-Content -LiteralPath $deployedToc -Raw).Replace('@project-version@', $label) |
     Set-Content -LiteralPath $deployedToc -NoNewline
 Write-Host "  version -> $label (deployed copy only)" -ForegroundColor DarkGray
+
+if ($Probe) { Deploy-Probe }
 
 Write-Host "Done." -ForegroundColor Green
 Write-Host ""
