@@ -96,7 +96,23 @@ T.watch(false)
 WoW.fire("UI_ERROR_MESSAGE", 50, "Item cannot be disenchanted")
 H.eq(#T.recorded, n, "watch off: nothing recorded")
 
--- 7. The procedures and commands.
+-- 7. The refuse procedure run twice without a /reload: the second run's
+-- steps wait for new casts, never finish on the first run's.
+local R = T.REFUSE
+R[1].run()
+H.eq((R[2].wait()), false, "run 1: the control waits")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-5", 13262)
+H.eq((R[2].wait()), true, "...finishes on its success")
+WoW.fire("UI_ERROR_MESSAGE", 50, "Item cannot be disenchanted")
+H.eq((R[4].wait()), true, "run 1: the flagged step finishes on its refusal")
+WoW.advance(5)
+R[1].run()
+H.eq((R[2].wait()), false, "run 2: the control waits, the old success forgotten")
+H.eq((R[4].wait()), false, "run 2: the flagged step waits, the old refusal forgotten")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-6", 13262)
+H.eq((R[2].wait()), true, "run 2: a new success finishes the control")
+
+-- 8. The procedures and commands.
 SlashCmdList.FOREVERPROBE("steps sh skill")
 local rec = ForeverProbeDB.steps and ForeverProbeDB.steps.records and ForeverProbeDB.steps.records["ShatterProbe/skill"]
 H.check(rec and rec.status == "active", "/fp steps sh skill starts")

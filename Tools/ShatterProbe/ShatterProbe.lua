@@ -142,8 +142,13 @@ local function since(t0)
 end
 
 -- A wait step: done once a Disenchant succeeded, failed, or a UI error came
--- since the step started polling. Its returns are the step's result.
+-- since the step started polling. Its returns are the step's result. A fresh
+-- run of the procedure (its first step) forgets every boundary, so a restart
+-- without a /reload never finishes on the earlier run's casts.
 local marks = {}
+local function freshRun()
+    for key in pairs(marks) do marks[key] = nil end
+end
 local function outcome(key, want)
     return function()
         if not watching then watch(true) end
@@ -167,10 +172,10 @@ Probe:Steps("skill", {
     { text = "Type /reload to save the results.", reload = true },
 })
 
-Probe:Steps("refuse", {
+local REFUSE = {
     title = "What a refused Disenchant looks like (#5, #6)",
     { text = "Recording every cast, UI error and loot event from now on.", auto = true,
-      run = function() watch(true) return readSkill() end },
+      run = function() freshRun() watch(true) return readSkill() end },
     { text = "The control: pick a green weapon or armor piece the game should accept. Cast Disenchant "
         .. "from the spellbook and click it. Type its name in the Note box.",
       wait = outcome("control", "success"), timeout = 300 },
@@ -184,7 +189,8 @@ Probe:Steps("refuse", {
       wait = outcome("highlevel"), timeout = 300 },
     { text = "Was it disenchanted?", ask = true },
     { text = "Type /reload to save the results.", reload = true },
-})
+}
+Probe:Steps("refuse", REFUSE)
 
 Probe:Command("skill", function() readSkill() end, "read Enchanting both ways")
 Probe:Command("watch", function(args)
@@ -209,4 +215,4 @@ boot:SetScript("OnEvent", function(_, _, name)
 end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,
-             recorded = recorded }
+             recorded = recorded, REFUSE = REFUSE }
