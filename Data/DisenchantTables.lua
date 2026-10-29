@@ -14,8 +14,9 @@ local WEAPON = C.ITEM_CLASS_WEAPON
 -- Brackets per (quality, class) are contiguous and never overlap
 -- (tests/test_tables.lua checks both). The top brackets are open-ended up to
 -- TOP; Vanilla content ends at item level VANILLA_MAX_ITEM_LEVEL, so an item
--- above it gets the top bracket's estimate marked uncertain. None of these
--- rates has been measured on Forever yet. Expected amounts use the midpoint of
+-- above it gets the top bracket's estimate marked uncertain. These are the
+-- Vanilla rates, not Forever's; measured yields (below) correct them per
+-- bracket as the player disenchants. Expected amounts use the midpoint of
 -- each min-max range, an approximation: the real spread is not always uniform
 -- (an epic's 1-2 Nexus Crystals lean towards 2), so values read slightly low.
 local TOP = 1000
@@ -72,6 +73,208 @@ local RULES = {
 }
 Tables.RULES = RULES
 
+-- Measured yields (ShatterDB.yields): real disenchants counted per rule
+-- bucket, so a few dozen casts cover a whole bracket. From
+-- MIN_YIELD_SAMPLES on, a bucket's estimate blends its measurements with the
+-- table, weighted as YIELD_PRIOR_WEIGHT disenchants: a rare material the
+-- player has not seen yet (a 5% shard, a 0.5% Nexus Crystal) keeps a share
+-- instead of vanishing, and the measurements dominate as they grow.
+Tables.MIN_YIELD_SAMPLES = 20
+Tables.YIELD_PRIOR_WEIGHT = 20
+
+local function RuleMatches(rule, item)
+    local quality, classID, low, high = rule[1], rule[2], rule[3], rule[4]
+    return item.quality == quality and item.itemLevel >= low and item.itemLevel <= high and (not classID or classID == item.classID)
+end
+
+-- Saved yields are checked in the shape RecordYield writes; anything else
+-- (a hand-edited or future SavedVariables) is skipped rather than trusted.
+-- A bad material entry costs only that entry, not the bucket's samples.
+local function IsFiniteNumber(v)
+    return type(v) == "number" and v == v and v > -math.huge and v < math.huge
+end
+
+local function IsValidBucket(bucket)
+    return type(bucket) == "table" and type(bucket.materials) == "table"
+        and IsFiniteNumber(bucket.quality) and IsFiniteNumber(bucket.minLevel) and IsFiniteNumber(bucket.maxLevel)
+        and IsFiniteNumber(bucket.n) and bucket.n >= 0
+end
+
+local function IsValidMaterial(m, n)
+    return type(m) == "table" and IsFiniteNumber(m.drops) and m.drops >= 1 and m.drops <= n
+        and IsFiniteNumber(m.total) and m.total >= m.drops
+        and (m.minAmount == nil or IsFiniteNumber(m.minAmount))
+        and (m.maxAmount == nil or IsFiniteNumber(m.maxAmount))
+end
+
+local QUALITY_NAMES = { [2] = "Uncommon", [3] = "Rare", [4] = "Epic" }
+local CLASS_NAMES = { [ARMOR] = "armor", [WEAPON] = "weapon" }
+
+-- The rule bucket an item falls in: quality, class (only where the rules
+-- tell classes apart) and the item-level band every matching rule shares.
+-- The open-ended top band is split at VANILLA_MAX_ITEM_LEVEL, so items
+-- beyond Vanilla neither borrow nor skew Vanilla's measurements.
+-- Returns the key and the bucket's description, or nil without a rule.
+function Tables:GetBucket(item)
+    if not item or not item.quality or not item.itemLevel then return nil end
+    local minLevel, maxLevel, classed
+    for _, rule in ipairs(RULES) do
+        if RuleMatches(rule, item) then
+            local low, high = rule[3], rule[4]
+            minLevel = math.max(minLevel or low, low)
+            maxLevel = math.min(maxLevel or high, high)
+            if rule[2] then classed = true end
+        end
+    end
+    if not minLevel then return nil end
+    if item.itemLevel > self.VANILLA_MAX_ITEM_LEVEL then
+        minLevel = math.max(minLevel, self.VANILLA_MAX_ITEM_LEVEL + 1)
+    else
+        maxLevel = math.min(maxLevel, self.VANILLA_MAX_ITEM_LEVEL)
+    end
+    local classID = classed and item.classID or nil
+    return string.format("%d:%s:%d-%d", item.quality, tostring(classID or "any"), minLevel, maxLevel),
+        { quality = item.quality, classID = classID, minLevel = minLevel, maxLevel = maxLevel }
+end
+
+-- One real disenchant's loot. Only a clean observation counts: at least one
+-- looted item, every one a disenchanting material, and an item with a
+-- bucket. Returns true when recorded.
+function Tables:RecordYield(item, loot)
+    if type(loot) ~= "table" or not next(loot) or not Shatter.Database then return false end
+    for itemID, count in pairs(loot) do
+        if not C.MATERIAL_ITEM_IDS[itemID] or (tonumber(count) or 0) <= 0 then return false end
+    end
+    local key, info = self:GetBucket(item)
+    if not key then return false end
+    local yields = Shatter.Database:GetYields(true)
+    local bucket = yields[key]
+    if not IsValidBucket(bucket) then
+        bucket = { quality = info.quality, classID = info.classID, minLevel = info.minLevel, maxLevel = info.maxLevel, n = 0, materials = {} }
+        yields[key] = bucket
+    end
+    for itemID, m in pairs(bucket.materials) do
+        if not IsValidMaterial(m, bucket.n) then bucket.materials[itemID] = nil end
+    end
+    bucket.n = bucket.n + 1
+    for itemID, count in pairs(loot) do
+        local m = bucket.materials[itemID] or { drops = 0, total = 0 }
+        m.drops = m.drops + 1
+        m.total = m.total + count
+        m.minAmount = math.min(m.minAmount or count, count)
+        m.maxAmount = math.max(m.maxAmount or count, count)
+        bucket.materials[itemID] = m
+    end
+    return true
+end
+
+-- How many disenchants the item's bucket has measured, plus (from
+-- MIN_YIELD_SAMPLES on) the table's estimate entries blended with them:
+-- (measured + weight * table) / (n + weight), per material in either.
+function Tables:GetMeasured(item, tableResults)
+    local key = self:GetBucket(item)
+    local yields = key and Shatter.Database and Shatter.Database:GetYields()
+    local bucket = yields and yields[key]
+    if not IsValidBucket(bucket) then return 0, nil end
+    local n = bucket.n
+    if n < self.MIN_YIELD_SAMPLES then return n, nil end
+    local weight = self.YIELD_PRIOR_WEIGHT
+    local results = {}
+    for itemID, entry in pairs(tableResults or {}) do
+        results[itemID] = {
+            itemID = itemID, chance = weight * entry.chance / (n + weight),
+            expectedAmount = weight * entry.expectedAmount / (n + weight),
+            minAmount = entry.minAmount, maxAmount = entry.maxAmount,
+        }
+    end
+    for itemID, m in pairs(bucket.materials) do
+        if IsValidMaterial(m, n) then
+            local entry = results[itemID]
+            if not entry then
+                entry = { itemID = itemID, chance = 0, expectedAmount = 0 }
+                results[itemID] = entry
+            end
+            entry.chance = entry.chance + m.drops / (n + weight)
+            entry.expectedAmount = entry.expectedAmount + m.total / (n + weight)
+            entry.minAmount = math.min(entry.minAmount or m.minAmount or 1, m.minAmount or entry.minAmount or 1)
+            entry.maxAmount = math.max(entry.maxAmount or m.maxAmount or 1, m.maxAmount or entry.maxAmount or 1)
+        end
+    end
+    return n, results
+end
+
+-- Once per load: buckets saved before the top band was split at
+-- VANILLA_MAX_ITEM_LEVEL ran to TOP. Vanilla items end at that level, so
+-- their samples belong to the Vanilla half; merged if it already has some.
+function Tables:MigrateYields()
+    local yields = Shatter.Database and Shatter.Database:GetYields()
+    if not yields then return end
+    local vanillaMax = self.VANILLA_MAX_ITEM_LEVEL
+    local old = {}
+    for key, b in pairs(yields) do
+        if IsValidBucket(b) and b.maxLevel >= TOP and b.minLevel <= vanillaMax then old[key] = b end
+    end
+    for key, b in pairs(old) do
+        yields[key] = nil
+        local newKey = string.format("%d:%s:%d-%d", b.quality, tostring(b.classID or "any"), b.minLevel, vanillaMax)
+        local target = yields[newKey]
+        if IsValidBucket(target) then
+            for itemID, m in pairs(b.materials) do
+                local t = target.materials[itemID]
+                if IsValidMaterial(m, b.n) then
+                    if IsValidMaterial(t, target.n) then
+                        t.drops, t.total = t.drops + m.drops, t.total + m.total
+                        t.minAmount = math.min(t.minAmount or m.minAmount or 1, m.minAmount or t.minAmount or 1)
+                        t.maxAmount = math.max(t.maxAmount or m.maxAmount or 1, m.maxAmount or t.maxAmount or 1)
+                    else
+                        target.materials[itemID] = m
+                    end
+                end
+            end
+            target.n = target.n + b.n
+        else
+            b.maxLevel = vanillaMax
+            yields[newKey] = b
+        end
+    end
+end
+
+-- Chat lines for /shatter yields: every measured bucket, Uncommon to Epic.
+function Tables:FormatYields()
+    local yields = Shatter.Database and Shatter.Database:GetYields()
+    local keys = {}
+    for key, bucket in pairs(yields or {}) do
+        if IsValidBucket(bucket) and bucket.n > 0 then keys[#keys + 1] = key end
+    end
+    if #keys == 0 then return { "No disenchants measured yet." } end
+    table.sort(keys, function(a, b)
+        local x, y = yields[a], yields[b]
+        if x.quality ~= y.quality then return x.quality < y.quality end
+        if x.minLevel ~= y.minLevel then return x.minLevel < y.minLevel end
+        return tostring(x.classID) < tostring(y.classID)
+    end)
+    local lines = {}
+    for _, key in ipairs(keys) do
+        local b = yields[key]
+        local mats = {}
+        for itemID, m in pairs(b.materials) do
+            if IsValidMaterial(m, b.n) then mats[#mats + 1] = { itemID = itemID, m = m } end
+        end
+        table.sort(mats, function(p, q) return p.m.drops > q.m.drops end)
+        local parts = {}
+        for _, e in ipairs(mats) do
+            local name = Shatter.API.GetItemInfo(e.itemID)
+            parts[#parts + 1] = string.format("%s %d%% x%.1f", name or ("item:" .. e.itemID),
+                math.floor(e.m.drops / b.n * 100 + 0.5), e.m.total / e.m.drops)
+        end
+        local band = b.maxLevel >= TOP and (b.minLevel .. "+") or (b.minLevel .. "-" .. b.maxLevel)
+        lines[#lines + 1] = string.format("%s %s %s: %d%s - %s",
+            QUALITY_NAMES[b.quality] or ("quality " .. tostring(b.quality)), CLASS_NAMES[b.classID] or "any", band,
+            b.n, b.n >= self.MIN_YIELD_SAMPLES and "" or " (table used)", table.concat(parts, ", "))
+    end
+    return lines
+end
+
 
 local function Average(minAmount, maxAmount)
     return ((minAmount or 1) + (maxAmount or minAmount or 1)) / 2
@@ -95,14 +298,18 @@ function Tables:GetExpected(item)
     local results = {}
     local found = false
     for _, rule in ipairs(RULES) do
-        local quality, classID, minLevel, maxLevel, itemID, chance, minAmount, maxAmount = unpack(rule)
-        if item.quality == quality and item.itemLevel >= minLevel and item.itemLevel <= maxLevel and (not classID or classID == item.classID) then
-            AddEstimate(results, itemID, chance, minAmount, maxAmount)
+        if RuleMatches(rule, item) then
+            AddEstimate(results, rule[5], rule[6], rule[7], rule[8])
             found = true
         end
     end
     if not found then return nil end
     local uncertain = item.itemLevel > Tables.VANILLA_MAX_ITEM_LEVEL
+    local samples, measured = self:GetMeasured(item, results)
+    if measured then
+        results = measured
+        uncertain = false
+    end
 
     local list = {}
     local expectedValue, valueSource
@@ -118,7 +325,10 @@ function Tables:GetExpected(item)
         table.insert(list, entry)
     end
     table.sort(list, function(a, b) return (a.expectedAmount or 0) > (b.expectedAmount or 0) end)
-    return { materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain }
+    return {
+        materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain,
+        measured = measured ~= nil, samples = samples,
+    }
 end
 
 function Tables:FormatMoney(copper)

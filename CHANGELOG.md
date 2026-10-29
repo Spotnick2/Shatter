@@ -2,7 +2,10 @@
 
 ## Forever port (unreleased)
 
-- Shatter now targets World of Warcraft: Forever (Interface 16001). It continues the TBC Anniversary addon's history from `25886ea`; the TBC entries below are that history, and the TBC code is frozen on the `tbc` branch.
+- Glass skins: Shatter's window and the Mail launch panel can be **Clear glass** (the new default), **Smoked glass** or **Flat** (the previous opaque look), matching the other Glass addons. Choose under Settings > Look or with `/shatter skin clear|smoked|flat`; the change applies immediately, even in combat. The glass comes from the embedded LibGlass-1.0. Without the library (a git checkout without `Libs`), Shatter stays Flat and Settings says so.
+- The Mail tab is now marked as the current tab in the Mail view, and hovering the Mail or Raid tab no longer leaves it highlighted.
+- Expected materials learn from your disenchants: each real disenchant read from the loot window is counted for its quality, armor/weapon and item-level bracket, and from 20 disenchants a bracket's estimate blends the measured odds with the built-in table (shown as "measured"); the more you measure, the more it follows your results, and a rare material you have not seen yet keeps a share. Items above item level 92 are measured separately from Vanilla items. `/shatter yields` lists them, `/shatter yields reset` clears them.
+- Shatter now targets World of Warcraft: Forever (Interface 16001). It continues the TBC Anniversary addon's history from `25886ea`; the TBC entries below are that history, and the TBC code is frozen at the tag `v0.1.22-alpha`.
 - Ported item, spell, container and addon calls to the Forever (Retail) APIs through a `Shatter.API` adapter; the bag scan no longer errors on the removed `GetItemInfo`.
 - The Enchanting gate now asks the spellbook for Disenchant directly, so real enchanters are no longer switched off; learning or unlearning Enchanting mid-session takes effect without a reload.
 - Soulbound detection reads the container's bound flag instead of scanning (localized) tooltip text.
@@ -22,7 +25,7 @@
 - Mail sessions saved before sessions were per character go back to the character that started them.
 - Mail Mode reads all 16 attachment slots of a mail, and waits for item data the client has not cached yet instead of skipping those attachments.
 - Mail actions (taking attachments and disenchanting mail items) are off until the mail flow has been validated on Forever; `/shatter mailtest` enables them for the current session.
-- On a client build other than the one Shatter was measured on (1.60.1.70291), Shatter prints a one-line notice when it first activates (at login, or later if the spellbook loads late or login happened in combat).
+- On a client build other than the one Shatter was measured on (1.60.1.70334), Shatter prints a one-line notice when it first activates (at login, or later if the spellbook loads late or login happened in combat).
 - Price lookups through other addons (Auctionator, Auctioneer, TSM) can no longer raise errors in Shatter; a failing lookup simply shows no price.
 - Dragging the minimap button now follows the cursor correctly when the minimap is scaled in Edit Mode.
 - Added the Forever development scaffold: strict-stub Lua 5.1 test suite, TOC-driven deploy script for the `_classic_beta_` client, and a package-check CI dry run.

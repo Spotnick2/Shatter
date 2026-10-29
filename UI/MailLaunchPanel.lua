@@ -45,21 +45,17 @@ local function ApplyButtonState(button, enabled, emphasis)
     if enabled then
         button:Enable()
         if emphasis == "primary" then
-            button._normalColor = { 0.20, 0.17, 0.07, 1 }
-            button._hoverColor = { 0.24, 0.20, 0.08, 1 }
+            Shatter.Skin.Paint(button, "emphasis")
             Shatter.SetTextColor(button.text, Shatter.C.ACCENT)
         else
-            button._normalColor = { 0.12, 0.12, 0.12, 1 }
-            button._hoverColor = { 0.18, 0.18, 0.18, 1 }
+            Shatter.Skin.Paint(button, "normal")
             Shatter.SetTextColor(button.text, Shatter.C.TEXT_NORM)
         end
-        button:SetBackdropColor(unpack(button._normalColor))
     else
         button:Disable()
-        button:SetBackdropColor(0.10, 0.10, 0.10, 1)
+        Shatter.Skin.Hover(button, false)
+        Shatter.Skin.Paint(button, "disabled")
         Shatter.SetTextColor(button.text, Shatter.C.TEXT_DIM)
-        button._normalColor = { 0.10, 0.10, 0.10, 1 }
-        button._hoverColor = { 0.10, 0.10, 0.10, 1 }
     end
 end
 
@@ -71,27 +67,15 @@ end
 local function CreateActionButton(parent, text, width)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(width or 200, 24)
-    Shatter.ApplyBackdrop(button, 0.12, 0.12, 0.12, 1)
+    Shatter.Skin.Fill(button, "button", "normal")
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     button.text:SetAllPoints()
     button.text:SetJustifyH("CENTER")
     button.text:SetText(text)
-    button._normalColor = { 0.12, 0.12, 0.12, 1 }
-    button._hoverColor = { 0.18, 0.18, 0.18, 1 }
     button:SetScript("OnEnter", function(self)
-        if self:IsEnabled() then
-            local hover = self._hoverColor or { 0.18, 0.18, 0.18, 1 }
-            self:SetBackdropColor(unpack(hover))
-        end
+        if self:IsEnabled() then Shatter.Skin.Hover(self, true) end
     end)
-    button:SetScript("OnLeave", function(self)
-        if self:IsEnabled() then
-            local normal = self._normalColor or { 0.12, 0.12, 0.12, 1 }
-            self:SetBackdropColor(unpack(normal))
-        else
-            self:SetBackdropColor(0.10, 0.10, 0.10, 1)
-        end
-    end)
+    button:SetScript("OnLeave", function(self) Shatter.Skin.Hover(self, false) end)
     return button
 end
 
@@ -108,7 +92,7 @@ end
 local function CreateValueButton(parent, text, width)
     local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
     button:SetSize(width or 130, 20)
-    Shatter.ApplyBackdrop(button, 0.08, 0.08, 0.08, 1)
+    Shatter.Skin.Fill(button, "button", "field")
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     button.text:SetPoint("LEFT", button, "LEFT", 6, 0)
     button.text:SetPoint("RIGHT", button, "RIGHT", -14, 0)
@@ -117,8 +101,8 @@ local function CreateValueButton(parent, text, width)
     button.arrow = button:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     button.arrow:SetPoint("RIGHT", button, "RIGHT", -4, 0)
     button.arrow:SetText("v")
-    button:SetScript("OnEnter", function(self) self:SetBackdropColor(0.12, 0.12, 0.12, 1) end)
-    button:SetScript("OnLeave", function(self) self:SetBackdropColor(0.08, 0.08, 0.08, 1) end)
+    button:SetScript("OnEnter", function(self) Shatter.Skin.Hover(self, true) end)
+    button:SetScript("OnLeave", function(self) Shatter.Skin.Hover(self, false) end)
     return button
 end
 
@@ -151,7 +135,7 @@ function MailLaunchPanel:Create()
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
     frame:SetSize(250, 336)
-    Shatter.ApplyBackdrop(frame, unpack(Shatter.C.BG_PANEL))
+    Shatter.Skin.Window(frame, Shatter.C.BG_PANEL)
     frame:SetFrameStrata("MEDIUM")
     frame:Hide()
     self.frame = frame

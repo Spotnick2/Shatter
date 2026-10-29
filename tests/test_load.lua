@@ -18,7 +18,8 @@ H.check(WoW.chat():find("Enchanting is not trained", 1, true), "non-enchanter ge
 H.eq(#WoW.actions, 0, "no gameplay actions")
 
 for name in pairs(WoW.globalWrites) do
-    H.check(name == "Shatter" or name:match("^SLASH_SHATTER%d$"), "only declared globals written: " .. name)
+    -- LibStub: the embedded LibGlass-1.0's bundled copy, shared by design.
+    H.check(name == "Shatter" or name == "LibStub" or name:match("^SLASH_SHATTER%d$"), "only declared globals written: " .. name)
 end
 
 H.done("test_load")

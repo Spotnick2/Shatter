@@ -12,6 +12,8 @@ local DEFAULTS = {
         minExpectedValueCopper = 0,
         useAuctionData = false,
         minimap = { hide = false, angle = 225 },
+        -- The look (Skin.lua): "clear" or "smoked" glass, or "flat".
+        skin = "clear",
         debug = false,
         traceDebug = false,
         simulateDisenchant = false,
@@ -126,6 +128,9 @@ local function NormalizeSettings(settings)
     end
     NormalizeQueueOrder(settings)
     NormalizeWindow(settings.window)
+    if not Shatter.Skin.IsValid(settings.skin) then
+        settings.skin = DEFAULTS.settings.skin
+    end
     return settings
 end
 
@@ -241,6 +246,22 @@ function Database:SetProfileScope(scope)
         self:GetPersonalSettings()
     end
     return scope
+end
+
+-- Measured disenchant results, account-wide (see DisenchantTables). Absent
+-- until the first real disenchant is recorded; `create` makes it.
+function Database:GetYields(create)
+    ShatterDB = ShatterDB or {}
+    if type(ShatterDB.yields) ~= "table" then
+        if not create then return nil end
+        ShatterDB.yields = {}
+    end
+    return ShatterDB.yields
+end
+
+function Database:ResetYields()
+    ShatterDB = ShatterDB or {}
+    ShatterDB.yields = nil
 end
 
 function Database:IsIgnored(itemID)

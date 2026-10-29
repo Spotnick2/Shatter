@@ -4,8 +4,8 @@
 Shatter is a standalone guided-disenchanting addon. **This repository is the World of Warcraft:
 Forever build** (Interface `16001`, Lua 5.1): Vanilla content on Blizzard's Retail (Mainline)
 codebase. `Spotnick2/Shatter` was the TBC Anniversary addon; the Forever version continued its
-history from `25886ea` and replaced it on `main`. The TBC code is frozen on the `tbc` branch (last
-release `v0.1.22-alpha`; `C:\Projects\Shatter` is an old local clone of it). Do not port changes
+history from `25886ea` and replaced it on `main`. The TBC code is frozen at the tag `v0.1.22-alpha` (the
+`tbc` branch is deleted; `C:\Projects\Shatter` is an old local clone of it). Do not port changes
 to or from the TBC code without being asked. (`Spotnick2/Shatter-Forever`, where the port was
 developed, is archived; its PRs #1-#13 hold the review history.)
 
@@ -13,12 +13,12 @@ It must stay lightweight, native-feeling, and independent of ElvUI, TSM, Postal,
 heavy runtime dependencies.
 
 ## Forever first
-- **The porting guide is canonical:** `C:\Projects\References\PORTING-TBC-TO-FOREVER.md`. Read the
+- **The porting guide is canonical:** `C:\Projects\WoW\References\Docs\PORTING-TBC-TO-FOREVER.md`. Read the
   sections you touch. New addon-agnostic findings go there; Shatter-specific ones go in
   `docs/forever-api-notes.md`.
-- **The API dump for the measured build:** `C:\Projects\References\forever-api-1.60.1.70291.md`.
+- **The API dump for the measured build:** `C:\Projects\WoW\References\Forever\api\forever-api-1.60.1.70334.md`.
   `Constants.MEASURED_ON_BUILD` must match it (and the literal in the tests).
-- **The client's own UI source:** `C:\Projects\wow-ui-source` (`forever` branch). Read
+- **The client's own UI source:** `C:\Projects\WoW\wow-ui-source` (`forever` branch). Read
   `SecureTemplates.lua`, `Blizzard_MailFrame`, etc. before reasoning about Blizzard behaviour.
 - **Removed globals go through `Shatter.API`** (`Compat.lua`), never bare and never injected into
   `_G`. Struct-vs-tuple matters: `C_Container.GetContainerItemInfo` returns a struct,
@@ -110,11 +110,18 @@ heavy runtime dependencies.
   errors), strict widgets (no catch-all methods), and a list of known absences. Never add a stub
   because a test failed; confirm the API in the dump or source first.
 - `pwsh Tools/deploy.ps1` copies the TOC, LICENSE and every TOC-listed file to
-  `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\Shatter`, preserving
+  `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter`, preserving
   relative paths, and refuses the `_anniversary_` client. After each implementation iteration,
   deploy and tell the user whether `/reload` is enough (a brand-new addon folder or new TOC entry
   needs a full client restart).
 - In game: `/console scriptErrors 1` (errors are off by default on this client).
+- **LibGlass-1.0 is embedded** (`.pkgmeta` externals, pinned to a release tag; never committed).
+  The tests load it and the deploy copies it from the sibling checkout `..\LibGlass` (or
+  `$env:LIBGLASS`); CI fetches the pinned tag. Bumping the pin is a `.pkgmeta` change plus a
+  deploy and in-game look. Material changes are LibGlass PRs. `Skin.lua` is the only place that
+  decides colours: widgets report a state (`Skin.Paint`, `Skin.Hover`), and Flat must keep painting
+  the pre-glass colours. Rounded masks only go where `Skin.Maskable` allows (LibGlass's sliced
+  masks fail on boxes small in both directions); a widget's size is set before `Skin.Fill`. See `C:\Projects\WoW\References\Docs\EMBEDDED-LIBRARIES.md`.
 
 ## Repository Practices
 - Workflow: issue -> branch -> PR -> **manual review by the owner** -> merge. Agents do not run

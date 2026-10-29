@@ -24,7 +24,21 @@ wants to ratchet complexity - this is a single-owner addon.
   split is load-bearing.
 - **The secure `Shatter Next` path** (UI/MainFrame.lua PreClick/PostClick, Disenchant.lua): one
   left click on the activating edge, one cast, one item; disarmed afterwards; nothing in combat
-  that touches the protected main frame.
+  that shows, hides, moves, resizes or rescales the protected main frame, or changes the secure
+  button's attributes (colours are not protected: the live skin switch repaints them in combat).
 - **`ShatterDB` shape** is persisted and loads back on this client; don't break it.
 - **Test stubs model Forever.** A stub returning a Classic-shaped tuple, or a widget method the
   client lacks, makes a broken port pass - stub fidelity is part of the review surface.
+
+## Consulting Codex
+
+The shared `codex-consult` skill (user level) has the invocation and the gotchas. For this repo:
+
+For Shatter specifically, good things to hand Codex: the secure `Shatter Next` click path
+(`UI/MainFrame.lua` PreClick/PostClick, `Disenchant.lua` BeginSecureClick and the macro text), an
+adapter mapping in `Compat.lua` (struct-vs-tuple), queue ownership between Solo and Mail, mail
+attachment identity, and anything touching `ShatterDB`'s shape. Hand it
+`docs/forever-api-notes.md` and the porting guide alongside the diff: those findings are measured
+on the live client, and a cold reviewer will otherwise argue from Classic-era API behaviour.
+
+Use it for plan or design reviews the owner asks for. PR code review is done manually by the owner; do not run this skill on PRs unasked.

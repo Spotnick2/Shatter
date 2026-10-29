@@ -52,6 +52,9 @@ local function InitializeModules()
         SafeCall("Database", Shatter.Database.Initialize, Shatter.Database)
         SafeCall("Database", Shatter.Database.StampLoad, Shatter.Database)
     end
+    if Shatter.DisenchantTables then
+        SafeCall("DisenchantTables", Shatter.DisenchantTables.MigrateYields, Shatter.DisenchantTables)
+    end
     if Shatter.Debug then SafeCall("Debug", Shatter.Debug.Initialize, Shatter.Debug) end
     if Shatter.Events then SafeCall("Events", Shatter.Events.Initialize, Shatter.Events) end
     if Shatter.MaterialTracker then SafeCall("MaterialTracker", Shatter.MaterialTracker.Initialize, Shatter.MaterialTracker) end
@@ -185,7 +188,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -237,6 +240,34 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Print(enabled
                 and "Mail actions ENABLED for this session (validation testing). They turn off at /reload."
                 or "Mail actions disabled.")
+        end
+        return
+    elseif message == "yields" then
+        if Shatter.DisenchantTables then
+            Shatter.Print("Measured disenchants (from " .. Shatter.DisenchantTables.MIN_YIELD_SAMPLES .. " per bracket they adjust the built-in table):")
+            for _, line in ipairs(Shatter.DisenchantTables:FormatYields()) do Shatter.Print("  " .. line) end
+        end
+        return
+    elseif message == "yields reset" then
+        if not Shatter.Database then return end
+        Shatter.Database:ResetYields()
+        -- A Mail queue keeps its owner; a Solo scan would skip it.
+        if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and Shatter.MailMode then
+            Shatter.MailMode:PrepareDisenchantQueue()
+        else
+            Shatter.Rescan()
+        end
+        Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
+        return
+    elseif message == "skin" or message:match("^skin ") then
+        local name = message:match("^skin%s+(%S+)$")
+        if name and Shatter.Skin.Set(name) then
+            if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
+            Shatter.Print("Look: " .. Shatter.Skin.LABELS[name] .. "."
+                .. ((name ~= "flat" and not Shatter.Glass) and " LibGlass is missing, so Shatter stays flat." or ""))
+        else
+            Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Shown()] or "?") .. ". Use /shatter skin "
+                .. table.concat(Shatter.Skin.NAMES, "|") .. ".")
         end
         return
     elseif message == "simreset" then

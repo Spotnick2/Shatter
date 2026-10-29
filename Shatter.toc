@@ -7,10 +7,13 @@
 ## SavedVariables: ShatterDB
 ## X-Curse-Project-ID: 1545161
 
+Libs\LibGlass-1.0\LibGlass-1.0.xml
 Compat.lua
 Core.lua
 Constants.lua
 Theme.lua
+Glass.lua
+Skin.lua
 Database.lua
 Debug.lua
 Events.lua

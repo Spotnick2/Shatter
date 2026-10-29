@@ -2,7 +2,7 @@
 
 **Shatter** is a standalone disenchanting workflow addon for *World of Warcraft: Forever*.
 
-This is the Forever edition. Shatter started as a TBC Anniversary addon; that version is frozen on the `tbc` branch (last release `v0.1.22-alpha`).
+This is the Forever edition. Shatter started as a TBC Anniversary addon; that version is frozen at the tag `v0.1.22-alpha`.
 
 The MVP is planned as a lightweight replacement for the useful parts of the TradeSkillMaster Destroy UI for disenchanting, without requiring TSM. Shatter will guide enchanters through one safe player-clicked action at a time.
 
@@ -28,12 +28,17 @@ Other early commands:
 
 ```text
 /shatter scan
+/shatter yields
+/shatter yields reset
+/shatter skin clear|smoked|flat
 /shatter debug
 /shatter trace
 /shatter sim
 /shatter simreset
 /shatter reset
 ```
+
+Shatter's window is Clear glass by default; Settings > Look (or `/shatter skin`) switches to Smoked glass or Flat, the original opaque look, immediately. The glass is the shared material of the Glass addons, embedded as LibGlass-1.0.
 
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
 
@@ -52,7 +57,7 @@ The real `Shatter Next` path is a secure button: one left click casts Disenchant
 
 ## Phase 2 Notes
 
-Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); they are not yet measured on Forever. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
+Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); Forever's own rates are not published. Shatter measures as you go: every real disenchant whose loot window it reads is counted for the item's quality, armor/weapon and item-level bracket (items above item level 92 apart from Vanilla's), and once a bracket has 20 measured disenchants its estimates blend those measurements with the table, leaning on the measurements as they grow ("Expected Materials (measured, n)"). `/shatter yields` lists the measurements; `/shatter yields reset` clears them. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials.
 
 Value filtering is opt-in from Settings. If no pricing source is available, Shatter keeps otherwise eligible items in the queue instead of hiding them.
 
@@ -61,7 +66,7 @@ Value filtering is opt-in from Settings. If no pricing source is available, Shat
 Manual install target:
 
 ```text
-C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\Shatter\
+C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter\
 ```
 
 From a checkout, `pwsh Tools/deploy.ps1` copies exactly the files the TOC loads there. A brand-new addon folder needs a full client restart once; after that, run:

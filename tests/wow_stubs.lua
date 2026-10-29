@@ -11,8 +11,8 @@
 --
 -- Three kinds of strictness, all on purpose:
 --   * Reading a global this file doesn't define is an error. The stub is the
---     list of APIs verified present on build 1.60.1.70291 (the API dump in
---     C:\Projects\References and the client UI source), so it models the
+--     list of APIs verified present on build 1.60.1.70334 (the API dump in
+--     C:\Projects\WoW\References\Forever\api and the client UI source), so it models the
 --     ABSENCES too. KNOWN_ABSENT models a client with the Blizzard_Deprecated*
 --     fallbacks switched off (CVar loadDeprecationFallbacks), which is the
 --     state an addon must survive.
@@ -30,7 +30,7 @@
 WoW = {}
 local WoW = WoW
 
-local MEASURED_BUILD = "70291"
+local MEASURED_BUILD = "70334"
 
 function WoW.reset()
     WoW.frames        = {}  -- every frame created, in order
@@ -360,7 +360,42 @@ end
 
 -- Regions
 function Widget:CreateFontString(name) return child(self, "FontString", name) end
-function Widget:CreateTexture(name) return child(self, "Texture", name) end
+function Widget:CreateTexture(name, layer, template, sublevel)
+    local t = child(self, "Texture", name)
+    t.drawLayer, t.sublevel = layer, sublevel
+    return t
+end
+-- Masks and sliced/tiled textures, what LibGlass builds its material from,
+-- each only on the object types the dump gives it: CreateMaskTexture on
+-- frames (SimpleFrameAPI), AddMaskTexture on a Texture (SimpleTextureAPI),
+-- the rest on a Texture or a MaskTexture (SimpleTextureBaseAPI). The generic
+-- Widget would otherwise let a frame take a texture's call, which errors on
+-- the client.
+local REGION_KINDS = { Texture = true, MaskTexture = true, FontString = true }
+local TEXTURE = { Texture = true }
+local TEXTURE_BASE = { Texture = true, MaskTexture = true }
+local function only(self, method, kinds)
+    local ok
+    if kinds then ok = kinds[self.kind] else ok = not REGION_KINDS[self.kind] end
+    if not ok then error(tostring(self.kind) .. " has no method " .. method, 3) end
+end
+function Widget:CreateMaskTexture(name)
+    only(self, "CreateMaskTexture")
+    return child(self, "MaskTexture", name)
+end
+function Widget:AddMaskTexture(mask)
+    only(self, "AddMaskTexture", TEXTURE)
+    self.masks = self.masks or {}
+    self.masks[#self.masks + 1] = mask
+end
+function Widget:SetTextureSliceMargins(...) only(self, "SetTextureSliceMargins", TEXTURE_BASE) self.sliceMargins = { ... } end
+function Widget:SetTextureSliceMode(m) only(self, "SetTextureSliceMode", TEXTURE_BASE) self.sliceMode = m end
+function Widget:SetHorizTile(v) only(self, "SetHorizTile", TEXTURE_BASE) self.horizTile = v end
+function Widget:SetVertTile(v) only(self, "SetVertTile", TEXTURE_BASE) self.vertTile = v end
+function Widget:SetGradient(orientation, minColor, maxColor)
+    only(self, "SetGradient", TEXTURE_BASE)
+    self.gradient = { orientation, minColor, maxColor }
+end
 function Widget:SetText(t) self._text = t == nil and "" or tostring(t) end
 function Widget:GetText() return self._text end
 function Widget:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
@@ -556,6 +591,8 @@ Enum = {
 }
 
 function GameTooltip_Hide() GameTooltip:Hide() end
+function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
+strmatch = string.match
 
 ------------------------------------------------------------
 -- Game state
@@ -615,7 +652,7 @@ tinsert, tremove = table.insert, table.remove
 format = string.format
 
 ------------------------------------------------------------
--- Namespaces (shapes from the 70291 dump)
+-- Namespaces (shapes from the 70334 dump)
 ------------------------------------------------------------
 
 C_Timer = {}
@@ -810,6 +847,8 @@ local KNOWN_ABSENT = {
     Gargul = true, GL = true,
     -- The addon's own globals, nil until it creates them / SavedVariables load.
     Shatter = true, ShatterDB = true,
+    -- Embedded LibStub (LibGlass-1.0's bundled copy) reads it before creating it.
+    LibStub = true,
 }
 
 -- Blizzard-owned tables: assigning the global (even to itself) taints.
@@ -819,7 +858,7 @@ local PROTECTED_GLOBALS = {
 }
 
 -- The only globals the addon may create.
-local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true }
+local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true, LibStub = true }
 
 function WoW.allowGlobal(name) KNOWN_ABSENT[name] = true end
 
@@ -861,14 +900,46 @@ end
 -- Loading, the way the client does it
 ------------------------------------------------------------
 
-local function tocFiles()
-    local f = assert(io.open("Shatter.toc", "rb"), "run from the repo root")
+local function readText(path)
+    local f = io.open(path, "rb")
+    if not f then return nil end
     local text = f:read("*a"):gsub("\r\n", "\n")
     f:close()
+    return text
+end
+
+-- The embedded LibGlass-1.0 is not in the repo (.pkgmeta externals fetch it;
+-- Tools/deploy.ps1 copies it): tests load the checkout at $LIBGLASS, else the
+-- sibling ../LibGlass, through its XML's own <Script> list, so a missing file
+-- fails here as it would in the client.
+WoW.LIBGLASS = os.getenv("LIBGLASS") or "../LibGlass"
+local function libFiles(xmlPath)
+    local root = WoW.LIBGLASS
+    local xml = readText(root .. "/" .. xmlPath:match("[^/]+$"))
+    assert(xml, "LibGlass checkout not found at " .. root .. " (clone github.com/Spotnick2/LibGlass there or set LIBGLASS)")
+    local files = {}
+    for script in xml:gsub("<!%-%-.-%-%->", ""):gmatch('<Script%s+file="([^"]+)"') do
+        files[#files + 1] = root .. "/" .. script:gsub("\\", "/")
+    end
+    return files
+end
+
+-- `withoutLibs`: an install from a git clone, with no Libs folder.
+local function tocFiles(withoutLibs)
+    local text = assert(readText("Shatter.toc"), "run from the repo root")
     local files = {}
     for line in (text .. "\n"):gmatch("([^\n]*)\n") do
         local file = line:match("^%s*([^#%s].-)%s*$")
-        if file then files[#files + 1] = (file:gsub("\\", "/")) end
+        if file then
+            file = file:gsub("\\", "/")
+            if file:match("%.xml$") then
+                if not withoutLibs then
+                    for _, script in ipairs(libFiles(file)) do files[#files + 1] = script end
+                end
+            else
+                files[#files + 1] = file
+            end
+        end
     end
     return files
 end
@@ -881,7 +952,7 @@ function WoW.loadAddon(opts)
     local ns = {}
     local before = snapshotProtected()
     addonLoading = true
-    for _, path in ipairs(tocFiles()) do
+    for _, path in ipairs(tocFiles(opts.withoutLibs)) do
         local chunk = assert(loadfile(path))
         chunk("Shatter", ns)
     end

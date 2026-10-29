@@ -69,11 +69,13 @@ function H.directive(name)
 end
 
 -- Every file the TOC loads, in order, with the TOC's backslashes.
-function H.tocFiles()
+-- The addon's own TOC files (in the repo), or with `libs` the embedded
+-- libraries' entries (Libs\..., fetched by the packager, never committed).
+function H.tocFiles(libs)
     local files = {}
     for _, line in ipairs(H.tocLines()) do
         local file = line:match("^%s*([^#%s].-)%s*$")
-        if file then files[#files + 1] = file end
+        if file and (file:match("^Libs\\") ~= nil) == (libs == true) then files[#files + 1] = file end
     end
     return files
 end
