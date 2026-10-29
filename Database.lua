@@ -14,6 +14,9 @@ local DEFAULTS = {
         minimap = { hide = false, angle = 225 },
         -- The look (Skin.lua): "clear" or "smoked" glass, or "flat".
         skin = "clear",
+        -- Item tooltips (Tooltip.lua): "always", "modifier" (Shift, Alt or
+        -- Ctrl held) or "never".
+        tooltip = "always",
         debug = false,
         traceDebug = false,
         simulateDisenchant = false,
@@ -130,6 +133,9 @@ local function NormalizeSettings(settings)
     NormalizeWindow(settings.window)
     if not Shatter.Skin.IsValid(settings.skin) then
         settings.skin = DEFAULTS.settings.skin
+    end
+    if not Shatter.Constants.TOOLTIP_MODES[settings.tooltip] then
+        settings.tooltip = DEFAULTS.settings.tooltip
     end
     return settings
 end

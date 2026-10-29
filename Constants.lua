@@ -55,6 +55,11 @@ Constants.QUALITY_LABELS = {
 Constants.ITEM_CLASS_WEAPON = 2
 Constants.ITEM_CLASS_ARMOR = 4
 
+-- Item tooltips (Tooltip.lua), in the order Settings lists them.
+Constants.TOOLTIP_MODE_NAMES = { "always", "modifier", "never" }
+Constants.TOOLTIP_MODES = { always = true, modifier = true, never = true }
+Constants.TOOLTIP_MODE_LABELS = { always = "Always", modifier = "With Shift, Alt or Ctrl", never = "Never" }
+
 Constants.DISENCHANT_EQUIP_LOCS = {
     INVTYPE_HEAD = true,
     INVTYPE_NECK = true,

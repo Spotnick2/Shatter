@@ -70,6 +70,7 @@ local function InitializeModules()
     if Shatter.MinimapButton then SafeCall("MinimapButton", Shatter.MinimapButton.Initialize, Shatter.MinimapButton) end
     if Shatter.SummaryUI then SafeCall("SummaryUI", Shatter.SummaryUI.Initialize, Shatter.SummaryUI) end
     if Shatter.SoloMode then SafeCall("SoloMode", Shatter.SoloMode.Initialize, Shatter.SoloMode) end
+    if Shatter.Tooltip then SafeCall("Tooltip", Shatter.Tooltip.Initialize, Shatter.Tooltip) end
     if Shatter.MailMode then SafeCall("MailMode", Shatter.MailMode.Initialize, Shatter.MailMode) end
     if Shatter.RaidMode then SafeCall("RaidMode", Shatter.RaidMode.Initialize, Shatter.RaidMode) end
 end
@@ -190,7 +191,7 @@ SlashCmdList.SHATTER = function(message)
     message = message and strlower(strtrim(message)) or ""
 
     if message == "help" or message == "?" then
-        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter ignored, /shatter unignore, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
+        Shatter.Print("Commands: /shatter, /shatter scan, /shatter yields, /shatter yields reset, /shatter ignored, /shatter unignore, /shatter tooltip, /shatter skin, /shatter debug, /shatter trace, /shatter sim, /shatter simreset, /shatter reset, /shatter mailtest")
         return
     elseif Shatter.pendingActivation then
         Shatter.Print("Shatter finishes loading when combat ends.")
@@ -253,6 +254,7 @@ SlashCmdList.SHATTER = function(message)
     elseif message == "yields reset" then
         if not Shatter.Database then return end
         Shatter.Database:ResetYields()
+        if Shatter.Tooltip then Shatter.Tooltip:Reset() end
         -- A Mail queue keeps its owner; a Solo scan would skip it.
         if Shatter.Queue and Shatter.Queue:GetOwner() == "mail" and Shatter.MailMode then
             Shatter.MailMode:PrepareDisenchantQueue()
@@ -285,6 +287,17 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Print(string.format("No longer ignored: %s (%d).", link or name or "Item", itemID))
         else
             Shatter.Print(string.format("Item %d isn't ignored.", itemID))
+        end
+        return
+    elseif message == "tooltip" or message:match("^tooltip ") then
+        local mode = message:match("^tooltip%s+(%S+)$")
+        local LABELS = Shatter.Constants.TOOLTIP_MODE_LABELS
+        if mode and Shatter.Tooltip:SetMode(mode) then
+            if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
+            Shatter.Print("Item tooltips: " .. LABELS[mode] .. ".")
+        else
+            Shatter.Print("Item tooltips: " .. LABELS[Shatter.Database:GetSettings().tooltip] .. ". Use /shatter tooltip "
+                .. table.concat(Shatter.Constants.TOOLTIP_MODE_NAMES, "|") .. ".")
         end
         return
     elseif message == "skin" or message:match("^skin ") then

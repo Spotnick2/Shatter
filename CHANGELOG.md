@@ -4,6 +4,7 @@
 
 - The glass is now LibGlass's **Pearl**, the Glass suite's theme: no grain, a softer light and a quieter outline. Clear and Smoked glass are bodies over it.
 - Shatter follows **Glass UI**: with Glass UI loaded and its "Use Glass UI appearance" on for Shatter, the glass takes the suite's body (clear, smoked or class) and its accent. Settings then offers Glass UI or Flat, and Clear and Smoked are set in Glass UI. Choosing Flat in Shatter still turns the glass off. A change made in Glass UI applies after a /reload.
+- Item tooltips show what an item disenchants into, wherever it appears (bags, bank, loot, chat links, vendors, the auction house): each material with its chance and amount, by falling chance, and the expected value when a pricing addon has prices. The measured odds are used once a bracket has them. Settings > Item tooltips (or `/shatter tooltip always|modifier|never`) shows them always, only while Shift, Alt or Ctrl is held, or never. Items Disenchant doesn't take and ignored items get nothing.
 - Ignored items can be brought back: Settings lists them (Ignored items) with Remove for each and Reset all, which asks again before clearing. `/shatter ignored` lists them, and `/shatter unignore <itemID or link>` removes one. A removed item is back in the queue at once. Ignoring an item now says how to undo it, and the Skip and Ignore buttons explain the difference: Skip lasts until a /reload, Ignore until you remove it.
 
 ## v0.2.80-alpha - 2026-10-29

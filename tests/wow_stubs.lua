@@ -56,6 +56,9 @@ function WoW.reset()
     WoW.targeting     = false
     WoW.castRefused   = false
     WoW.shift         = false
+    WoW.alt           = false
+    WoW.ctrl          = false
+    WoW.tooltipPostCalls = {}  -- [tooltipType] = { fn, ... } (TooltipDataProcessor)
     WoW.cursor        = { 0, 0 }
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
     WoW.messages      = {}
@@ -588,6 +591,8 @@ end
 Enum = {
     SpellBookSpellBank = { Player = 0, Pet = 1 },
     ItemClass = { Weapon = 2, Armor = 4 },
+    -- TooltipInfoSharedDocumentation.lua: Item = 0, Spell = 1, ...
+    TooltipDataType = { Item = 0, Spell = 1, Unit = 2 },
     BagIndex = { Backpack = 0, Bag_1 = 1, Bag_2 = 2, Bag_3 = 3, Bag_4 = 4, ReagentBag = 5, Keyring = -1 },
 }
 
@@ -603,6 +608,8 @@ function GetTime() return WoW.time end
 function time() return WoW.epoch end
 function InCombatLockdown() return WoW.inCombat end
 function IsShiftKeyDown() return WoW.shift end
+-- dump 5496: Shift, Alt or Ctrl.
+function IsModifierKeyDown() return WoW.shift or WoW.alt or WoW.ctrl or false end
 function GetCursorPosition() return WoW.cursor[1], WoW.cursor[2] end
 function GetBuildInfo() return "1.60.1", WoW.build, "Oct 6 2026", 16001, "", " " end
 function GetCVarBool(name) return WoW.cvars[name] == "1" end
@@ -662,6 +669,26 @@ format = string.format
 ------------------------------------------------------------
 -- Namespaces (shapes from the 70334 dump)
 ------------------------------------------------------------
+
+-- Blizzard_SharedXMLGame/Tooltip/TooltipDataHandler.lua:199: a post call runs
+-- as fn(tooltip, tooltipData) once the tooltip has processed its lines. There
+-- is no way to remove one. WoW.showItemTooltip plays the client's part.
+TooltipDataProcessor = { AllTypes = "ALL" }
+function TooltipDataProcessor.AddTooltipPostCall(tooltipType, fn)
+    local list = WoW.tooltipPostCalls[tooltipType] or {}
+    WoW.tooltipPostCalls[tooltipType] = list
+    list[#list + 1] = fn
+end
+-- Shows `itemID` on `tooltip` (GameTooltip by default) the way the client
+-- does: fresh lines, the item's own line, then every Item post call.
+function WoW.showItemTooltip(itemID, tooltip)
+    tooltip = tooltip or GameTooltip
+    tooltip:ClearLines()
+    tooltip:AddLine("[item " .. itemID .. "]")
+    local data = { type = Enum.TooltipDataType.Item, id = itemID, hyperlink = WoW.link(itemID) }
+    for _, fn in ipairs(WoW.tooltipPostCalls[Enum.TooltipDataType.Item] or {}) do fn(tooltip, data) end
+    return tooltip.lines
+end
 
 C_ClassColor = {}
 -- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
