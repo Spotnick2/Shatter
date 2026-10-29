@@ -9,7 +9,7 @@ dofile("tests/wow_stubs.lua")
 
 -- This literal is the point: it must be edited by hand together with the
 -- constant after re-measuring a new client build (porting guide, section 0).
-local MEASURED = "1.60.1.70334"
+local MEASURED = "1.60.1.70532"
 
 WoW.enchanter()
 WoW.loadAddon()
