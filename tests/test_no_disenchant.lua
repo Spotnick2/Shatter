@@ -143,6 +143,13 @@ H.check(text:find("1 item couldn't be disenchanted and is still in your bags", 1
 H.eq(Shatter.MailSession:HasUnresolvedWork(), true, "the sword counts as unresolved")
 H.eq((Shatter.MailSession:Close()), false, "an ordinary Close is refused")
 H.check(Shatter.MailSession:Get() ~= nil, "...the session stays")
+-- Unticking it (its row, or None) doesn't give it back.
+byID[SWORD].selected = false
+Shatter.MailMode:SelectInputItems("none")
+H.eq(Shatter.MailSession:CountReceivedFailed(), 1, "unticked: still counted")
+H.check((Shatter.MailMode:GetStatus()):find("1 item couldn't be disenchanted", 1, true), "...still in the status")
+H.eq((Shatter.MailSession:Close()), false, "...and an ordinary Close still refused")
+H.eq(Shatter.MailSession:GetReservedSlots()["0:3"], SWORD, "...its slot still reserved")
 H.eq((Shatter.MailSession:Close(true)), true, "Confirm Close (forced) archives it")
 H.eq(Shatter.MailSession:Get(), nil, "...no active session")
 Shatter.NoDisenchant.ids[SWORD] = nil

@@ -181,11 +181,13 @@ end
 
 -- Received items (in the bags, the sender's) whose disenchant failed or
 -- that can't be disenchanted: they're still to be dealt with by hand.
+-- Selection doesn't matter: it governs intake, and unticking a row (or None)
+-- doesn't give a received item back.
 function MailSession:CountReceivedFailed()
     local session = self:Get()
     local n = 0
     for _, item in ipairs(session and session.inputItems or {}) do
-        if item.selected and item.disenchantStatus == "failed" then n = n + 1 end
+        if item.disenchantStatus == "failed" then n = n + 1 end
     end
     return n
 end
