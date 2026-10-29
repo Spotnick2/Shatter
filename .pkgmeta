@@ -10,7 +10,7 @@ enable-nolib-creation: no
 externals:
   Libs/LibGlass-1.0:
     url: https://github.com/Spotnick2/LibGlass
-    tag: r5
+    tag: r11
 
 manual-changelog:
   filename: CHANGELOG.md
