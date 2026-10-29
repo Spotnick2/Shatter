@@ -66,7 +66,7 @@ Value filtering is opt-in from Settings. If no pricing source is available, Shat
 Manual install target:
 
 ```text
-C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\Shatter\
+C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter\
 ```
 
 From a checkout, `pwsh Tools/deploy.ps1` copies exactly the files the TOC loads there. A brand-new addon folder needs a full client restart once; after that, run:
