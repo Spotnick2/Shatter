@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.2.80-alpha - 2026-10-29
 
-- Glass skins: Shatter's window and the Mail launch panel can be **Clear glass** (the new default), **Smoked glass** or **Flat** (the previous opaque look), matching the other Glass addons. Choose under Settings > Look or with `/shatter skin clear|smoked|flat`; the change applies immediately, even in combat. The glass comes from the embedded LibGlass-1.0. Without the library (a git checkout without `Libs`), Shatter stays Flat and Settings says so.
+The first Forever alpha.
+
+- Glass skins: Shatter's window and the Mail launch panel can be **Clear glass** (the new default), **Smoked glass** or **Flat** (the previous opaque look), matching the other Glass addons. Choose under Settings > Look or with `/shatter skin clear|smoked|flat`; the change applies immediately, even in combat. The glass comes from the embedded LibGlass-1.0. Without the library (a git checkout without `Libs`), Shatter stays Flat and Settings says so. Embeds LibGlass-1.0 r11.
 - The Mail tab is now marked as the current tab in the Mail view, and hovering the Mail or Raid tab no longer leaves it highlighted.
 - Expected materials learn from your disenchants: each real disenchant read from the loot window is counted for its quality, armor/weapon and item-level bracket, and from 20 disenchants a bracket's estimate blends the measured odds with the built-in table (shown as "measured"); the more you measure, the more it follows your results, and a rare material you have not seen yet keeps a share. Items above item level 92 are measured separately from Vanilla items. `/shatter yields` lists them, `/shatter yields reset` clears them.
 - Shatter now targets World of Warcraft: Forever (Interface 16001). It continues the TBC Anniversary addon's history from `25886ea`; the TBC entries below are that history, and the TBC code is frozen at the tag `v0.1.22-alpha`.
