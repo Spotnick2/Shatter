@@ -20,6 +20,15 @@ local _, Shatter = ...
 --
 -- Shown for items Disenchant takes at all (green or better weapons and
 -- armor, not denylisted) whatever the queue's filters, except an ignored item.
+--
+-- "With Shift, Alt or Ctrl" has to follow a key pressed or released while the
+-- tooltip is open. A bag button rebuilds its tooltip every TOOLTIP_UPDATE_TIME
+-- on its own (owner.UpdateTooltip, GameTooltip.lua:456), but a chat link's
+-- ItemRefTooltip only rebuilds when asked (ItemRef.lua:351). So on
+-- MODIFIER_STATE_CHANGED an open tooltip still showing the same item, whose
+-- owner doesn't refresh it, is rebuilt with RefreshData, the client's own
+-- rebuild (GameTooltip.lua:958). Not RefreshDataNextUpdate: it sets
+-- updateTooltipTimer, which turns on ItemRefTooltip's comparison timer.
 
 local Tooltip = {}
 Shatter.Tooltip = Tooltip
@@ -28,6 +37,8 @@ Shatter.RegisterModule("Tooltip", Tooltip)
 local CACHE_SECONDS = 10
 local cache = {}        -- itemID -> { at, estimate (false: none) }
 local registered = false
+-- In modifier mode: tooltip -> { itemID, lines (shown?) }, for the rebuild.
+local modifierShown = setmetatable({}, { __mode = "k" })
 
 -- The item's estimate, or nil when the tooltip shouldn't show one.
 local function EstimateFor(itemID)
@@ -93,21 +104,39 @@ function Tooltip:AddLines(tooltip, estimate)
     end
 end
 
--- Whether the setting lets the lines show right now.
-local function Wanted()
-    local mode = Shatter.Database:GetSettings().tooltip
-    if mode == "never" then return false end
-    if mode == "modifier" then return IsModifierKeyDown() == true end
-    return true
-end
-
 local function OnItemTooltip(tooltip, data)
     if not Shatter.isActive or not tooltip or type(data) ~= "table" then return end
     if tooltip.IsForbidden and tooltip:IsForbidden() then return end
+    modifierShown[tooltip] = nil
     local itemID = tonumber(data.id)
-    if not itemID or not Wanted() or Shatter.Database:IsIgnored(itemID) then return end
+    local mode = Shatter.Database:GetSettings().tooltip
+    if not itemID or mode == "never" or Shatter.Database:IsIgnored(itemID) then return end
     local estimate = EstimateFor(itemID)
-    if estimate then Tooltip:AddLines(tooltip, estimate) end
+    if not estimate then return end
+    local wanted = mode ~= "modifier" or IsModifierKeyDown() == true
+    if mode == "modifier" then modifierShown[tooltip] = { itemID = itemID, lines = wanted } end
+    if wanted then Tooltip:AddLines(tooltip, estimate) end
+end
+
+-- A modifier pressed or released: rebuild the open tooltips that now show
+-- the wrong thing and won't rebuild by themselves.
+local function OnModifierChanged()
+    if not Shatter.isActive or Shatter.Database:GetSettings().tooltip ~= "modifier" then return end
+    local wanted = IsModifierKeyDown() == true
+    local stale = {}
+    for tooltip, state in pairs(modifierShown) do
+        if state.lines ~= wanted and tooltip:IsShown() and not (tooltip.IsForbidden and tooltip:IsForbidden())
+            and tooltip.RefreshData and tooltip.GetPrimaryTooltipData then
+            local owner = tooltip:GetOwner()
+            local data = tooltip:GetPrimaryTooltipData()
+            if not (owner and owner.UpdateTooltip) and type(data) == "table"
+                and data.type == Enum.TooltipDataType.Item and tonumber(data.id) == state.itemID then
+                stale[#stale + 1] = tooltip
+            end
+        end
+    end
+    -- Rebuilt after the loop: the rebuild rewrites modifierShown.
+    for _, tooltip in ipairs(stale) do tooltip:RefreshData() end
 end
 
 -- Once, at the first activation. A client without the processor gets nothing.
@@ -120,6 +149,12 @@ function Tooltip:Initialize()
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
         local ok, err = pcall(OnItemTooltip, tooltip, data)
         if not ok and Shatter.Debug then Shatter.Debug:Log("debug", "Tooltip failed: %s", tostring(err)) end
+    end)
+    local events = CreateFrame("Frame")
+    events:RegisterEvent("MODIFIER_STATE_CHANGED")
+    events:SetScript("OnEvent", function()
+        local ok, err = pcall(OnModifierChanged)
+        if not ok and Shatter.Debug then Shatter.Debug:Log("debug", "Tooltip refresh failed: %s", tostring(err)) end
     end)
 end
 

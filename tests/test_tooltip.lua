@@ -5,7 +5,9 @@
 --     price source;
 --   * nothing for items Disenchant doesn't take, ignored items, forbidden
 --     tooltips, an uncached item, or an inactive character;
---   * the setting: always, with Shift/Alt/Ctrl, never.
+--   * the setting: always, with Shift/Alt/Ctrl, never;
+--   * with Shift/Alt/Ctrl, an open chat-link tooltip follows the key pressed
+--     and released, without being reopened.
 ------------------------------------------------------------
 
 local H = dofile("tests/harness.lua")
@@ -113,6 +115,52 @@ H.eq(Shatter.Database:GetSettings().tooltip, "never", "an unknown mode is refuse
 H.check(WoW.chat():find("Use /shatter tooltip always|modifier|never", 1, true), "...with the choices")
 SlashCmdList.SHATTER("tooltip always")
 H.eq(#WoW.showItemTooltip(VEST), 5, "always: the lines")
+
+-- 7b. With a modifier, an open tooltip follows the key without being
+-- reopened: a chat link's tooltip only rebuilds when asked.
+SlashCmdList.SHATTER("tooltip modifier")
+local ref = CreateFrame("GameTooltip", nil, UIParent)
+ref:SetOwner(UIParent, "ANCHOR_PRESERVE")
+H.eq(#WoW.showItemTooltip(VEST, ref), 1, "a chat link opened without a modifier: no lines")
+WoW.alt = true
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+H.eq(#ref.lines, 5, "...Alt pressed: the lines, without reopening it")
+WoW.shift = true
+local refreshes = WoW.tooltipRefreshes
+WoW.fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+H.eq(WoW.tooltipRefreshes, refreshes, "...Shift pressed too: nothing to change, no rebuild")
+WoW.alt, WoW.shift = false, false
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 0)
+H.eq(#ref.lines, 1, "...both released: the lines go")
+ref:Hide()
+refreshes = WoW.tooltipRefreshes
+WoW.alt = true
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+H.eq(WoW.tooltipRefreshes, refreshes, "a closed tooltip isn't rebuilt")
+WoW.alt = false
+WoW.showItemTooltip(CLOTH, ref)
+refreshes = WoW.tooltipRefreshes
+WoW.alt = true
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+H.eq(WoW.tooltipRefreshes, refreshes, "a tooltip moved on to an item with no lines isn't rebuilt")
+WoW.alt = false
+-- A bag button rebuilds its own tooltip (owner.UpdateTooltip): left to it.
+GameTooltip:SetOwner({ UpdateTooltip = function() end }, "ANCHOR_RIGHT")
+WoW.showItemTooltip(VEST)
+refreshes = WoW.tooltipRefreshes
+WoW.alt = true
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+H.eq(WoW.tooltipRefreshes, refreshes, "a bag button's tooltip is left to the button")
+WoW.alt = false
+GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+-- Always: the key changes nothing.
+SlashCmdList.SHATTER("tooltip always")
+WoW.showItemTooltip(VEST, ref)
+refreshes = WoW.tooltipRefreshes
+WoW.alt = true
+WoW.fire("MODIFIER_STATE_CHANGED", "LALT", 1)
+H.eq(WoW.tooltipRefreshes, refreshes, "always: no rebuild on a key")
+WoW.alt = false
 
 -- 8. Settings offers the three modes.
 Shatter.MainFrame:Show()

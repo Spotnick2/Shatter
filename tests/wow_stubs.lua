@@ -59,6 +59,7 @@ function WoW.reset()
     WoW.alt           = false
     WoW.ctrl          = false
     WoW.tooltipPostCalls = {}  -- [tooltipType] = { fn, ... } (TooltipDataProcessor)
+    WoW.tooltipRefreshes = 0   -- RefreshData calls
     WoW.cursor        = { 0, 0 }
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
     WoW.messages      = {}
@@ -194,14 +195,22 @@ function Backdrop:SetBackdropColor(...) self.backdropColor = { ... } end
 function Backdrop:SetBackdropBorderColor(...) self.backdropBorderColor = { ... } end
 
 local Tooltip = {}
-function Tooltip:SetOwner(owner, anchor) self.owner = owner self.lines = {} end
-function Tooltip:SetText(t) self.lines = { t } end
+function Tooltip:SetOwner(owner, anchor) self.owner = owner self.lines = {} self.tooltipData = nil end
+function Tooltip:GetOwner() return self.owner end
+function Tooltip:SetText(t) self.lines = { t } self.tooltipData = nil end
 function Tooltip:AddLine(t) self.lines[#self.lines + 1] = t end
 function Tooltip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = tostring(l) .. "\t" .. tostring(r) end
 function Tooltip:ClearLines() self.lines = {} end
 function Tooltip:NumLines() return #self.lines end
-function Tooltip:SetHyperlink(link) self.lines = { link } end
-function Tooltip:SetBagItem(bag, slot) self.lines = { "bag " .. bag .. " " .. slot } end
+function Tooltip:SetHyperlink(link) self.lines = { link } self.tooltipData = nil end
+function Tooltip:SetBagItem(bag, slot) self.lines = { "bag " .. bag .. " " .. slot } self.tooltipData = nil end
+-- GameTooltipDataMixin (GameTooltip.lua:958): the data the tooltip was built
+-- from, and the rebuild from it (fresh lines, post calls again).
+function Tooltip:GetPrimaryTooltipData() return self.tooltipData end
+function Tooltip:RefreshData()
+    WoW.tooltipRefreshes = WoW.tooltipRefreshes + 1
+    if self.tooltipData then WoW.showItemTooltip(self.tooltipData.id, self) end
+end
 
 local newWidget
 
@@ -686,6 +695,8 @@ function WoW.showItemTooltip(itemID, tooltip)
     tooltip:ClearLines()
     tooltip:AddLine("[item " .. itemID .. "]")
     local data = { type = Enum.TooltipDataType.Item, id = itemID, hyperlink = WoW.link(itemID) }
+    tooltip.tooltipData = data
+    tooltip:Show()
     for _, fn in ipairs(WoW.tooltipPostCalls[Enum.TooltipDataType.Item] or {}) do fn(tooltip, data) end
     return tooltip.lines
 end
