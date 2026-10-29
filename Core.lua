@@ -52,6 +52,8 @@ local function InitializeModules()
         SafeCall("Database", Shatter.Database.Initialize, Shatter.Database)
         SafeCall("Database", Shatter.Database.StampLoad, Shatter.Database)
     end
+    -- Glass UI's look, decided before any window is built (Suite.lua).
+    if Shatter.Suite then SafeCall("Suite", Shatter.Suite.Start) end
     if Shatter.DisenchantTables then
         SafeCall("DisenchantTables", Shatter.DisenchantTables.MigrateYields, Shatter.DisenchantTables)
     end
@@ -261,10 +263,14 @@ SlashCmdList.SHATTER = function(message)
         return
     elseif message == "skin" or message:match("^skin ") then
         local name = message:match("^skin%s+(%S+)$")
-        if name and Shatter.Skin.Set(name) then
+        local ok, why = false, nil
+        if name then ok, why = Shatter.Skin.Set(name) end
+        if ok then
             if Shatter.SettingsUI then Shatter.SettingsUI:Refresh() end
-            Shatter.Print("Look: " .. Shatter.Skin.LABELS[name] .. "."
+            Shatter.Print("Look: " .. Shatter.Skin.LABELS[Shatter.Skin.Shown()] .. "."
                 .. ((name ~= "flat" and not Shatter.Glass) and " LibGlass is missing, so Shatter stays flat." or ""))
+        elseif why == "suite" then
+            Shatter.Print("Shatter follows Glass UI's look: set it in Glass UI (/glassui), or use /shatter skin flat.")
         else
             Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Shown()] or "?") .. ". Use /shatter skin "
                 .. table.concat(Shatter.Skin.NAMES, "|") .. ".")

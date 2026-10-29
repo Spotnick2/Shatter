@@ -15,6 +15,7 @@ Constants.lua
 Theme.lua
 Glass.lua
 Skin.lua
+Suite.lua
 Database.lua
 Debug.lua
 Events.lua
