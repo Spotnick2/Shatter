@@ -864,4 +864,58 @@ H.check(got[VEST] and got[BLADE], "the checked blade joins once its info arrives
 H.eq(got[BOOTS], nil, "the unchecked mail's boots do not")
 removePostal()
 
+-- #26: the mailbox counts as closed once it closes, though InboxFrame (a
+-- child of MailFrame) keeps its own shown flag, as on the client.
+session = setup()
+H.eq(Shatter.MailMode:IsMailboxOpen(), true, "#26: open after MAIL_SHOW")
+MailFrame:Hide()
+WoW.fire("MAIL_CLOSED")
+WoW.flushTimers()
+H.check(InboxFrame:IsShown() and not InboxFrame:IsVisible(), "#26: the stub models the client (InboxFrame shown, not visible)")
+H.eq(Shatter.MailMode:IsMailboxOpen(), false, "#26: closed after MAIL_CLOSED")
+-- An attachment is still waiting, so the status offers Take Attachments as
+-- the retry (which refuses below while the mailbox is closed).
+H.check(Shatter.MailMode:GetStatus():find("Mailbox not detected", 1, true), "#26: the status says the mailbox is closed")
+H.eq(session.mailboxOpen, false, "#26: ...and reading the status doesn't reopen the session")
+Shatter.MailMode:GetPrimaryState()
+H.eq(session.mailboxOpen, false, "#26: ...nor does the primary button")
+local scans = 0
+local realScan = Shatter.InboxScanner.Scan
+Shatter.InboxScanner.Scan = function(...) scans = scans + 1 return realScan(...) end
+Shatter.MailMode:ScanInbox("TEST")
+Shatter.InboxScanner.pendingItemIDs[BLADE] = true
+WoW.fire("GET_ITEM_INFO_RECEIVED", BLADE, true)
+WoW.flushTimers()
+H.eq(scans, 0, "#26: no inbox scan with the mailbox closed (direct, or on item info)")
+H.eq(session.status, Shatter.Constants.MAIL_STATE.ERROR_PAUSED, "#26: a refused scan pauses the session")
+H.eq(Shatter.AttachmentQueue:TakeNext(), false, "#26: no take with the mailbox closed")
+H.eq(Shatter.MainFrame.statusOverride, Shatter.Constants.STATUS.MAILBOX_REQUIRED, "#26: ...it says the mailbox is required")
+-- MAIL_CLOSED counts even while Shatter is inactive.
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+H.eq(Shatter.MailMode:IsMailboxOpen(), true, "#26: open again after MAIL_SHOW")
+Shatter.isActive = false
+MailFrame:Hide()
+WoW.fire("MAIL_CLOSED")
+Shatter.isActive = true
+H.eq(Shatter.MailMode:IsMailboxOpen(), false, "#26: a MAIL_CLOSED while inactive still closes it")
+for _, input in ipairs(session.inputItems) do input.selected = false end   -- nothing left to take
+H.eq(Shatter.MailMode:GetStatus(), "Open the mailbox to continue Mail Mode.", "#26: nothing left to take: the status asks to reopen it")
+H.eq((Shatter.MailMode:GetPrimaryState()), "Open Mailbox", "#26: ...and the primary button says Open Mailbox")
+-- MAIL_SHOW decides even before the client has shown MailFrame.
+WoW.fire("MAIL_SHOW")
+H.eq(Shatter.MailMode:IsMailboxOpen(), true, "#26: MAIL_SHOW before MailFrame is shown counts as open")
+Shatter.InboxScanner.Scan = realScan
+
+-- #26: before any mailbox event since load, MailFrame's visibility decides,
+-- never a child frame's shown flag.
+WoW.loadAddon()
+WoW.flushTimers()
+MailFrame:Hide()
+InboxFrame:Show()
+H.eq(Shatter.MailMode:IsMailboxOpen(), false, "#26: no event yet, MailFrame hidden: closed")
+MailFrame:Show()
+H.eq(Shatter.MailMode:IsMailboxOpen(), true, "#26: no event yet, MailFrame visible: open")
+
 H.done("test_mail")

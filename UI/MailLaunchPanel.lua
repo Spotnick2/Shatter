@@ -8,17 +8,6 @@ local MailLaunchPanel = {
 Shatter.MailLaunchPanel = MailLaunchPanel
 Shatter.RegisterModule("MailLaunchPanel", MailLaunchPanel)
 
-local function IsFrameVisible(frame)
-    if not frame then return false end
-    if frame.IsVisible and frame:IsVisible() then return true end
-    if frame.IsShown and frame:IsShown() then return true end
-    return false
-end
-
-local function IsMailboxOpen()
-    return IsFrameVisible(_G.MailFrame) or IsFrameVisible(_G.InboxFrame) or IsFrameVisible(_G.OpenMailFrame) or IsFrameVisible(_G.SendMailFrame)
-end
-
 local function GetSettings()
     if not Shatter.Database then return nil end
     local settings = Shatter.Database:GetSettings()
