@@ -36,9 +36,9 @@ local function Clamp(value, minValue, maxValue)
     return value
 end
 
-local function CreateButton(parent, text, width, secure)
+local function CreateButton(parent, text, width, secure, name)
     local template = secure and "SecureActionButtonTemplate,BackdropTemplate" or "BackdropTemplate"
-    local button = CreateFrame("Button", nil, parent, template)
+    local button = CreateFrame("Button", name, parent, template)
     button:SetSize(width or 100, 26)
     if secure then
         -- Both edges, as the porting guide prescribes; useOnKeyDown = false
@@ -526,11 +526,37 @@ function MainFrame:CreateResizeGrip(parent)
     return grip
 end
 
+-- The key binding (#35, Bindings.xml): one CLICK binding on the named
+-- secure button, labelled here so Key Bindings shows it on its first open.
+local NEXT_BUTTON_NAME = "ShatterNextButton"
+local NEXT_BINDING = "CLICK " .. NEXT_BUTTON_NAME .. ":LeftButton"
+_G["BINDING_NAME_" .. NEXT_BINDING] = "Shatter Next"
+
+-- A bound key as an action bar shows it: CTRL-SHIFT-F becomes csF.
+local SHORT_KEYS = { { "CTRL%-", "c" }, { "SHIFT%-", "s" }, { "ALT%-", "a" }, { "NUMPAD", "N" },
+                     { "MOUSEWHEELUP", "MwU" }, { "MOUSEWHEELDOWN", "MwD" }, { "BUTTON", "M" } }
+local function ShortKey(key)
+    if not key then return "" end
+    for _, r in ipairs(SHORT_KEYS) do key = key:gsub(r[1], r[2]) end
+    return key
+end
+
+-- The bound key on the button and in its tooltip: text only, safe in combat.
+function MainFrame:RefreshHotkey()
+    local button = self.primary
+    if not button then return end
+    local key = GetBindingKey(NEXT_BINDING)
+    button.hotkey:SetText(ShortKey(key))
+    button.tooltip[2] = key and ("Key: " .. key .. ".")
+        or "Bind a key to it: Options > Keybindings > Shatter > Shatter Next."
+end
+
 function MainFrame:Initialize()
     self:Create()
     if Shatter.Events then
         Shatter.Events:Register("PLAYER_REGEN_DISABLED", self, self.OnCombatEvent)
         Shatter.Events:Register("PLAYER_REGEN_ENABLED", self, self.OnCombatEvent)
+        Shatter.Events:Register("UPDATE_BINDINGS", self, self.RefreshHotkey)
     end
 end
 
@@ -1017,14 +1043,24 @@ function MainFrame:Create()
     ignore.tooltip = { "Ignore", "Never queue this item again, until you remove it from Settings (Ignored items)." }
     self.ignoreButton = ignore
 
-    local primary = CreateButton(footer, "Shatter Next", 110, true)
+    local primary = CreateButton(footer, "Shatter Next", 110, true, NEXT_BUTTON_NAME)
     primary:SetPoint("RIGHT", ignore, "LEFT", -8, 0)
     primary:SetHeight(30)
     Shatter.Skin.Paint(primary, "go")
+    -- The key bound to it (#35), in the corner like an action bar's.
+    primary.hotkey = primary:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmallGray")
+    primary.hotkey:SetPoint("TOPRIGHT", primary, "TOPRIGHT", -3, -3)
+    primary.tooltip = { "Shatter Next", "" }
     primary:SetScript("PreClick", function(button, mouseButton, down)
         -- Every registered edge and mouse button arrives here; only the one
         -- the secure handler acts on may arm or change state.
         if not Shatter.Disenchant or not Shatter.Disenchant:IsActionEdge(mouseButton, down) then return end
+        -- A bound key clicks the button even while it's hidden (measured on
+        -- Forever by Apotheca): never act on an item the player can't see.
+        if not button:IsVisible() then
+            Shatter.Disenchant:Disarm(button)
+            return
+        end
         -- Only the Solo and Mail views act; Settings and Summary hide the queue.
         if self.activeView ~= "solo" and self.activeView ~= "mail" then
             Shatter.Disenchant:Disarm(button)
@@ -1045,6 +1081,8 @@ function MainFrame:Create()
         if not Shatter.Disenchant or not Shatter.Disenchant:IsActionEdge(mouseButton, down) then return end
         -- The secure action has run (or not); never leave the button armed.
         Shatter.Disenchant:Disarm(button)
+        -- Hidden (a bound key): Mail's take or send doesn't run either.
+        if not button:IsVisible() then return end
         if self.activeView == "mail" and Shatter.MailMode then
             local label = Shatter.MailMode:GetPrimaryState()
             if label ~= "Shatter Next" then
@@ -1054,6 +1092,7 @@ function MainFrame:Create()
         self:Update()
     end)
     self.primary = primary
+    self:RefreshHotkey()
     if Shatter.Disenchant then Shatter.Disenchant:SetButton(primary) end
 
     self.resizeGrip = self:CreateResizeGrip(frame)

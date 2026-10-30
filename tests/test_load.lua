@@ -19,7 +19,9 @@ H.eq(#WoW.actions, 0, "no gameplay actions")
 
 for name in pairs(WoW.globalWrites) do
     -- LibStub: the embedded LibGlass-1.0's bundled copy, shared by design.
-    H.check(name == "Shatter" or name == "LibStub" or name:match("^SLASH_SHATTER%d$"), "only declared globals written: " .. name)
+    -- BINDING_NAME_*: Shatter Next's label in Key Bindings (#35).
+    H.check(name == "Shatter" or name == "LibStub" or name:match("^SLASH_SHATTER%d$")
+        or name == "BINDING_NAME_CLICK ShatterNextButton:LeftButton", "only declared globals written: " .. name)
 end
 
 H.done("test_load")

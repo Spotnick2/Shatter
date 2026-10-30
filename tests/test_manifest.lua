@@ -89,4 +89,14 @@ local deploy = assert(H.readFile("Tools/deploy.ps1"))
 H.check(deploy:find("_forever_", 1, true), "deploy targets _forever_")
 H.check(deploy:find("Refusing to deploy the Forever build into the TBC", 1, true), "deploy refuses _anniversary_")
 
+-- Bindings.xml (#35): the client loads it from the addon folder by name, so it
+-- isn't in the TOC, it ships (not in .pkgmeta's ignore list), and the
+-- TOC-driven deploy copies it explicitly.
+H.check(io.open("Bindings.xml") ~= nil, "Bindings.xml exists")
+local inToc = false
+for _, file in ipairs(H.tocFiles()) do if file:lower() == "bindings.xml" then inToc = true end end
+H.check(not inToc, "...and isn't in the TOC")
+H.check(not ignored["Bindings.xml"], "...and isn't ignored by the packager")
+H.check(deploy:find('$files += "Bindings.xml"', 1, true), "...and the deploy copies it")
+
 H.done("test_manifest")

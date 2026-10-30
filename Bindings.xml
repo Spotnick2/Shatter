@@ -1,0 +1,7 @@
+<Bindings>
+	<!-- Shatter Next (#35): a key clicks the secure button like the left mouse
+	     button, through the same PreClick/PostClick path. The client loads
+	     this file from the addon folder by name, never from the TOC. The label
+	     is the BINDING_NAME_* global set in UI/MainFrame.lua. -->
+	<Binding name="CLICK ShatterNextButton:LeftButton" category="Shatter"/>
+</Bindings>
