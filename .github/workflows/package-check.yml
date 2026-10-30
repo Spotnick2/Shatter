@@ -111,6 +111,8 @@ jobs:
           {
             echo "Shatter/Shatter.toc"
             echo "Shatter/LICENSE"
+            # Loaded from the addon folder by name, never from the TOC (#35).
+            echo "Shatter/Bindings.xml"
             tr -d '\r' < Shatter.toc | grep -v '^#' | grep -v '^[[:space:]]*$' | grep -v '^Libs\\' | tr '\' '/' | sed 's#^#Shatter/#'
             echo "$lib/LibGlass-1.0.xml"
             echo "$lib/LICENSE"
