@@ -14,6 +14,19 @@
 --   Every spellcast event of the player, UI_ERROR_MESSAGE (with
 --   GetGameMessageInfo when present), LOOT_READY and BAG_UPDATE_DELAYED are
 --   recorded in order. Conclusions only as far as the observations go.
+-- The rest of Shatter's in-game checks (#31), one procedure each:
+--   loot (#10)  the loot events' order and timing for a Disenchant, with
+--               autoloot on, off (slow to loot), and two quick clicks;
+--   mail (#26)  MailFrame / InboxFrame after the mailbox closes, and Shatter's
+--               status then and after reopening;
+--   guid        an item's GUID across a drag, a bag sort and a /reload;
+--   next        Shatter Next: one left click, one cast, disarmed after; a
+--               right click and a press released off the button cast nothing;
+--   looks (#28, #24)  each look over a bright and a dark background, and the
+--               Mail launch panel, as screenshots;
+--   tips (#27)  where the "Disenchants into" lines show, and the modifier
+--               setting on an open tooltip, as screenshots.
+-- looks and tips change Shatter's settings through /shatter and put them back.
 -- Commands: /fp sh skill, watch on|off, events, clear.
 
 local ADDON, NS = ...
@@ -83,7 +96,7 @@ local recorder = CreateFrame("Frame")
 local WATCHED = {
     "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_SUCCEEDED",
     "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_FAILED_QUIET", "UNIT_SPELLCAST_INTERRUPTED",
-    "UI_ERROR_MESSAGE", "LOOT_READY", "BAG_UPDATE_DELAYED",
+    "UI_ERROR_MESSAGE", "LOOT_READY", "LOOT_OPENED", "LOOT_CLOSED", "BAG_UPDATE_DELAYED",
 }
 local watching = false
 
@@ -105,6 +118,13 @@ local function record(event, ...)
         local spellID = event == "UNIT_SPELLCAST_SENT" and select(4, ...) or select(3, ...)
         text = "spell " .. Show(spellID)
         if spellID == DISENCHANT then text = text .. " (Disenchant)" end
+    elseif event == "LOOT_READY" then
+        text = "autoloot " .. Show((...))
+    elseif event == "LOOT_OPENED" then
+        local autoLoot, isFromItem = ...
+        text = ("autoLoot %s, isFromItem %s"):format(Show(autoLoot), Show(isFromItem))
+    elseif event == "CLICK" then
+        text = ...
     else
         text = ""
     end
@@ -192,6 +212,362 @@ local REFUSE = {
 }
 Probe:Steps("refuse", REFUSE)
 
+-- One of Shatter's settings (Shatter is a global, Core.lua), or nil.
+local function setting(key)
+    local addon = rawget(_G, "Shatter")
+    local db = type(addon) == "table" and addon.Database
+    local settings = db and db:GetSettings()
+    return type(settings) == "table" and settings[key] or nil
+end
+
+-- A /shatter command, as the owner would type it (Shatter keeps nothing in _G).
+local function shatter(args)
+    local fn = SlashCmdList and SlashCmdList.SHATTER
+    if type(fn) ~= "function" then say("/shatter: Shatter isn't loaded") return false end
+    fn(args)
+    return true
+end
+
+local function autoLoot()
+    local ok, on = Probe:Try("C_CVar.GetCVarBool", C_CVar and C_CVar.GetCVarBool, "autoLootDefault")
+    return ok and on == true
+end
+
+-- Everything since `t0` as one line, timed from the first event:
+-- "SENT +0.00 > SUCCEEDED +1.51 > LOOT_READY +1.60 (autoloot true) > ...".
+local function timeline(t0)
+    local parts, first = {}, nil
+    for _, r in ipairs(recorded) do
+        if r.t >= t0 then
+            first = first or r.t
+            local name = r.event:gsub("^UNIT_SPELLCAST_", "")
+            parts[#parts + 1] = ("%s +%.2f%s"):format(name, r.t - first, r.text ~= "" and (" (" .. r.text .. ")") or "")
+        end
+    end
+    return table.concat(parts, " > ")
+end
+
+-- Counts since `t0`: Disenchants sent, succeeded and failed, loot windows
+-- closed, and when the last event came.
+local function tally(t0)
+    local c = { sent = 0, succeeded = 0, failed = 0, lootClosed = 0, last = t0 }
+    for _, r in ipairs(recorded) do
+        if r.t >= t0 then
+            c.last = r.t
+            if r.disenchant and r.event == "UNIT_SPELLCAST_SENT" then c.sent = c.sent + 1 end
+            if r.disenchant and r.event == "UNIT_SPELLCAST_SUCCEEDED" then c.succeeded = c.succeeded + 1 end
+            if r.disenchant and (r.event == "UNIT_SPELLCAST_FAILED" or r.event == "UNIT_SPELLCAST_INTERRUPTED") then
+                c.failed = c.failed + 1
+            end
+            if r.event == "LOOT_CLOSED" then c.lootClosed = c.lootClosed + 1 end
+        end
+    end
+    return c
+end
+
+-- A loot step: done once `want` Disenchants succeeded since the step began
+-- (and a loot window closed, when `closed`), then nothing came for SETTLE
+-- seconds, so a late loot window is still caught. The result is the timeline.
+local SETTLE = 3
+local function settled(key, want, closed)
+    return function()
+        if not watching then watch(true) end
+        marks[key] = marks[key] or GetTime()
+        local c = tally(marks[key])
+        if c.succeeded >= want and (not closed or c.lootClosed > 0) and GetTime() - c.last >= SETTLE then
+            return true, timeline(marks[key])
+        end
+        if c.succeeded >= want and (not closed or c.lootClosed > 0) then return false, "waiting for late events" end
+        return false, ("%d of %d Disenchant(s)%s"):format(c.succeeded, want,
+            (closed and c.succeeded >= want) and ", loot window still open" or "")
+    end
+end
+
+local LOOT = {
+    title = "Loot events around a Disenchant (#10)",
+    { text = "Recording casts and loot events. Also type /shatter trace once (chat says \"Trace logging "
+        .. "enabled.\"), so Shatter's own view goes to its saved log.", auto = true,
+      run = function() freshRun() watch(true) return autoLoot() end },
+    { text = "Turn Auto Loot ON (Esc > Options > Controls), then press Next.",
+      check = function() return autoLoot(), "autoLootDefault" end },
+    { text = "Disenchant one green with Shatter Next, and loot nothing else until this step finishes.",
+      wait = settled("auto", 1), timeout = 300 },
+    { text = "Turn Auto Loot OFF, then press Next.",
+      check = function() return not autoLoot(), "autoLootDefault" end },
+    { text = "Disenchant one green with Shatter Next. When the loot window opens, count to three, then "
+        .. "take the materials.", wait = settled("manual", 1, true), timeout = 300 },
+    { text = "Did Shatter count those materials (its status line, or the session summary)?", ask = true,
+      screenshot = "Shatter after a slow manual loot" },
+    { text = "Turn Auto Loot back ON. Queue at least two items, then click Shatter Next, and click it "
+        .. "again the moment it allows.", wait = settled("quick", 2), timeout = 300 },
+    { text = "Type /reload to save the results.", reload = true },
+}
+Probe:Steps("loot", LOOT)
+
+-- MailFrame and InboxFrame, shown and visible.
+local function mailFrames()
+    local function state(name)
+        local f = rawget(_G, name)
+        if not f then return name .. " absent" end
+        return ("%s shown %s visible %s"):format(name, Show(f:IsShown()), Show(f:IsVisible()))
+    end
+    local text = state("MailFrame") .. ", " .. state("InboxFrame")
+    say("mail frames: " .. text)
+    return text
+end
+
+local MAIL = {
+    title = "The mailbox after it closes (#26)",
+    { text = "Open Shatter (/shatter). Go to a mailbox and open it.", event = "MAIL_SHOW" },
+    { text = "Reading the mail frames.", auto = true, run = function() freshRun() return mailFrames() end },
+    { text = "In Shatter's Mail panel, start a session. Then close the mailbox (Esc).", event = "MAIL_CLOSED" },
+    { text = "Reading the mail frames a second after the close.",
+      wait = function()
+          marks.mailClosed = marks.mailClosed or GetTime()
+          if GetTime() - marks.mailClosed < 1 then return false, "reading in a second" end
+          return true, mailFrames()
+      end,
+      check = function()
+          local f = rawget(_G, "MailFrame")
+          return f ~= nil and not f:IsVisible(), "MailFrame hidden"
+      end, timeout = 30 },
+    { text = "Does Shatter's status ask you to open the mailbox (\"Open the mailbox to continue Mail Mode.\" "
+        .. "or \"Mailbox not detected…\")?", ask = true, screenshot = "Shatter, mailbox closed" },
+    { text = "Open the mailbox again.", event = "MAIL_SHOW" },
+    { text = "Did the session carry on (the status no longer asks for the mailbox)?", ask = true,
+      screenshot = "Shatter, mailbox reopened" },
+    { text = "Type /reload to save the results.", reload = true },
+}
+Probe:Steps("mail", MAIL)
+
+-- The GUID at a bag slot, or nil.
+local function guidAt(bag, slot)
+    local loc = ItemLocation and ItemLocation:CreateFromBagAndSlot(bag, slot)
+    if not (loc and C_Item.DoesItemExist(loc)) then return nil end
+    local ok, guid = Probe:Try("C_Item.GetItemGUID", C_Item.GetItemGUID, loc)
+    if ok and type(guid) == "string" and not secret(guid) then return guid end
+    return nil
+end
+
+-- Where the followed GUID is now: bag, slot and item ID, or nil.
+local function findHeld()
+    local held = ShatterProbeDB and ShatterProbeDB.heldGUID
+    if not held then say("guid: nothing followed yet") return nil end
+    for bag = 0, NUM_BAG_SLOTS or 4 do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            if guidAt(bag, slot) == held then
+                local info = C_Container.GetContainerItemInfo(bag, slot)
+                local itemID = type(info) == "table" and info.itemID or nil
+                say(("guid %s: bag %d slot %d, item %s"):format(held, bag, slot, Show(itemID)))
+                return bag, slot, itemID
+            end
+        end
+    end
+    say(("guid %s: not in the bags"):format(held))
+    return nil
+end
+
+local GUID = {
+    title = "An item's GUID across a drag, a sort and a /reload",
+    { text = "Put a green weapon or armor piece in the first slot of your backpack, then press Run.",
+      button = "Run", run = function()
+          local guid = guidAt(0, 1)
+          ShatterProbeDB.heldGUID = guid
+          return findHeld()
+      end, check = function() return ShatterProbeDB.heldGUID ~= nil, "a GUID in backpack slot 1" end },
+    { text = "Drag it to another slot (any bag), then press Run.", button = "Run", run = findHeld,
+      check = function()
+          local bag, slot = findHeld()
+          return bag ~= nil and not (bag == 0 and slot == 1), "found elsewhere"
+      end },
+    { text = "Sort your bags (the backpack's sort button), then press Run.", button = "Run", run = findHeld,
+      check = function() return findHeld() ~= nil, "found after the sort" end },
+    { text = "Type /reload.", reload = true },
+    { text = "Looking for it again.", auto = true, run = findHeld,
+      check = function() return findHeld() ~= nil, "found after the /reload" end },
+}
+Probe:Steps("guid", GUID)
+
+-- Shatter Next: the secure button under ShatterMainFrame (the only one with
+-- useOnKeyDown set). Every click edge is recorded, with the button's action
+-- attributes after Shatter's PreClick (armed?) and PostClick (disarmed?).
+local nextButton
+local function attrs(b)
+    return ("type %s, spell %s, bag %s, slot %s"):format(Show(b:GetAttribute("*type1")), Show(b:GetAttribute("*spell1")),
+        Show(b:GetAttribute("*target-bag1")), Show(b:GetAttribute("*target-slot1")))
+end
+local function findNext()
+    if nextButton then return nextButton end
+    local function walk(frame)
+        for _, child in ipairs({ frame:GetChildren() }) do
+            if child.GetAttribute and child:GetAttribute("useOnKeyDown") == false then return child end
+            local found = walk(child)
+            if found then return found end
+        end
+    end
+    local main = rawget(_G, "ShatterMainFrame")
+    nextButton = main and walk(main) or nil
+    if nextButton then
+        for _, phase in ipairs({ "PreClick", "PostClick" }) do
+            nextButton:HookScript(phase, function(b, mouse, down)
+                if watching then record("CLICK", ("%s %s %s: %s"):format(phase, Show(mouse, true), down and "down" or "up", attrs(b))) end
+            end)
+        end
+    end
+    say("Shatter Next " .. (nextButton and "found" or "not found (open Shatter first)"))
+    return nextButton
+end
+
+-- Disenchants sent since `key`'s mark, the timeline, and whether the button
+-- is disarmed now; then the mark moves on, for the next step.
+local function sinceMark(key, nextKey)
+    local t0 = marks[key] or GetTime()
+    local c = tally(t0)
+    local disarmed = nextButton ~= nil and nextButton:GetAttribute("*type1") == nil
+    marks[nextKey] = GetTime()
+    return c.sent, disarmed, timeline(t0)
+end
+
+local NEXT = {
+    title = "Shatter Next: one click, one cast",
+    { text = "Open Shatter (/shatter) in the Solo view, with at least two items queued, then press Find.",
+      button = "Find", run = function() freshRun() watch(true) return findNext() ~= nil end,
+      check = function() return nextButton ~= nil, "Shatter Next found" end },
+    { text = "Left-click Shatter Next once.",
+      wait = function()
+          marks.left = marks.left or GetTime()
+          local c = tally(marks.left)
+          if c.succeeded + c.failed == 0 or GetTime() - c.last < 2 then return false, "waiting for the cast" end
+          local sent, disarmed, line = sinceMark("left", "right")
+          return true, sent, disarmed, line
+      end,
+      check = function()
+          local c = tally(marks.left)
+          local disarmed = nextButton:GetAttribute("*type1") == nil
+          return c.sent == 1 and disarmed, ("%d Disenchant(s) sent, %s"):format(c.sent, disarmed and "disarmed" or "STILL ARMED")
+      end, timeout = 300 },
+    { text = "Right-click Shatter Next once, then press Done.", button = "Done",
+      run = function() return sinceMark("right", "off") end,
+      check = function() return tally(marks.right).sent == 0, "nothing cast" end },
+    { text = "Press the left button on Shatter Next, move the mouse off it, release, then press Done.",
+      button = "Done", run = function() return sinceMark("off", "after") end,
+      check = function() return tally(marks.off).sent == 0, "nothing cast" end },
+    { text = "Type /reload to save the results.", reload = true },
+}
+Probe:Steps("next", NEXT)
+
+-- The settings looks and tips change, put back at their end (also after a
+-- /reload, from ShatterProbeDB).
+local function remember(key)
+    ShatterProbeDB.restore = ShatterProbeDB.restore or {}
+    ShatterProbeDB.restore[key] = setting(key)
+    say(("Shatter's %s was %s"):format(key, Show(ShatterProbeDB.restore[key])))
+    return ShatterProbeDB.restore[key]
+end
+local function putBack(key)
+    local value = ShatterProbeDB.restore and ShatterProbeDB.restore[key]
+    if value == nil then return nil end
+    shatter(key .. " " .. value)
+    return setting(key)
+end
+
+local function skin(name)
+    return function()
+        shatter("skin " .. name)
+        return setting("skin")
+    end
+end
+
+local LOOK_NAMES = { "forever", "clear", "smoked", "flat" }
+local LOOKS = {
+    title = "Shatter's looks (#28, #24)",
+    { text = "Open Shatter (/shatter) and put its window over a bright background (snow, sky, a lit wall). "
+        .. "Then press Run.", button = "Run", run = function() return remember("skin") end },
+}
+for _, background in ipairs({ "bright", "dark" }) do
+    if background == "dark" then
+        LOOKS[#LOOKS + 1] = { text = "Now move the window over a dark background (a night sky, a cave), then press Next." }
+    end
+    for _, name in ipairs(LOOK_NAMES) do
+        LOOKS[#LOOKS + 1] = { text = ("Press Run to switch to %s (%s background)."):format(name, background),
+            button = "Run", run = skin(name), screenshot = background .. ", " .. name }
+    end
+end
+LOOKS[#LOOKS + 1] = { text = "Go to a mailbox and open it.", event = "MAIL_SHOW" }
+-- The client shows MailFrame after MAIL_SHOW (#26), so the shot waits for Next.
+LOOKS[#LOOKS + 1] = { text = "Once Shatter's Mail launch panel shows beside the mailbox, press Next.",
+    screenshot = "mail launch panel" }
+LOOKS[#LOOKS + 1] = { text = "Press Run to put your look back.", button = "Run", run = function() return putBack("skin") end }
+LOOKS[#LOOKS + 1] = { text = "Type /reload to save the results.", reload = true }
+Probe:Steps("looks", LOOKS)
+
+-- A tooltip showing an item (with `frame` shown, when given): its name, the
+-- item ID and its line count; nil otherwise.
+local function itemTip(tipName, frame)
+    local tip = rawget(_G, tipName)
+    if not (tip and tip:IsVisible()) then return nil end
+    if frame then
+        local f = rawget(_G, frame)
+        if not (f and f:IsVisible()) then return nil end
+    end
+    local data = tip.GetPrimaryTooltipData and tip:GetPrimaryTooltipData()
+    if type(data) ~= "table" or secret(data) or data.type ~= Enum.TooltipDataType.Item then return nil end
+    return data.id, tip:NumLines()
+end
+
+local function tipWait(tipName, frame)
+    return function()
+        local itemID, lines = itemTip(tipName, frame)
+        if not itemID then return false, "waiting for an item tooltip" .. (frame and (" with " .. frame .. " open") or "") end
+        return true, tipName, itemID, lines
+    end
+end
+
+-- With the modifier setting: the same item's tooltip, first without a
+-- modifier, then with one held, and more lines with it.
+local function modifierWait(key, tipName)
+    return function()
+        local itemID, lines = itemTip(tipName)
+        if not itemID then return false, "waiting for an item tooltip" end
+        local base = marks[key]
+        if not IsModifierKeyDown() then
+            marks[key] = { itemID = itemID, lines = lines }
+            return false, ("%d lines without a modifier: now hold Shift"):format(lines)
+        end
+        if not base or base.itemID ~= itemID then return false, "first without a modifier" end
+        if lines <= base.lines then return false, ("still %d lines with Shift held"):format(lines) end
+        return true, tipName, itemID, base.lines, lines
+    end
+end
+
+local TIPS = {
+    title = "Disenchant tooltips (#27)",
+    { text = "Setting Shatter's tooltips to always.", auto = true,
+      run = function() freshRun() remember("tooltip") shatter("tooltip always") return setting("tooltip") end },
+    { text = "Hover a green or better weapon or armor piece in your bags, and keep the mouse on it.",
+      wait = tipWait("GameTooltip"), timeout = 300, screenshot = "bags" },
+    { text = "Click an item link in chat (a green or better weapon or armor) so its own tooltip opens.",
+      wait = tipWait("ItemRefTooltip"), timeout = 300, screenshot = "chat link" },
+    { text = "At a vendor, hover one of its weapons or armor pieces (Skip if none here).",
+      wait = tipWait("GameTooltip", "MerchantFrame"), timeout = 300, screenshot = "vendor" },
+    { text = "At the bank, hover a weapon or armor piece in the bank (Skip if none here).",
+      wait = tipWait("GameTooltip", "BankFrame"), timeout = 300, screenshot = "bank" },
+    { text = "At the auction house, hover a weapon or armor in its list (Skip if none here).",
+      wait = tipWait("GameTooltip", "AuctionHouseFrame"), timeout = 300, screenshot = "auction house" },
+    { text = "In a loot window, hover a green or better weapon or armor (Skip if none here).",
+      wait = tipWait("GameTooltip", "LootFrame"), timeout = 300, screenshot = "loot" },
+    { text = "Setting Shatter's tooltips to only with Shift, Alt or Ctrl.", auto = true,
+      run = function() shatter("tooltip modifier") return setting("tooltip") end },
+    { text = "Hover a bag item without any modifier, then, still hovering, hold Shift.",
+      wait = modifierWait("modBag", "GameTooltip"), timeout = 300, screenshot = "Shift on a bag item" },
+    { text = "Click an item link in chat, then hold Shift (the mouse anywhere).",
+      wait = modifierWait("modLink", "ItemRefTooltip"), timeout = 300, screenshot = "Shift on a chat link" },
+    { text = "In these screenshots' tooltips, was any line cut off or too long (long material names)?", ask = true },
+    { text = "Putting your tooltip setting back.", auto = true, run = function() return putBack("tooltip") end },
+    { text = "Type /reload to save the results.", reload = true },
+}
+Probe:Steps("tips", TIPS)
+
 Probe:Command("skill", function() readSkill() end, "read Enchanting both ways")
 Probe:Command("watch", function(args)
     watch(args ~= "off")
@@ -215,4 +591,5 @@ boot:SetScript("OnEvent", function(_, _, name)
 end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,
-             recorded = recorded, REFUSE = REFUSE }
+             recorded = recorded, REFUSE = REFUSE, LOOT = LOOT, MAIL = MAIL, GUID = GUID, NEXT = NEXT,
+             LOOKS = LOOKS, TIPS = TIPS, timeline = timeline, findNext = findNext }

@@ -112,6 +112,85 @@ H.eq((R[4].wait()), false, "run 2: the flagged step waits, the old refusal forgo
 WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-6", 13262)
 H.eq((R[2].wait()), true, "run 2: a new success finishes the control")
 
+-- 9. loot (#10): the timeline, timed from the first event, and a step that
+-- waits out late events (3 s with nothing new).
+WoW.advance(5)
+local L = T.LOOT
+WoW.cvars.autoLootDefault = "1"
+H.eq(L[1].run(), true, "loot: starts recording and reads Auto Loot")
+H.eq((L[2].check()), true, "...the Auto Loot ON step checks it")
+local w = L[3].wait
+H.eq((w()), false, "...waits for a Disenchant")
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Green Vest", "c7", 13262)
+WoW.advance(1.5)
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c7", 13262)
+WoW.advance(0.1)
+WoW.fire("BAG_UPDATE_DELAYED")
+local line
+done, line = w()
+H.check(not done and line == "waiting for late events", "...then waits out late events")
+WoW.advance(0.4)
+WoW.fire("LOOT_READY", true)
+WoW.fire("LOOT_OPENED", true, true)
+WoW.fire("LOOT_CLOSED")
+WoW.advance(2.9)
+H.eq((w()), false, "...each event restarts the wait")
+WoW.advance(0.2)
+done, line = w()
+H.eq(done, true, "...done 3 s after the last event")
+H.eq(line, "SENT +0.00 (spell 13262 (Disenchant)) > SUCCEEDED +1.50 (spell 13262 (Disenchant)) > BAG_UPDATE_DELAYED +1.60"
+    .. " > LOOT_READY +2.00 (autoloot true) > LOOT_OPENED +2.00 (autoLoot true, isFromItem true) > LOOT_CLOSED +2.00",
+    "...the timeline: each event, its time and its arguments")
+WoW.cvars.autoLootDefault = "0"
+H.eq((L[4].check()), true, "the Auto Loot OFF step checks it")
+w = L[5].wait
+w()
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c8", 13262)
+WoW.advance(4)
+done, line = w()
+H.check(not done and line:find("loot window still open", 1, true), "manual loot: waits for the window to close")
+WoW.fire("LOOT_CLOSED")
+WoW.advance(3)
+H.eq((w()), true, "...then finishes")
+w = L[7].wait
+w()
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c9", 13262)
+WoW.advance(4)
+done, line = w()
+H.check(not done and line == "1 of 2 Disenchant(s)", "two quick clicks: waits for both")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c10", 13262)
+WoW.advance(3)
+H.eq((w()), true, "...then finishes")
+
+-- 10. mail (#26): the frames, a second after the close.
+local M = T.MAIL
+MailFrame:Show()
+H.eq(M[2].run(), "MailFrame shown true visible true, InboxFrame shown true visible true", "mail: the frames while open")
+MailFrame:Hide()
+H.eq((M[4].wait()), false, "...after the close, waits a second")
+WoW.advance(1)
+done, line = M[4].wait()
+H.check(done and line == "MailFrame shown false visible false, InboxFrame shown true visible false",
+    "...then reads #26's state: InboxFrame shown, not visible (" .. tostring(line) .. ")")
+H.eq((M[4].check()), true, "...and checks MailFrame is hidden")
+
+-- 11. guid: followed across a drag, a sort and a /reload.
+local G = T.GUID
+WoW.SetBagItem(0, 1, { itemID = 2589 })
+WoW.bags[1].size = 4
+G[1].run()
+H.check(G[1].check() and ShatterProbeDB.heldGUID:find("^Item%-"), "guid: backpack slot 1's GUID is followed")
+WoW.MoveBagItem(0, 1, 1, 3)
+local bag, slot, itemID = G[2].run()
+H.check(bag == 1 and slot == 3 and itemID == 2589, "...found where it was dragged")
+H.eq((G[2].check()), true, "...and the step passes")
+WoW.MoveBagItem(1, 3, 0, 5)
+H.eq((G[3].check()), true, "...found after a sort")
+WoW.bags[0][5] = nil
+WoW.SetBagItem(0, 5, { itemID = 2589 })
+H.eq((G[5].check()), false, "a new instance of the item (a new GUID) fails")
+H.eq(G[5].run(), nil, "...nothing found")
+
 -- 8. The procedures and commands.
 SlashCmdList.FOREVERPROBE("steps sh skill")
 local rec = ForeverProbeDB.steps and ForeverProbeDB.steps.records and ForeverProbeDB.steps.records["ShatterProbe/skill"]
@@ -125,6 +204,81 @@ SlashCmdList.FOREVERPROBE("sh clear")
 SlashCmdList.FOREVERPROBE("sh skill")
 H.check(logHas("Enchanting:"), "/fp sh skill logs after a clear")
 
+for _, name in ipairs({ "loot", "mail", "guid", "next", "looks", "tips" }) do
+    SlashCmdList.FOREVERPROBE("steps sh " .. name)
+    rec = ForeverProbeDB.steps.records["ShatterProbe/" .. name]
+    H.check(rec and rec.status == "active", "/fp steps sh " .. name .. " starts")
+    SlashCmdList.FOREVERPROBE("steps stop")
+end
+
 H.eq(#WoW.messages, chatBefore, "nothing reached chat")
+
+-- 12. With Shatter loaded: next, looks and tips drive it from outside, as
+-- the owner would (its main frame, /shatter).
+local VEST = 2589
+WoW.enchanter()
+WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.bags[0][1] = nil
+WoW.SetBagItem(0, 3, { itemID = VEST })
+WoW.loadAddon()
+WoW.flushTimers()
+Shatter.MainFrame:Show()
+local N = T.NEXT
+H.eq(N[1].run(), true, "next: finds Shatter Next under ShatterMainFrame")
+local button = T.findNext()
+H.check(button == Shatter.MainFrame.primary, "...the secure primary button")
+H.eq((N[2].wait()), false, "...waits for the click's cast")
+WoW.click(button, "LeftButton")
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Green Vest", "c11", 13262)
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "c11", 13262)
+WoW.advance(2)
+local sent, disarmed
+done, sent, disarmed, line = N[2].wait()
+H.check(done and sent == 1 and disarmed, "...one Disenchant sent, disarmed after")
+H.check(line:find('PreClick LeftButton up: type "spell", spell 13262, bag 0, slot 3', 1, true)
+    and line:find("PostClick LeftButton up: type nil, spell nil, bag nil, slot nil", 1, true),
+    "...armed on the up edge's PreClick, disarmed by its PostClick (" .. line .. ")")
+H.eq((N[2].check()), true, "...and the step passes")
+WoW.click(button, "RightButton")
+sent = N[3].run()
+H.eq(sent, 0, "a right click: nothing sent")
+H.eq((N[3].check()), true, "...the step passes")
+WoW.clickEdge(button, "LeftButton", true)
+WoW.fire("UNIT_SPELLCAST_SENT", "player", "Green Vest", "c12", 13262)   -- as if it had cast
+H.eq((N[4].run()), 1, "released off the button, a cast would be counted")
+H.eq((N[4].check()), false, "...and fail the step")
+
+local LK = T.LOOKS
+H.eq(LK[1].run(), "forever", "looks: remembers the look")
+local switched
+for _, step in ipairs(LK) do
+    if step.text:find("switch to smoked (bright", 1, true) then switched = step.run() end
+end
+H.eq(switched, "smoked", "...switches through /shatter skin")
+H.eq(LK[#LK - 1].run(), "forever", "...and puts it back")
+
+local TP = T.TIPS
+H.eq(TP[1].run(), "always", "tips: sets the tooltips to always")
+WoW.showItemTooltip(VEST)
+local tipName, tipItem, lines
+done, tipName, tipItem, lines = TP[2].wait()
+H.check(done and tipName == "GameTooltip" and tipItem == VEST and lines > 1, "...a bag item's tooltip, with Shatter's lines")
+H.eq((TP[4].wait()), false, "...the vendor step waits for MerchantFrame")
+CreateFrame("GameTooltip", "ItemRefTooltip", UIParent)   -- ItemRef.xml: on the client from login
+WoW.showItemTooltip(VEST, ItemRefTooltip)
+H.eq((TP[3].wait()), true, "...a chat link's tooltip")
+H.eq(TP[8].run(), "modifier", "...then to modifier")
+WoW.showItemTooltip(VEST)
+done, line = TP[9].wait()
+H.check(not done and line:find("without a modifier", 1, true), "...without Shift: waits")
+WoW.shift = true
+done = TP[9].wait()
+H.eq(done, false, "...Shift held, the same lines: still waits")
+WoW.showItemTooltip(VEST)
+local before, after
+done, tipName, tipItem, before, after = TP[9].wait()
+H.check(done and after > before, "...rebuilt with Shift: more lines, done")
+WoW.shift = false
+H.eq(TP[12].run(), "always", "...and the setting goes back")
 
 H.done("test_probe")
