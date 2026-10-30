@@ -47,6 +47,8 @@ An item's tooltip shows what it disenchants into: each material with its chance 
 
 Skip leaves the selected item out until a /reload. Ignore keeps it out for good: Settings > Ignored items lists those items, with Remove for each and Reset all, and `/shatter unignore` removes one from chat.
 
+Shatter Next can be bound to a key under Options > Keybindings > Shatter: one press disenchants the selected item, like a click. The key does nothing while Shatter's window is closed.
+
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
 
 `/shatter sim` toggles development simulation mode. In simulation mode Shatter records fake disenchant results and advances through the queue without casting Disenchant or consuming items. `/shatter simreset` makes simulated items visible again for another test pass.

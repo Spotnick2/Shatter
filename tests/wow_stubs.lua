@@ -533,9 +533,10 @@ local function runSpell(w, button)
     end
 end
 
--- One mouse edge. Returns true when the secure action ran.
-function WoW.clickEdge(w, button, down)
-    if not w:IsVisible() or not w.enabled then return false end
+-- One mouse edge. Returns true when the secure action ran. A mouse can't
+-- click what isn't visible; a bound key can (`viaBinding`, below).
+function WoW.clickEdge(w, button, down, viaBinding)
+    if (not viaBinding and not w:IsVisible()) or not w.enabled then return false end
     if not registeredFor(w, button, down) then return false end
     -- A script error is reported and the click carries on: an error in
     -- PreClick does not cancel the secure action that follows it.
@@ -570,6 +571,17 @@ function WoW.clickEdge(w, button, down)
     end
     if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
     return acted
+end
+
+-- A key bound with `CLICK <name>:<button>` (Bindings.xml): its press and
+-- release reach the named button, even hidden (measured on Forever by
+-- Apotheca, 70009). `repeats` extra down edges model a held key.
+function WoW.pressBinding(action, repeats)
+    local name, button = action:match("^CLICK ([^:]+):(%w+)$")
+    local w = assert(name and rawget(_G, name), "no button for binding " .. tostring(action))
+    local acted = WoW.clickEdge(w, button, true, true)
+    for _ = 1, repeats or 0 do acted = WoW.clickEdge(w, button, true, true) or acted end
+    return WoW.clickEdge(w, button, false, true) or acted
 end
 
 -- A whole press: down edge, then up edge.
@@ -633,6 +645,9 @@ function IsModifierKeyDown() return WoW.shift or WoW.alt or WoW.ctrl or false en
 function GetCursorPosition() return WoW.cursor[1], WoW.cursor[2] end
 function GetBuildInfo() return "1.60.1", WoW.build, "Oct 6 2026", 16001, "", " " end
 function GetCVarBool(name) return WoW.cvars[name] == "1" end
+-- Key bindings: WoW.bindings[action] = key (GetBindingKey, dump).
+WoW.bindings = {}
+function GetBindingKey(action) return WoW.bindings[action] end
 function GetCVar(name) return WoW.cvars[name] end
 C_CVar = {
     GetCVar = function(name) return WoW.cvars[name] end,
@@ -957,7 +972,8 @@ local PROTECTED_GLOBALS = {
 }
 
 -- The only globals the addon may create.
-local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true, LibStub = true }
+local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true, LibStub = true,
+    ["BINDING_NAME_CLICK ShatterNextButton:LeftButton"] = true }
 
 function WoW.allowGlobal(name) KNOWN_ABSENT[name] = true end
 

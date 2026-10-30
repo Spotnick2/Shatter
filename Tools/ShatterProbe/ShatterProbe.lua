@@ -429,30 +429,45 @@ local function sinceMark(key, nextKey)
     return c.sent, disarmed, timeline(t0)
 end
 
+-- A step that waits for one click's cast (or failure) and 2 s of quiet,
+-- counting from `key`'s mark; then the mark moves to `nextKey`.
+local function castWait(key, nextKey)
+    return function()
+        marks[key] = marks[key] or GetTime()
+        local c = tally(marks[key])
+        if c.succeeded + c.failed == 0 or GetTime() - c.last < 2 then return false, "waiting for the cast" end
+        local sent, disarmed, line = sinceMark(key, nextKey)
+        return true, sent, disarmed, line
+    end
+end
+local function castCheck(key)
+    return function()
+        local c = tally(marks[key])
+        local disarmed = nextButton:GetAttribute("*type1") == nil
+        return c.sent == 1 and disarmed, ("%d Disenchant(s) sent, %s, ActionButtonUseKeyDown %s"):format(c.sent,
+            disarmed and "disarmed" or "STILL ARMED", Show(GetCVar("ActionButtonUseKeyDown")))
+    end
+end
+
 local NEXT = {
     title = "Shatter Next: one click, one cast",
     { text = "Open Shatter (/shatter) in the Solo view, with at least two items queued, then press Find.",
       button = "Find", run = function() freshRun() watch(true) return findNext() ~= nil end,
       check = function() return nextButton ~= nil, "Shatter Next found" end },
-    { text = "Left-click Shatter Next once.",
-      wait = function()
-          marks.left = marks.left or GetTime()
-          local c = tally(marks.left)
-          if c.succeeded + c.failed == 0 or GetTime() - c.last < 2 then return false, "waiting for the cast" end
-          local sent, disarmed, line = sinceMark("left", "right")
-          return true, sent, disarmed, line
-      end,
-      check = function()
-          local c = tally(marks.left)
-          local disarmed = nextButton:GetAttribute("*type1") == nil
-          return c.sent == 1 and disarmed, ("%d Disenchant(s) sent, %s"):format(c.sent, disarmed and "disarmed" or "STILL ARMED")
-      end, timeout = 300 },
+    { text = "Left-click Shatter Next once.", wait = castWait("left", "right"), check = castCheck("left"), timeout = 300 },
     { text = "Right-click Shatter Next once, then press Done.", button = "Done",
       run = function() return sinceMark("right", "off") end,
       check = function() return tally(marks.right).sent == 0, "nothing cast" end },
     { text = "Press the left button on Shatter Next, move the mouse off it, release, then press Done.",
-      button = "Done", run = function() return sinceMark("off", "after") end,
+      button = "Done", run = function() return sinceMark("off", "key") end,
       check = function() return tally(marks.off).sent == 0, "nothing cast" end },
+    -- #35: Shatter acts on the release (useOnKeyDown pinned false); a key
+    -- must deliver it. If it doesn't, nothing casts and this times out.
+    { text = "Bind a key to Shatter Next (Options > Keybindings > Shatter), close the options, then press "
+        .. "the key once.", wait = castWait("key", "hidden"), check = castCheck("key"), timeout = 300 },
+    { text = "Close Shatter's window, press the key once, then press Done.", button = "Done",
+      run = function() return sinceMark("hidden", "after") end,
+      check = function() return tally(marks.hidden).sent == 0, "nothing cast with the window closed" end },
     { text = "Type /reload to save the results.", reload = true },
 }
 Probe:Steps("next", NEXT)

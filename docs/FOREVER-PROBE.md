@@ -19,7 +19,7 @@ ShatterProbe (`Tools/ShatterProbe`) is Shatter's throwaway measurement module on
 | `loot` | #10: the loot events' order and timing for a Disenchant, with Auto Loot on, off (slow to loot) and two quick Shatter Next clicks. Each step waits 3 s after the last event, so a late window is caught. Turn on `/shatter trace` too: Shatter's own view lands in `ShatterDB.debugLog` |
 | `mail` | #26: `MailFrame` / `InboxFrame` a second after the mailbox closes, and Shatter's status then and after reopening |
 | `guid` | Item identity: a GUID followed across a drag, a bag sort and a `/reload` |
-| `next` | The secure Shatter Next: one left click sends one Disenchant, armed only in the up edge's PreClick and disarmed after its PostClick; a right click and a press released off the button send nothing |
+| `next` | The secure Shatter Next: one left click sends one Disenchant, armed only in the up edge's PreClick and disarmed after its PostClick; a right click and a press released off the button send nothing; a bound key (#35) sends one, and nothing with the window closed |
 | `looks` | #28, #24: each look over a bright and a dark background, and the Mail launch panel (screenshots). It switches looks through `/shatter skin` and puts yours back. A look Shatter doesn't show (while it follows Glass UI, or a glass look without LibGlass) stops its step with no screenshot: Skip it |
 | `tips` | #27: the "Disenchants into" lines on bag, chat-link, vendor, bank, auction house and loot tooltips, and Shift on an open bag tooltip and chat link with the modifier setting (screenshots). It sets `/shatter tooltip` and puts yours back |
 
@@ -45,6 +45,7 @@ profile it was taken in (Global, or one character's Personal), and is only put b
 | **#26:** after the mailbox closes, `MailFrame` hidden and `InboxFrame` shown but not visible; Shatter asks for the mailbox, and carries on when it reopens | `mail` | not measured |
 | Does an item's GUID stay the same across a drag, a sort and a `/reload`? | `guid` | not measured |
 | Shatter Next: one click, one cast, disarmed after; nothing on a right click or a release off the button | `next` | not measured |
+| **#35:** does a bound key's release reach Shatter Next (it acts on the release, `useOnKeyDown` pinned false), casting once, with `ActionButtonUseKeyDown` 0 and 1? Nothing with the window closed? | `next`, steps 5-6 | not measured |
 | The looks and the tooltips, by screenshot | `looks`, `tips` | not measured |
 
 Write each answer here with the build, then update `docs/forever-api-notes.md`.

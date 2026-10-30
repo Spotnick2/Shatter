@@ -90,6 +90,9 @@ foreach ($line in $tocLines) {
     $files += $entry
 }
 
+# Bindings.xml loads from the addon folder by name, never from the TOC (#35).
+$files += "Bindings.xml"
+
 # Validate everything first: a half-copied addon is worse than none.
 $missing = @()
 foreach ($rel in $files) {
