@@ -356,6 +356,15 @@ function Widget:IsEventRegistered(event) return WoW.events[self] and WoW.events[
 -- (rather than silently dropping the write) makes such a call fail the suite.
 function Widget:SetAttribute(k, v) guard(self, "SetAttribute") self.attrs[k] = v end
 function Widget:GetAttribute(k) return self.attrs[k] end
+-- Frame:GetChildren (dump): child frames only, never regions (FontStrings,
+-- Textures), in creation order.
+function Widget:GetChildren()
+    local list = {}
+    for _, c in ipairs(self.children) do
+        if c.kind ~= "FontString" and c.kind ~= "Texture" then list[#list + 1] = c end
+    end
+    return unpack(list)
+end
 function Widget:RegisterForClicks(...) guard(self, "RegisterForClicks") self.clicks = { ... } end
 
 -- Buttons
