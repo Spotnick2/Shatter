@@ -27,7 +27,7 @@
 --   tips (#27)  where the "Disenchants into" lines show, and the modifier
 --               setting on an open tooltip, as screenshots.
 -- looks and tips change Shatter's settings through /shatter and put them back;
--- after a procedure stopped midway, /fp sh restore does.
+-- after a procedure stopped midway, /fp sh restore does, in the same profile.
 -- Commands: /fp sh skill, watch on|off, events, clear, restore.
 
 local ADDON, NS = ...
@@ -458,29 +458,68 @@ local NEXT = {
 Probe:Steps("next", NEXT)
 
 -- The settings looks and tips change: backed up once, put back at their end.
--- The backup stays in ShatterProbeDB until a restore is verified, so a
--- procedure stopped midway (Stop, or another one started) and run again never
--- overwrites the original; /fp sh restore puts back whatever is pending.
+-- A backup belongs to the Shatter profile it was taken from (Global, or one
+-- character's Personal), while ShatterProbeDB is account-wide: so backups are
+-- kept per profile, and only the active profile's are restored. A backup
+-- stays until its restore is verified, so a procedure stopped midway (Stop,
+-- or another one started) and run again never overwrites the original;
+-- /fp sh restore puts back what is pending for the active profile.
 local RESTORED = { "skin", "tooltip" }
-local function remember(key)
-    ShatterProbeDB.restore = ShatterProbeDB.restore or {}
-    if ShatterProbeDB.restore[key] ~= nil then
-        say(("Shatter's %s: keeping the earlier backup, %s"):format(key, Show(ShatterProbeDB.restore[key])))
-    else
-        ShatterProbeDB.restore[key] = setting(key)
-        say(("Shatter's %s was %s"):format(key, Show(ShatterProbeDB.restore[key])))
-    end
-    return ShatterProbeDB.restore[key]
+
+-- The active profile: "GLOBAL", or "PERSONAL <name-realm>"; nil without Shatter.
+local function profile()
+    local addon = rawget(_G, "Shatter")
+    local db = type(addon) == "table" and addon.Database
+    if not db then return nil end
+    if db:GetProfileScope() == "PERSONAL" then return "PERSONAL " .. db:GetCharacterKey() end
+    return "GLOBAL"
 end
+
+local function backups(create)
+    local id = profile()
+    if not id then return nil end
+    ShatterProbeDB.restore = type(ShatterProbeDB.restore) == "table" and ShatterProbeDB.restore or {}
+    if create and type(ShatterProbeDB.restore[id]) ~= "table" then ShatterProbeDB.restore[id] = {} end
+    return ShatterProbeDB.restore[id], id
+end
+
+local function remember(key)
+    local saved, id = backups(true)
+    if not saved then say("Shatter isn't loaded: nothing to back up") return nil end
+    if saved[key] ~= nil then
+        say(("Shatter's %s (%s): keeping the earlier backup, %s"):format(key, id, Show(saved[key])))
+    else
+        saved[key] = setting(key)
+        say(("Shatter's %s (%s) was %s"):format(key, id, Show(saved[key])))
+    end
+    return saved[key]
+end
+
 local function putBack(key)
-    local value = ShatterProbeDB.restore and ShatterProbeDB.restore[key]
+    local saved, id = backups(false)
+    local value = saved and saved[key]
     if value == nil then return setting(key) end
     shatter(key .. " " .. value)
     local now = setting(key)
-    if now == value then ShatterProbeDB.restore[key] = nil end
-    say(("Shatter's %s put back: %s%s"):format(key, Show(now),
+    if now == value then
+        saved[key] = nil
+        if next(saved) == nil then ShatterProbeDB.restore[id] = nil end
+    end
+    say(("Shatter's %s (%s) put back: %s%s"):format(key, id, Show(now),
         now == value and "" or (", not " .. Show(value) .. " (still backed up: /fp sh restore)")))
     return now
+end
+
+-- Backups for profiles other than the active one, as "skin (GLOBAL) clear".
+local function pendingElsewhere()
+    local list, active = {}, profile()
+    for id, saved in pairs(type(ShatterProbeDB.restore) == "table" and ShatterProbeDB.restore or {}) do
+        if id ~= active and type(saved) == "table" then
+            for key, value in pairs(saved) do list[#list + 1] = ("%s (%s) %s"):format(key, id, Show(value)) end
+        end
+    end
+    table.sort(list)
+    return list
 end
 
 -- The look Shatter shows (Skin.Shown: "suite" while it follows Glass UI,
@@ -608,7 +647,10 @@ end, "list what was recorded this session")
 Probe:Command("clear", function() Probe:ClearLog(); say("log cleared") end, "empty the saved log")
 Probe:Command("restore", function()
     for _, key in ipairs(RESTORED) do putBack(key) end
-end, "put back the look and tooltip setting a stopped looks or tips changed")
+    for _, line in ipairs(pendingElsewhere()) do
+        say("still backed up for another profile, put back from there: " .. line)
+    end
+end, "put back the look and tooltip setting a stopped looks or tips changed (active profile)")
 
 local boot = CreateFrame("Frame")
 Probe:RegisterEvents(boot, { "ADDON_LOADED" })
@@ -620,9 +662,11 @@ boot:SetScript("OnEvent", function(_, _, name)
     Probe:UseLog(ShatterProbeDB.log, MAX_LOG)
     ShatterProbeDB.loads = (ShatterProbeDB.loads or 0) + 1
     say("loaded (" .. ShatterProbeDB.loads .. " loads). /fp sh for the commands, /fp steps for the procedures")
-    for _, key in ipairs(RESTORED) do
-        if type(ShatterProbeDB.restore) == "table" and ShatterProbeDB.restore[key] ~= nil then
-            say(("Shatter's %s is still backed up (%s): /fp sh restore puts it back"):format(key, Show(ShatterProbeDB.restore[key])))
+    -- Shatter's profile isn't known yet here: list every pending backup.
+    for id, saved in pairs(type(ShatterProbeDB.restore) == "table" and ShatterProbeDB.restore or {}) do
+        for key, value in pairs(type(saved) == "table" and saved or {}) do
+            say(("Shatter's %s (%s) is still backed up (%s): /fp sh restore in that profile puts it back")
+                :format(key, id, Show(value)))
         end
     end
 end)

@@ -29,7 +29,9 @@ Not covered, still by hand: the look switched in combat, the Mail session's Clos
 Commands: `/fp sh skill` (read Enchanting both ways), `/fp sh watch on|off` (record casts, UI
 errors and loot events), `/fp sh events`, `/fp sh clear`, and `/fp sh restore`, which puts back the look and tooltip setting
 when `looks` or `tips` was stopped midway. Their backup is kept until a restore is verified, so
-running one of them again never loses your original setting.
+running one of them again never loses your original setting. A backup belongs to the Shatter
+profile it was taken in (Global, or one character's Personal), and is only put back there: run
+`/fp sh restore` on that character, with that profile active.
 
 ## Open questions
 

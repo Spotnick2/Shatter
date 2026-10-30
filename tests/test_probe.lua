@@ -259,7 +259,7 @@ H.eq((LK[1].check()), true, "...the first step checks Shatter isn't following Gl
 -- Stopped midway and run again: the first backup is kept, not the changed look.
 H.eq(LK[1].run(), "forever", "run again with the look changed: the original backup is kept")
 H.eq(LK[#LK - 1].run(), "forever", "...and put back")
-H.eq(ShatterProbeDB.restore.skin, nil, "...a verified restore clears the backup")
+H.eq(ShatterProbeDB.restore.GLOBAL, nil, "...a verified restore clears the backup")
 -- Following Glass UI (Skin.Shown "suite"): no look can be switched, so no
 -- step may complete and take a shot under the wrong name.
 local realShown = Shatter.Skin.Shown
@@ -298,14 +298,39 @@ WoW.shift = false
 H.eq(TP[12].run(), "always", "...and the setting goes back")
 -- Stopped midway: /fp sh restore puts the original back, once.
 SlashCmdList.SHATTER("tooltip never")
-ShatterProbeDB.restore.tooltip = nil
 TP[1].run()
 TP[8].run()
-H.eq(ShatterProbeDB.restore.tooltip, "never", "tips: the original is backed up")
+H.eq(ShatterProbeDB.restore.GLOBAL.tooltip, "never", "tips: the original is backed up, for the Global profile")
 TP[1].run()
-H.eq(ShatterProbeDB.restore.tooltip, "never", "...run again midway: still the original")
+H.eq(ShatterProbeDB.restore.GLOBAL.tooltip, "never", "...run again midway: still the original")
+-- The backup belongs to the profile it came from: a Personal profile on this
+-- character doesn't take it, and keeps it pending.
+local db = Shatter.Database
+db:SetProfileScope("PERSONAL")
+db:GetSettings().tooltip = "always"
 SlashCmdList.FOREVERPROBE("sh restore")
-H.eq(Shatter.Database:GetSettings().tooltip, "never", "/fp sh restore puts it back")
-H.eq(ShatterProbeDB.restore.tooltip, nil, "...and clears the backup")
+H.eq(db:GetSettings().tooltip, "always", "another profile active: /fp sh restore leaves it alone")
+H.eq(ShatterProbeDB.restore.GLOBAL.tooltip, "never", "...and the Global backup stays pending")
+H.check(logHas("still backed up for another profile, put back from there: tooltip (GLOBAL)"), "...and says where it belongs")
+db:SetProfileScope("GLOBAL")
+SlashCmdList.FOREVERPROBE("sh restore")
+H.eq(db:GetSettings().tooltip, "never", "back in the Global profile: /fp sh restore puts it back")
+H.eq(ShatterProbeDB.restore.GLOBAL, nil, "...and clears the backup")
+-- A character's Personal backup is never applied on another character.
+db:SetProfileScope("PERSONAL")
+local alpha = "PERSONAL " .. db:GetCharacterKey()
+SlashCmdList.SHATTER("tooltip never")
+TP[1].run()
+H.eq(ShatterProbeDB.restore[alpha].tooltip, "never", "a Personal profile's backup is its own")
+local name = WoW.player.name
+WoW.player.name = "Beta"
+db:GetSettings().tooltip = "modifier"
+SlashCmdList.FOREVERPROBE("sh restore")
+H.eq(db:GetSettings().tooltip, "modifier", "another character (Global): untouched")
+H.eq(ShatterProbeDB.restore[alpha].tooltip, "never", "...the first character's backup stays pending")
+WoW.player.name = name
+SlashCmdList.FOREVERPROBE("sh restore")
+H.eq(db:GetSettings().tooltip, "never", "back on the first character: put back")
+H.eq(ShatterProbeDB.restore[alpha], nil, "...and cleared")
 
 H.done("test_probe")
