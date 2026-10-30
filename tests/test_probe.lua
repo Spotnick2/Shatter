@@ -191,6 +191,16 @@ WoW.SetBagItem(0, 5, { itemID = 2589 })
 H.eq((G[5].check()), false, "a new instance of the item (a new GUID) fails")
 H.eq(G[5].run(), nil, "...nothing found")
 
+-- 11b. sets (#36): the bag slot call, read for every slot.
+local SE = T.SETS
+WoW.bags[0][5] = nil
+WoW.SetBagItem(0, 6, { itemID = 2589, inSet = true, setList = "Fire" })
+local nIn, text = SE[2].run()
+H.check(nIn == 1 and text:find("bag 0 slot 6", 1, true) and text:find('"Fire"', 1, true), "sets: finds the item in a set (" .. tostring(text) .. ")")
+H.eq((SE[2].check()), true, "...the step passes")
+WoW.bags[0][6].inSet = false
+H.eq((SE[2].check()), false, "nothing in a set: the step fails")
+
 -- 8. The procedures and commands.
 SlashCmdList.FOREVERPROBE("steps sh skill")
 local rec = ForeverProbeDB.steps and ForeverProbeDB.steps.records and ForeverProbeDB.steps.records["ShatterProbe/skill"]
@@ -204,7 +214,7 @@ SlashCmdList.FOREVERPROBE("sh clear")
 SlashCmdList.FOREVERPROBE("sh skill")
 H.check(logHas("Enchanting:"), "/fp sh skill logs after a clear")
 
-for _, name in ipairs({ "loot", "mail", "guid", "next", "looks", "tips" }) do
+for _, name in ipairs({ "loot", "mail", "guid", "next", "looks", "tips", "sets" }) do
     SlashCmdList.FOREVERPROBE("steps sh " .. name)
     rec = ForeverProbeDB.steps.records["ShatterProbe/" .. name]
     H.check(rec and rec.status == "active", "/fp steps sh " .. name .. " starts")

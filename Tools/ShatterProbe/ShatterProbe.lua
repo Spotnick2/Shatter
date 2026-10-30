@@ -20,6 +20,7 @@
 --   mail (#26)  MailFrame / InboxFrame after the mailbox closes, and Shatter's
 --               status then and after reopening;
 --   guid        an item's GUID across a drag, a bag sort and a /reload;
+--   sets (#36)  equipment sets: the client's, and Shatter leaving their items out;
 --   next        Shatter Next: one left click, one cast, disarmed after; a
 --               right click and a press released off the button cast nothing;
 --   looks (#28, #24)  each look over a bright and a dark background, and the
@@ -389,6 +390,39 @@ local GUID = {
 }
 Probe:Steps("guid", GUID)
 
+-- Equipment sets (#36): whether the client has them, and what the bag
+-- slot call says for an item saved in one.
+local function readSets()
+    local okCan, can = Probe:Try("C_EquipmentSet.CanUseEquipmentSets", C_EquipmentSet and C_EquipmentSet.CanUseEquipmentSets)
+    local okIDs, ids = Probe:Try("C_EquipmentSet.GetEquipmentSetIDs", C_EquipmentSet and C_EquipmentSet.GetEquipmentSetIDs)
+    local inSet = {}
+    local fn = C_Container.GetContainerItemEquipmentSetInfo
+    for bag = 0, NUM_BAG_SLOTS or 4 do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            local ok, yes, list = Probe:Try("GetContainerItemEquipmentSetInfo", fn, bag, slot)
+            if ok and yes == true then inSet[#inSet + 1] = ("bag %d slot %d (%s)"):format(bag, slot, Show(list)) end
+        end
+    end
+    local text = ("CanUseEquipmentSets %s, %s set(s), in a set: %s"):format(okCan and Show(can) or "ERROR",
+        okIDs and type(ids) == "table" and #ids or "?", #inSet > 0 and table.concat(inSet, "; ") or "none")
+    say("sets: " .. text)
+    return #inSet, text
+end
+
+local SETS = {
+    title = "Equipment sets (#36)",
+    { text = "Open the character sheet. Is there an equipment manager (saved sets)?", ask = true,
+      screenshot = "character sheet" },
+    { text = "Save a set that includes a green or better weapon or armor piece, then take that item off "
+        .. "into your bags. Press Run.", button = "Run", run = readSets,
+      check = function() return readSets() > 0, "an item in a set, in the bags" end },
+    { text = "Open Shatter (/shatter). Is that item left out of the queue?", ask = true, screenshot = "Shatter's queue" },
+    { text = "Delete the set (or take the item out of it), then press Run.", button = "Run", run = readSets },
+    { text = "Is the item back in Shatter's queue?", ask = true },
+    { text = "Type /reload to save the results.", reload = true },
+}
+Probe:Steps("sets", SETS)
+
 -- Shatter Next: the secure button under ShatterMainFrame (the only one with
 -- useOnKeyDown set). Every click edge is recorded, with the button's action
 -- attributes after Shatter's PreClick (armed?) and PostClick (disarmed?).
@@ -688,4 +722,4 @@ end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,
              recorded = recorded, REFUSE = REFUSE, LOOT = LOOT, MAIL = MAIL, GUID = GUID, NEXT = NEXT,
-             LOOKS = LOOKS, TIPS = TIPS, timeline = timeline, findNext = findNext }
+             LOOKS = LOOKS, TIPS = TIPS, SETS = SETS, timeline = timeline, findNext = findNext }

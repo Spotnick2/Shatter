@@ -93,6 +93,18 @@ function API.GetBagItemGUID(bag, slot)
     return nil
 end
 
+-- Whether the bag slot's item is in one of the player's equipment sets
+-- (C_Container.GetContainerItemEquipmentSetInfo -> inSet, setList; dump
+-- 70532). Sets are unmeasured on Forever (#36): absent, failing or not a
+-- plain boolean is nil, and the caller doesn't filter.
+function API.IsInEquipmentSet(bag, slot)
+    local fn = C_Container.GetContainerItemEquipmentSetInfo
+    if not fn then return nil end
+    local ok, inSet = pcall(fn, bag, slot)
+    if ok and type(inSet) == "boolean" then return inSet end
+    return nil
+end
+
 -- The version from the TOC. An unpackaged copy still carries the packager's
 -- token; assemble it at runtime, because the packager rewrites the whole token
 -- wherever it appears in shipped files.

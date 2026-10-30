@@ -877,6 +877,19 @@ function C_Container.GetContainerNumFreeSlots(bag)
     return free, 0
 end
 -- A struct, not the old tuple (porting guide section 2).
+-- dump 1561, 1569: whether sets can be used, and their IDs (a table).
+C_EquipmentSet = {
+    CanUseEquipmentSets = function() return WoW.canUseSets ~= false end,
+    GetEquipmentSetIDs = function() return WoW.equipmentSetIDs or {} end,
+}
+-- dump 1168: inSet, setList. A slot's `inSet`/`setList` model it (sets are
+-- unmeasured on Forever, #36).
+function C_Container.GetContainerItemEquipmentSetInfo(bag, slot)
+    local b = WoW.bags[bag]
+    local s = b and b[slot]
+    if not s then return false, "" end
+    return s.inSet == true, s.setList or ""
+end
 function C_Container.GetContainerItemInfo(bag, slot)
     local b = WoW.bags[bag]
     local s = b and b[slot]
