@@ -9,14 +9,14 @@ local MailMode = {
 Shatter.MailMode = MailMode
 Shatter.RegisterModule("MailMode", MailMode)
 
+-- Whether the player is at a mailbox (#26): MAIL_SHOW and MAIL_CLOSED decide,
+-- whether Shatter is active or not. Before either has fired since load,
+-- MailFrame:IsVisible() does. Never a child frame's IsShown: InboxFrame keeps
+-- its shown flag after the mailbox closes (MailMixin:OnHide doesn't hide it).
 local function IsMailboxOpen()
-    local function visible(frame)
-        if not frame then return false end
-        if frame.IsVisible and frame:IsVisible() then return true end
-        if frame.IsShown and frame:IsShown() then return true end
-        return false
-    end
-    return visible(_G.MailFrame) or visible(_G.InboxFrame) or visible(_G.OpenMailFrame) or visible(_G.SendMailFrame)
+    if MailMode.atMailbox ~= nil then return MailMode.atMailbox end
+    local frame = _G.MailFrame
+    return (frame and frame.IsVisible and frame:IsVisible()) and true or false
 end
 
 local function SyncMailboxState(session)
@@ -262,6 +262,11 @@ function MailMode:GetLaunchContext()
 end
 
 function MailMode:OnEvent(event, ...)
+    if event == "MAIL_SHOW" then
+        self.atMailbox = true
+    elseif event == "MAIL_CLOSED" then
+        self.atMailbox = false
+    end
     if not Shatter.isActive then return end
     if event == "MAIL_SHOW" then
         self:ActivateFromMailbox()
@@ -442,7 +447,8 @@ function MailMode:ContinueSessionFromLaunchPanel()
     return true
 end
 
--- For other modules (Queue's unignore): the client has no global for it.
+-- For other modules (Queue's unignore, AttachmentQueue): the client has no
+-- global for it.
 function MailMode:IsMailboxOpen() return IsMailboxOpen() end
 
 function MailMode:ScheduleScan(reason, delay)

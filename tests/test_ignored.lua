@@ -179,11 +179,11 @@ WoW.fire("MAIL_CLOSED")
 WoW.flushTimers()
 H.check(Shatter.MailSession:HasActiveSession(), "the session outlives the closed mailbox")
 -- The queue may be the session's now, so the item is ignored directly.
--- Whether the Mail queue rescans here is MailMode's IsMailboxOpen to say
--- (it counts a shown InboxFrame under a hidden MailFrame as open: #26).
 Shatter.Database:SetIgnored(VEST, true)
 ui:Refresh()
+local scansBefore = #mailScans
 H.ok(function() SlashCmdList.SHATTER("unignore 2589") end, "mailbox closed: /shatter unignore doesn't error")
+H.eq(#mailScans, scansBefore, "...and doesn't rescan the Mail queue (#26)")
 H.eq(Shatter.Database:IsIgnored(VEST), false, "...the item is no longer ignored")
 H.check(ui.ignoredEmpty:IsShown(), "...Settings redraws")
 Shatter.Database:SetIgnored(VEST, true)
