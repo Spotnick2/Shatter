@@ -20,14 +20,16 @@ ShatterProbe (`Tools/ShatterProbe`) is Shatter's throwaway measurement module on
 | `mail` | #26: `MailFrame` / `InboxFrame` a second after the mailbox closes, and Shatter's status then and after reopening |
 | `guid` | Item identity: a GUID followed across a drag, a bag sort and a `/reload` |
 | `next` | The secure Shatter Next: one left click sends one Disenchant, armed only in the up edge's PreClick and disarmed after its PostClick; a right click and a press released off the button send nothing |
-| `looks` | #28, #24: each look over a bright and a dark background, and the Mail launch panel (screenshots). It switches looks through `/shatter skin` and puts yours back |
+| `looks` | #28, #24: each look over a bright and a dark background, and the Mail launch panel (screenshots). It switches looks through `/shatter skin` and puts yours back. A look Shatter doesn't show (while it follows Glass UI, or a glass look without LibGlass) stops its step with no screenshot: Skip it |
 | `tips` | #27: the "Disenchants into" lines on bag, chat-link, vendor, bank, auction house and loot tooltips, and Shift on an open bag tooltip and chat link with the modifier setting (screenshots). It sets `/shatter tooltip` and puts yours back |
 
 Not covered, still by hand: the look switched in combat, the Mail session's Close Session confirm
 (#29), persistence after a full exit (#20), and the CurseForge file.
 
 Commands: `/fp sh skill` (read Enchanting both ways), `/fp sh watch on|off` (record casts, UI
-errors and loot events), `/fp sh events`, `/fp sh clear`.
+errors and loot events), `/fp sh events`, `/fp sh clear`, and `/fp sh restore`, which puts back the look and tooltip setting
+when `looks` or `tips` was stopped midway. Their backup is kept until a restore is verified, so
+running one of them again never loses your original setting.
 
 ## Open questions
 

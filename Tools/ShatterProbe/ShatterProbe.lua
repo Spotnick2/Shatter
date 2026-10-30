@@ -26,8 +26,9 @@
 --               Mail launch panel, as screenshots;
 --   tips (#27)  where the "Disenchants into" lines show, and the modifier
 --               setting on an open tooltip, as screenshots.
--- looks and tips change Shatter's settings through /shatter and put them back.
--- Commands: /fp sh skill, watch on|off, events, clear.
+-- looks and tips change Shatter's settings through /shatter and put them back;
+-- after a procedure stopped midway, /fp sh restore does.
+-- Commands: /fp sh skill, watch on|off, events, clear, restore.
 
 local ADDON, NS = ...
 local MAX_LOG = 3000
@@ -456,25 +457,48 @@ local NEXT = {
 }
 Probe:Steps("next", NEXT)
 
--- The settings looks and tips change, put back at their end (also after a
--- /reload, from ShatterProbeDB).
+-- The settings looks and tips change: backed up once, put back at their end.
+-- The backup stays in ShatterProbeDB until a restore is verified, so a
+-- procedure stopped midway (Stop, or another one started) and run again never
+-- overwrites the original; /fp sh restore puts back whatever is pending.
+local RESTORED = { "skin", "tooltip" }
 local function remember(key)
     ShatterProbeDB.restore = ShatterProbeDB.restore or {}
-    ShatterProbeDB.restore[key] = setting(key)
-    say(("Shatter's %s was %s"):format(key, Show(ShatterProbeDB.restore[key])))
+    if ShatterProbeDB.restore[key] ~= nil then
+        say(("Shatter's %s: keeping the earlier backup, %s"):format(key, Show(ShatterProbeDB.restore[key])))
+    else
+        ShatterProbeDB.restore[key] = setting(key)
+        say(("Shatter's %s was %s"):format(key, Show(ShatterProbeDB.restore[key])))
+    end
     return ShatterProbeDB.restore[key]
 end
 local function putBack(key)
     local value = ShatterProbeDB.restore and ShatterProbeDB.restore[key]
-    if value == nil then return nil end
+    if value == nil then return setting(key) end
     shatter(key .. " " .. value)
-    return setting(key)
+    local now = setting(key)
+    if now == value then ShatterProbeDB.restore[key] = nil end
+    say(("Shatter's %s put back: %s%s"):format(key, Show(now),
+        now == value and "" or (", not " .. Show(value) .. " (still backed up: /fp sh restore)")))
+    return now
 end
 
+-- The look Shatter shows (Skin.Shown: "suite" while it follows Glass UI,
+-- "forever" for a glass look without LibGlass), or nil.
+local function shownLook()
+    local addon = rawget(_G, "Shatter")
+    local skins = type(addon) == "table" and addon.Skin
+    return skins and skins.Shown and skins.Shown() or nil
+end
+
+-- A shot labelled with a look Shatter isn't showing would mislead: unless
+-- the look shows, the step throws and stays, so no shot is taken.
 local function skin(name)
     return function()
         shatter("skin " .. name)
-        return setting("skin")
+        local shown = shownLook()
+        if shown ~= name then error(("Shatter shows %s, not %s: Skip this look"):format(Show(shown), name), 0) end
+        return shown
     end
 end
 
@@ -482,7 +506,12 @@ local LOOK_NAMES = { "forever", "clear", "smoked", "flat" }
 local LOOKS = {
     title = "Shatter's looks (#28, #24)",
     { text = "Open Shatter (/shatter) and put its window over a bright background (snow, sky, a lit wall). "
-        .. "Then press Run.", button = "Run", run = function() return remember("skin") end },
+        .. "If Shatter follows Glass UI's look, turn that off in Glass UI first: the looks can't be "
+        .. "switched while it does. Then press Run.", button = "Run", run = function() return remember("skin") end,
+      check = function()
+          local shown = shownLook()
+          return shown ~= nil and shown ~= "suite", "Shatter shows " .. Show(shown)
+      end },
 }
 for _, background in ipairs({ "bright", "dark" }) do
     if background == "dark" then
@@ -577,6 +606,9 @@ Probe:Command("events", function()
     say(#recorded .. " recorded")
 end, "list what was recorded this session")
 Probe:Command("clear", function() Probe:ClearLog(); say("log cleared") end, "empty the saved log")
+Probe:Command("restore", function()
+    for _, key in ipairs(RESTORED) do putBack(key) end
+end, "put back the look and tooltip setting a stopped looks or tips changed")
 
 local boot = CreateFrame("Frame")
 Probe:RegisterEvents(boot, { "ADDON_LOADED" })
@@ -588,6 +620,11 @@ boot:SetScript("OnEvent", function(_, _, name)
     Probe:UseLog(ShatterProbeDB.log, MAX_LOG)
     ShatterProbeDB.loads = (ShatterProbeDB.loads or 0) + 1
     say("loaded (" .. ShatterProbeDB.loads .. " loads). /fp sh for the commands, /fp steps for the procedures")
+    for _, key in ipairs(RESTORED) do
+        if type(ShatterProbeDB.restore) == "table" and ShatterProbeDB.restore[key] ~= nil then
+            say(("Shatter's %s is still backed up (%s): /fp sh restore puts it back"):format(key, Show(ShatterProbeDB.restore[key])))
+        end
+    end
 end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,

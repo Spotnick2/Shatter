@@ -255,7 +255,23 @@ for _, step in ipairs(LK) do
     if step.text:find("switch to smoked (bright", 1, true) then switched = step.run() end
 end
 H.eq(switched, "smoked", "...switches through /shatter skin")
-H.eq(LK[#LK - 1].run(), "forever", "...and puts it back")
+H.eq((LK[1].check()), true, "...the first step checks Shatter isn't following Glass UI")
+-- Stopped midway and run again: the first backup is kept, not the changed look.
+H.eq(LK[1].run(), "forever", "run again with the look changed: the original backup is kept")
+H.eq(LK[#LK - 1].run(), "forever", "...and put back")
+H.eq(ShatterProbeDB.restore.skin, nil, "...a verified restore clears the backup")
+-- Following Glass UI (Skin.Shown "suite"): no look can be switched, so no
+-- step may complete and take a shot under the wrong name.
+local realShown = Shatter.Skin.Shown
+Shatter.Skin.Shown = function() return "suite" end
+H.eq((LK[1].check()), false, "following Glass UI: the first step fails")
+local ok, err
+for _, step in ipairs(LK) do
+    if step.text:find("switch to clear (bright", 1, true) then ok, err = pcall(step.run) end
+end
+H.check(not ok and tostring(err):find('Shatter shows "suite", not clear', 1, true),
+    "...a look step throws (stays, no shot): " .. tostring(err))
+Shatter.Skin.Shown = realShown
 
 local TP = T.TIPS
 H.eq(TP[1].run(), "always", "tips: sets the tooltips to always")
@@ -280,5 +296,16 @@ done, tipName, tipItem, before, after = TP[9].wait()
 H.check(done and after > before, "...rebuilt with Shift: more lines, done")
 WoW.shift = false
 H.eq(TP[12].run(), "always", "...and the setting goes back")
+-- Stopped midway: /fp sh restore puts the original back, once.
+SlashCmdList.SHATTER("tooltip never")
+ShatterProbeDB.restore.tooltip = nil
+TP[1].run()
+TP[8].run()
+H.eq(ShatterProbeDB.restore.tooltip, "never", "tips: the original is backed up")
+TP[1].run()
+H.eq(ShatterProbeDB.restore.tooltip, "never", "...run again midway: still the original")
+SlashCmdList.FOREVERPROBE("sh restore")
+H.eq(Shatter.Database:GetSettings().tooltip, "never", "/fp sh restore puts it back")
+H.eq(ShatterProbeDB.restore.tooltip, nil, "...and clears the backup")
 
 H.done("test_probe")
