@@ -3,7 +3,8 @@
 -- reaches the queue. Judged per bag slot (C_Container.
 -- GetContainerItemEquipmentSetInfo), so a second copy outside the set is
 -- still queued; the queue follows set changes; a click on an item put in a
--- set after the scan is refused; without the call nothing is filtered.
+-- set after the scan is refused; without the call, or with sets disabled,
+-- nothing is filtered.
 ------------------------------------------------------------
 
 local H = dofile("tests/harness.lua")
@@ -22,6 +23,7 @@ local function setup(opts)
     WoW.SetBagItem(0, 2, { itemID = VEST })
     WoW.SetBagItem(0, 3, { itemID = BLADE })
     if opts.noSetCall then C_Container.GetContainerItemEquipmentSetInfo = nil end
+    if opts.canUseSets ~= nil then WoW.canUseSets = opts.canUseSets end
     WoW.loadAddon()
     WoW.flushTimers()
     Shatter.MainFrame:Show()
@@ -72,5 +74,22 @@ C_Container.GetContainerItemEquipmentSetInfo = function() error("boom") end
 H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing call: can't tell")
 C_Container.GetContainerItemEquipmentSetInfo = function() return 1, "x" end
 H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean answer: can't tell")
+
+-- 6. Sets disabled (CanUseEquipmentSets false): nothing is filtered, even
+-- with the slot call answering true; the same without the capability call,
+-- or with one that throws or answers oddly.
+setup({ canUseSets = false })
+H.eq(queued(0, 1), true, "sets disabled: the vest is queued")
+H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "...the adapter says it can't tell")
+local okCan = C_EquipmentSet.CanUseEquipmentSets
+C_EquipmentSet.CanUseEquipmentSets = nil
+H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "no capability call: can't tell")
+C_EquipmentSet.CanUseEquipmentSets = function() error("boom") end
+H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing capability call: can't tell")
+C_EquipmentSet.CanUseEquipmentSets = function() return 1 end
+H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean capability: can't tell")
+C_EquipmentSet.CanUseEquipmentSets = okCan
+WoW.canUseSets = true
+H.eq(Shatter.API.IsInEquipmentSet(0, 1), true, "...and with sets usable, the slot is in a set")
 
 H.done("test_equipment_sets")

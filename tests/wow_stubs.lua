@@ -68,6 +68,8 @@ function WoW.reset()
     WoW.timers        = {}
     WoW.badEvents     = {}  -- RegisterEvent throws
     WoW.refusedEvents = {}  -- RegisterEvent returns false
+    WoW.canUseSets    = true -- C_EquipmentSet.CanUseEquipmentSets (#36)
+    WoW.equipmentSetIDs = {}
     WoW.actions       = {}  -- gameplay actions the client performed: { kind, ... }
     WoW.macroRuns     = {}  -- macro text the secure handler executed
     WoW.globalWrites  = {}  -- [name] = true for every global the addon assigned
@@ -879,7 +881,7 @@ end
 -- A struct, not the old tuple (porting guide section 2).
 -- dump 1561, 1569: whether sets can be used, and their IDs (a table).
 C_EquipmentSet = {
-    CanUseEquipmentSets = function() return WoW.canUseSets ~= false end,
+    CanUseEquipmentSets = function() return WoW.canUseSets end,
     GetEquipmentSetIDs = function() return WoW.equipmentSetIDs or {} end,
 }
 -- dump 1168: inSet, setList. A slot's `inSet`/`setList` model it (sets are
