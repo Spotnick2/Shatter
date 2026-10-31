@@ -112,8 +112,8 @@ end
 
 -- An item instance's own level (#37): C_Item.GetCurrentItemLevel on its
 -- location (dump 2222, optional), else C_Item.GetDetailedItemLevelInfo on its
--- link (dump 2226, may return nothing), else C_Item.GetItemInfo's. nil when
--- none can say.
+-- link (dump 2226, may return nothing). nil when neither can say: the item's
+-- generic level (C_Item.GetItemInfo) isn't the instance's, so it never stands in.
 local function PositiveLevel(ok, level)
     if ok and type(level) == "number" and level > 0 then return level end
     return nil
@@ -125,10 +125,6 @@ local function InstanceItemLevel(location, link)
     end
     if not level and link and C_Item.GetDetailedItemLevelInfo then
         level = PositiveLevel(pcall(C_Item.GetDetailedItemLevelInfo, link))
-    end
-    if not level and link then
-        local ok, _, _, _, itemLevel = pcall(API.GetItemInfo, link)
-        level = PositiveLevel(ok, itemLevel)
     end
     return level
 end

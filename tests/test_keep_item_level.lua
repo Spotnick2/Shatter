@@ -179,12 +179,26 @@ WoW.bags[0][3].level = false
 WoW.linkLevels[HIGH] = 55
 rescan()
 H.eq(queued(HIGH), false, "...the link's level, without the location's")
+-- Neither can say: the generic level (40) never stands in; kept until read.
+local detailed = C_Item.GetDetailedItemLevelInfo
+C_Item.GetDetailedItemLevelInfo = function() end
+WoW.bags[0][1].level = false
+rescan()
+H.eq(queued(HIGH), false, "...neither the slot nor the link: kept, not judged by its item's 40")
+H.eq(queued(LOW), false, "...the same for the item-level-20 vest")
+local unknown = Shatter.ItemScanner:BuildItem(0, 1)
+H.eq(unknown.currentItemLevel, nil, "...its instance level is unknown")
+H.eq(select(2, Shatter.ItemScanner:IsCandidateDisenchantable(unknown)), "item level unknown (kept)", "...and that's the reason")
+WoW.equipped[1] = { itemID = HIGH, level = false }
+local wornLevel, worn = Shatter.API.GetEquippedItemLevel(1)
+H.check(wornLevel == nil and worn == true, "a worn item without either: no level, but worn")
+H.eq(select(2, Shatter.ItemScanner:LowestEquippedItemLevel()), "not loaded", "...so Suggest declines")
+WoW.equipped = {}
+C_Item.GetDetailedItemLevelInfo = detailed
+WoW.bags[0][1].level = nil
 WoW.linkLevels[HIGH] = nil
 rescan()
-H.eq(queued(HIGH), true, "...and without either, the item's own (40)")
-local unknown = Shatter.ItemScanner:BuildItem(0, 1)
-unknown.itemLevel, unknown.currentItemLevel = nil, nil
-H.eq(select(2, Shatter.ItemScanner:IsCandidateDisenchantable(unknown)), "item level unknown (kept)", "no level at all: kept")
+H.eq(queued(HIGH), true, "once the link answers (40): queued")
 local selected2 = Shatter.Queue:GetSelected()
 WoW.bags[selected2.bag][selected2.slot].level = 70
 keep(true, 65)

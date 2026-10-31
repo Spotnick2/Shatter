@@ -58,10 +58,11 @@ function ItemScanner:IsCandidateDisenchantable(item)
     -- received item isn't in the player's sets.
     if item.bag and item.slot and API.IsInEquipmentSet(item.bag, item.slot) then return false, "in an equipment set" end
     -- Possible upgrades (#37), Solo only: Mail items belong to their senders.
-    -- The instance's own level; one that can't be read is kept.
+    -- The instance's own level, never the item's generic one; one that can't
+    -- be read is kept until it can.
     local keepAt = item.mode == Shatter.Constants.MODES.SOLO and Shatter.Database:GetKeepItemLevel()
     if keepAt then
-        local level = item.currentItemLevel or item.itemLevel
+        local level = item.currentItemLevel
         if not level then return false, "item level unknown (kept)" end
         if level >= keepAt then return false, ("item level %d or more (kept)"):format(keepAt) end
     end
