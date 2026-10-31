@@ -21,6 +21,8 @@
 --               status then and after reopening;
 --   guid        an item's GUID across a drag, a bag sort and a /reload;
 --   sets (#36)  equipment sets: the client's, and Shatter leaving their items out;
+--   ilvl (#37)  the item level of each worn slot, both ways, against its
+--               tooltip, and what Suggest fills in;
 --   next        Shatter Next: one left click, one cast, disarmed after; a
 --               right click and a press released off the button cast nothing;
 --   looks (#28, #24)  each look over a bright and a dark background, and the
@@ -423,6 +425,48 @@ local SETS = {
 }
 Probe:Steps("sets", SETS)
 
+-- Item levels (#37): each worn slot's current item level and the item's own,
+-- what Shatter reads, and what Suggest would fill in.
+local function readItemLevels()
+    local addon = rawget(_G, "Shatter")
+    local rows = {}
+    for slot = 1, 19 do
+        local link = GetInventoryItemLink("player", slot)
+        if link then
+            local okCurrent, current = Probe:Try("C_Item.GetCurrentItemLevel", function()
+                return C_Item.GetCurrentItemLevel(ItemLocation:CreateFromEquipmentSlot(slot))
+            end)
+            local _, _, _, own = C_Item.GetItemInfo(link)
+            local read = addon and addon.API and addon.API.GetEquippedItemLevel(slot)
+            rows[#rows + 1] = ("slot %d %s: current %s, item %s, Shatter %s"):format(slot, link,
+                okCurrent and Show(current) or "ERROR", Show(own), Show(read))
+        end
+    end
+    local lowest = addon and addon.ItemScanner and addon.ItemScanner:LowestEquippedItemLevel()
+    local text = ("%d worn, Suggest %s: %s"):format(#rows, Show(lowest), #rows > 0 and table.concat(rows, "; ") or "nothing")
+    say("ilvl: " .. text)
+    return #rows, text
+end
+
+local ILVL = {
+    title = "Item levels (#37)",
+    { text = "Press Run to read the item level of everything you wear.", button = "Run", run = readItemLevels,
+      check = function() return readItemLevels() > 0, "something worn" end },
+    { text = "Open the character sheet and hover a few worn items. Does each tooltip's item level match "
+        .. "the console's \"current\" (/fp)?", ask = true, screenshot = "a worn item's tooltip" },
+    { text = "If you have an item above item level 60, wear it and press Run; otherwise Skip.", button = "Run",
+      run = readItemLevels },
+    { text = "Does its tooltip's item level match the console's \"current\"?", ask = true,
+      screenshot = "the high-level item's tooltip" },
+    { text = "In Shatter's Settings, tick \"Keep items at or above item level\" and click Suggest. Is the "
+        .. "number the console's Suggest (the lowest worn, without shirt and tabard)?", ask = true,
+      screenshot = "Settings" },
+    { text = "Is a bag item at or above that level left out of Shatter's queue, and one below it queued?",
+      ask = true, screenshot = "Shatter's queue" },
+    { text = "Untick it again if you don't want it on, then type /reload to save the results.", reload = true },
+}
+Probe:Steps("ilvl", ILVL)
+
 -- Shatter Next: the secure button under ShatterMainFrame (the only one with
 -- useOnKeyDown set). Every click edge is recorded, with the button's action
 -- attributes after Shatter's PreClick (armed?) and PostClick (disarmed?).
@@ -722,4 +766,4 @@ end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,
              recorded = recorded, REFUSE = REFUSE, LOOT = LOOT, MAIL = MAIL, GUID = GUID, NEXT = NEXT,
-             LOOKS = LOOKS, TIPS = TIPS, SETS = SETS, timeline = timeline, findNext = findNext }
+             LOOKS = LOOKS, TIPS = TIPS, SETS = SETS, ILVL = ILVL, readItemLevels = readItemLevels, timeline = timeline, findNext = findNext }

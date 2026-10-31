@@ -178,6 +178,8 @@ function Disenchant:ValidateItem(item)
         return false, Shatter.Constants.STATUS.ITEM_LOCKED
     end
 
+    -- Rebuilt as Solo: judge it in the queued item's mode (#37 is Solo only).
+    current.mode = item.mode
     local ok, reason = Shatter.ItemScanner:IsCandidateDisenchantable(current)
     if not ok then
         return false, "Item is no longer eligible: " .. tostring(reason)

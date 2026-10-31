@@ -44,7 +44,8 @@ function ItemScanner:CanBeDisenchanted(item)
 end
 
 -- CanBeDisenchanted, and the player's own choices: ignored items, the
--- quality cap, soulbound, and gear saved in an equipment set.
+-- quality cap, soulbound, gear saved in an equipment set, and possible
+-- upgrades.
 function ItemScanner:IsCandidateDisenchantable(item)
     local settings = Shatter.Database:GetSettings()
     if not item or not item.itemID then return false, "missing item" end
@@ -56,7 +57,24 @@ function ItemScanner:IsCandidateDisenchantable(item)
     -- By bag slot (#36): a Mail attachment has none until taken, and a
     -- received item isn't in the player's sets.
     if item.bag and item.slot and API.IsInEquipmentSet(item.bag, item.slot) then return false, "in an equipment set" end
+    -- Possible upgrades (#37), Solo only: Mail items belong to their senders.
+    local keepAt = item.mode == Shatter.Constants.MODES.SOLO and Shatter.Database:GetKeepItemLevel()
+    if keepAt and (item.itemLevel or 0) >= keepAt then
+        return false, ("item level %d or more (kept)"):format(keepAt)
+    end
     return true
+end
+
+-- The lowest item level the player wears (#37), for Suggest: below it,
+-- nothing is an upgrade. Empty slots, the shirt and the tabard don't count;
+-- nil when nothing is worn.
+function ItemScanner:LowestEquippedItemLevel()
+    local lowest
+    for _, slot in ipairs(Shatter.Constants.KEEP_ITEM_LEVEL_SLOTS) do
+        local level = API.GetEquippedItemLevel(slot)
+        if level and (not lowest or level < lowest) then lowest = level end
+    end
+    return lowest and math.floor(lowest) or nil
 end
 
 -- Weapons and armor worn in a slot: what Disenchant takes, whatever the

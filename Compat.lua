@@ -110,6 +110,27 @@ function API.IsInEquipmentSet(bag, slot)
     return nil
 end
 
+-- The item level of what's worn in an inventory slot (#37), or nil when the
+-- slot is empty or the level can't be read: C_Item.GetCurrentItemLevel
+-- (dump 2222) on ItemLocation:CreateFromEquipmentSlot (Blizzard_ObjectAPI),
+-- else the slot's link through C_Item.GetItemInfo.
+function API.GetEquippedItemLevel(slot)
+    if C_Item.GetCurrentItemLevel and C_Item.DoesItemExist and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
+        local ok, level = pcall(function()
+            local location = ItemLocation:CreateFromEquipmentSlot(slot)
+            if not C_Item.DoesItemExist(location) then return false end
+            return C_Item.GetCurrentItemLevel(location)
+        end)
+        if ok and level == false then return nil end
+        if ok and type(level) == "number" and level > 0 then return level end
+    end
+    local link = GetInventoryItemLink and GetInventoryItemLink("player", slot)
+    if not link then return nil end
+    local _, _, _, itemLevel = API.GetItemInfo(link)
+    if type(itemLevel) == "number" and itemLevel > 0 then return itemLevel end
+    return nil
+end
+
 -- The version from the TOC. An unpackaged copy still carries the packager's
 -- token; assemble it at runtime, because the packager rewrites the whole token
 -- wherever it appears in shipped files.

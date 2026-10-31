@@ -292,8 +292,73 @@ function SettingsUI:Create(parent)
     AddTooltip(soulbound, "Include soulbound items", "Allow soulbound disenchantable equipment in the Solo queue. Leave this off if you only want tradable items.")
     self.soulbound = soulbound
 
+    -- Keep possible upgrades (#37): items at or above an item level stay out
+    -- of the Solo queue. Suggest fills it from the lowest level worn.
+    local keepLevel = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    keepLevel:SetPoint("TOPLEFT", soulbound, "BOTTOMLEFT", 0, -6)
+    keepLevel:SetSize(24, 24)
+    keepLevel.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    keepLevel.label:SetPoint("LEFT", keepLevel, "RIGHT", 4, 0)
+    keepLevel.label:SetText("Keep items at or above item level")
+    keepLevel:SetScript("OnClick", function(self)
+        Shatter.Database:GetSettings().keepItemLevel = self:GetChecked() and true or false
+        SettingsUI.suggestFailed = nil
+        SettingsUI:Refresh()
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_KEEP_ITEM_LEVEL", 0.05) end
+    end)
+    AddTooltip(keepLevel, "Keep possible upgrades", "Leave items at or above this item level out of the Solo queue, so a possible upgrade isn't disenchanted. Mail mode is unaffected.")
+    self.keepLevel = keepLevel
+
+    local function SetKeepLevel(value)
+        local settings = Shatter.Database:GetSettings()
+        local level = Shatter.Database.NormalizeItemLevel(value)
+        SettingsUI.suggestFailed = nil
+        local changed = level ~= settings.keepItemLevelAtOrAbove
+        settings.keepItemLevelAtOrAbove = level
+        SettingsUI:Refresh()
+        if changed and Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_KEEP_ITEM_LEVEL", 0.05) end
+    end
+    local keepLevelBox = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
+    keepLevelBox:SetSize(40, 20)
+    keepLevelBox:SetPoint("LEFT", keepLevel.label, "RIGHT", 10, 0)
+    keepLevelBox:SetAutoFocus(false)
+    keepLevelBox:SetNumeric(true)
+    keepLevelBox:SetMaxLetters(3)
+    keepLevelBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    keepLevelBox:SetScript("OnEditFocusLost", function(self)
+        if not self.reverting then SetKeepLevel(self:GetText()) end
+    end)
+    keepLevelBox:SetScript("OnEscapePressed", function(self)
+        self.reverting = true
+        self:ClearFocus()
+        self.reverting = nil
+        SettingsUI:Refresh()
+    end)
+    AddTooltip(keepLevelBox, "Item level", "Items at this item level or higher are kept. Press Enter to apply.")
+    self.keepLevelBox = keepLevelBox
+
+    local suggest = CreatePanelButton(content, "Suggest", 70)
+    suggest:SetPoint("LEFT", keepLevelBox, "RIGHT", 8, 0)
+    suggest:SetScript("OnClick", function()
+        local lowest = Shatter.ItemScanner:LowestEquippedItemLevel()
+        SettingsUI.suggestFailed = not lowest
+        if lowest then
+            SetKeepLevel(lowest)
+        else
+            SettingsUI:Refresh()
+        end
+    end)
+    AddTooltip(suggest, "Suggest", "Use the lowest item level you have equipped (not counting the shirt or tabard): an item below it is never an upgrade.")
+    self.keepLevelSuggest = suggest
+
+    local keepLevelHelp = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    keepLevelHelp:SetPoint("TOPLEFT", keepLevel, "BOTTOMLEFT", 4, -2)
+    keepLevelHelp:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+    keepLevelHelp:SetJustifyH("LEFT")
+    self.keepLevelHelp = keepLevelHelp
+
     local minimap = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    minimap:SetPoint("TOPLEFT", soulbound, "BOTTOMLEFT", 0, -6)
+    minimap:SetPoint("TOPLEFT", keepLevelHelp, "BOTTOMLEFT", -4, -6)
     minimap:SetSize(24, 24)
     minimap.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     minimap.label:SetPoint("LEFT", minimap, "RIGHT", 4, 0)
@@ -421,7 +486,7 @@ function SettingsUI:Create(parent)
 end
 
 -- The scroll content's height without the ignored list's rows.
-local CONTENT_HEIGHT = 500
+local CONTENT_HEIGHT = 540
 local IGNORED_ROW = 24
 
 local function IgnoredRow(self, index)
@@ -496,11 +561,35 @@ function SettingsUI:RefreshIgnored()
     self.content:SetHeight(CONTENT_HEIGHT + height)
 end
 
+-- The keep-upgrades row (#37). On without a level, the help line says
+-- nothing is kept yet, rather than filtering nothing in silence.
+function SettingsUI:RefreshKeepLevel(settings)
+    if not self.keepLevel then return end
+    local level = settings.keepItemLevelAtOrAbove
+    self.keepLevel:SetChecked(settings.keepItemLevel)
+    if not self.keepLevelBox:HasFocus() then
+        self.keepLevelBox:SetText(level and tostring(level) or "")
+    end
+    local text, color
+    if self.suggestFailed then
+        text, color = "Nothing equipped to suggest from: enter an item level.", Shatter.C.ACCENT
+    elseif settings.keepItemLevel and not level then
+        text, color = "No item level set: nothing is kept. Enter one, or click Suggest.", Shatter.C.ACCENT
+    elseif settings.keepItemLevel then
+        text = ("Items at item level %d or more stay out of the Solo queue."):format(level)
+    else
+        text = "Off. Suggest fills in the lowest item level you have equipped."
+    end
+    self.keepLevelHelp:SetText(text)
+    Shatter.SetTextColor(self.keepLevelHelp, color or Shatter.C.TEXT_DIM)
+end
+
 function SettingsUI:Refresh()
     if not self.frame then return end
     self:RefreshIgnored()
     local settings = Shatter.Database:GetSettings()
     if self.soulbound then self.soulbound:SetChecked(settings.includeSoulbound) end
+    self:RefreshKeepLevel(settings)
     if self.minimap then self.minimap:SetChecked(not (settings.minimap and settings.minimap.hide)) end
     if self.useValues then self.useValues:SetChecked(settings.useAuctionData) end
     if self.debug then self.debug:SetChecked(settings.debug) end

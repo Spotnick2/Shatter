@@ -236,7 +236,9 @@ end
 
 function MailMode:SetLaunchFunnelRecipient(name)
     if not self.launchOptions then return end
-    self.launchOptions.funnelRecipient = name and tostring(name) or ""
+    -- Trimmed on every path: Start commits the box, and its ClearFocus fires
+    -- OnEditFocusLost, which commits it again.
+    self.launchOptions.funnelRecipient = name and strtrim(tostring(name)) or ""
     if Shatter.MailLaunchPanel then Shatter.MailLaunchPanel:Refresh() end
 end
 
