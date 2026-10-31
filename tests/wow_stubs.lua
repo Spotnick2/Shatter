@@ -69,6 +69,8 @@ function WoW.reset()
     WoW.badEvents     = {}  -- RegisterEvent throws
     WoW.refusedEvents = {}  -- RegisterEvent returns false
     WoW.canUseSets    = true -- C_EquipmentSet.CanUseEquipmentSets (#36)
+    WoW.equipped      = {}  -- [inventory slot] = { itemID, level } (#37); level is the current item level
+    WoW.linkLevels    = {}  -- [itemID] = the level C_Item.GetDetailedItemLevelInfo reads from a link (#37)
     WoW.equipmentSetIDs = {}
     WoW.actions       = {}  -- gameplay actions the client performed: { kind, ... }
     WoW.macroRuns     = {}  -- macro text the secure handler executed
@@ -459,8 +461,19 @@ function Widget:SetAutoFocus(v) self.autoFocus = v end
 function Widget:SetMaxLetters(n) self.maxLetters = n end
 function Widget:SetTextInsets() end
 function Widget:SetMultiLine(v) self.multiLine = v end
-function Widget:SetFocus() self.focus = true end
-function Widget:ClearFocus() self.focus = false end
+-- As the client does, focus changes fire OnEditFocusGained / OnEditFocusLost.
+function Widget:SetFocus()
+    if self.focus then return end
+    self.focus = true
+    local fn = self.scripts.OnEditFocusGained
+    if fn then fn(self) end
+end
+function Widget:ClearFocus()
+    if not self.focus then return end
+    self.focus = false
+    local fn = self.scripts.OnEditFocusLost
+    if fn then fn(self) end
+end
 function Widget:HasFocus() return self.focus or false end
 function Widget:HighlightText() end
 function Widget:SetCursorPosition() end
@@ -850,13 +863,43 @@ ItemLocationMixin.__index = ItemLocationMixin
 function ItemLocation:CreateFromBagAndSlot(bagID, slotIndex)
     return setmetatable({ bagID = bagID, slotIndex = slotIndex }, ItemLocationMixin)
 end
+function ItemLocation:CreateFromEquipmentSlot(equipmentSlotIndex)
+    return setmetatable({ equipmentSlotIndex = equipmentSlotIndex }, ItemLocationMixin)
+end
 function ItemLocationMixin:GetBagAndSlot() return self.bagID, self.slotIndex end
 function ItemLocationMixin:IsBagAndSlot() return self.bagID ~= nil and self.slotIndex ~= nil end
+function ItemLocationMixin:GetEquipmentSlot() return self.equipmentSlotIndex end
+function ItemLocationMixin:IsEquipmentSlot() return self.equipmentSlotIndex ~= nil end
 local function bagItemAt(location)
     local b = location and location.bagID and WoW.bags[location.bagID]
     return b and location.slotIndex and b[location.slotIndex]
 end
-function C_Item.DoesItemExist(location) return bagItemAt(location) ~= nil end
+local function equippedAt(location)
+    return location and location.equipmentSlotIndex and WoW.equipped[location.equipmentSlotIndex]
+end
+function C_Item.DoesItemExist(location) return (bagItemAt(location) or equippedAt(location)) ~= nil end
+-- dump 2222: optional number.
+function C_Item.GetCurrentItemLevel(location)
+    local s = equippedAt(location) or bagItemAt(location)
+    if not s then return nil end
+    if s.level == false then return nil end   -- not available (yet)
+    if s.level then return s.level end
+    local i = WoW.items[s.itemID]
+    return i and i.itemLevel
+end
+-- dump 2226: actualItemLevel, previewLevel, sparseItemLevel; nothing on a
+-- cache miss. WoW.linkLevels[itemID] models an instance level in its link.
+function C_Item.GetDetailedItemLevelInfo(item)
+    local id = itemIDFrom(item)
+    local i = id and WoW.items[id]
+    if not i or WoW.cacheMiss[id] then return end
+    return WoW.linkLevels[id] or i.itemLevel, false, i.itemLevel
+end
+-- What the player wears in an inventory slot (dump: GetInventoryItemLink).
+function GetInventoryItemLink(unit, slot)
+    local worn = unit == "player" and WoW.equipped[slot]
+    return worn and WoW.link(worn.itemID) or nil
+end
 -- dump 2232: non-optional WOWGUID; an empty location is a usage error.
 function C_Item.GetItemGUID(location)
     local s = bagItemAt(location)

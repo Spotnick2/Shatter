@@ -22,6 +22,7 @@ ShatterProbe (`Tools/ShatterProbe`) is Shatter's throwaway measurement module on
 | `guid` | Item identity: a GUID followed across a drag, a bag sort and a `/reload` |
 | `next` | The secure Shatter Next: one left click sends one Disenchant, armed only in the up edge's PreClick and disarmed after its PostClick; a right click and a press released off the button send nothing; a bound key (#35) sends one, and nothing with the window closed |
 | `looks` | #28, #24: each look over a bright and a dark background, and the Mail launch panel (screenshots). It switches looks through `/shatter skin` and puts yours back. A look Shatter doesn't show (while it follows Glass UI, or a glass look without LibGlass) stops its step with no screenshot: Skip it |
+| `ilvl` | #37: each worn slot's current item level (`C_Item.GetCurrentItemLevel`), its link's (`GetDetailedItemLevelInfo`), the item's own and what Shatter reads, against the tooltip, also above item level 60; bag items with a level of their own and the level the keep rule uses; what Suggest fills in, and the queue keeping items at or above it |
 | `tips` | #27: the "Disenchants into" lines on bag, chat-link, vendor, bank, auction house and loot tooltips, and Shift on an open bag tooltip and chat link with the modifier setting (screenshots). It sets `/shatter tooltip` and puts yours back |
 
 Not covered, still by hand: the look switched in combat, the Mail session's Close Session confirm
@@ -44,6 +45,7 @@ profile it was taken in (Global, or one character's Personal), and is only put b
 | **#6:** what does the refusal look like: `UI_ERROR_MESSAGE` type, text and name (`GetGameMessageInfo`), and its order against `UNIT_SPELLCAST_FAILED`? Decides whether refusals can be learned automatically | `refuse`, step 4 | not measured |
 | **#10:** with Auto Loot on and off, the order of `UNIT_SPELLCAST_SUCCEEDED`, `LOOT_READY`, `LOOT_OPENED` (`isFromItem`), `LOOT_CLOSED` and `BAG_UPDATE_DELAYED`; does a loot event come after the bag update; can item A's loot reach B's attempt on two quick clicks; does a slow manual loot miss Shatter's count | `loot` | not measured |
 | **#26:** after the mailbox closes, `MailFrame` hidden and `InboxFrame` shown but not visible; Shatter asks for the mailbox, and carries on when it reopens | `mail` | not measured |
+| **#37:** do `C_Item.GetCurrentItemLevel` and `GetDetailedItemLevelInfo` read a worn slot, and a bag item with a level of its own, as the tooltip shows, also above item level 60? | `ilvl` | not measured |
 | **#36:** does Forever have equipment sets, and does `GetContainerItemEquipmentSetInfo` say `inSet` for an item saved in one? | `sets` | not measured |
 | Does an item's GUID stay the same across a drag, a sort and a `/reload`? | `guid` | not measured |
 | Shatter Next: one click, one cast, disarmed after; nothing on a right click or a release off the button | `next` | not measured |
