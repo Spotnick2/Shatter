@@ -70,6 +70,7 @@ function WoW.reset()
     WoW.refusedEvents = {}  -- RegisterEvent returns false
     WoW.canUseSets    = true -- C_EquipmentSet.CanUseEquipmentSets (#36)
     WoW.equipped      = {}  -- [inventory slot] = { itemID, level } (#37); level is the current item level
+    WoW.linkLevels    = {}  -- [itemID] = the level C_Item.GetDetailedItemLevelInfo reads from a link (#37)
     WoW.equipmentSetIDs = {}
     WoW.actions       = {}  -- gameplay actions the client performed: { kind, ... }
     WoW.macroRuns     = {}  -- macro text the secure handler executed
@@ -881,9 +882,18 @@ function C_Item.DoesItemExist(location) return (bagItemAt(location) or equippedA
 function C_Item.GetCurrentItemLevel(location)
     local s = equippedAt(location) or bagItemAt(location)
     if not s then return nil end
+    if s.level == false then return nil end   -- not available (yet)
     if s.level then return s.level end
     local i = WoW.items[s.itemID]
     return i and i.itemLevel
+end
+-- dump 2226: actualItemLevel, previewLevel, sparseItemLevel; nothing on a
+-- cache miss. WoW.linkLevels[itemID] models an instance level in its link.
+function C_Item.GetDetailedItemLevelInfo(item)
+    local id = itemIDFrom(item)
+    local i = id and WoW.items[id]
+    if not i or WoW.cacheMiss[id] then return end
+    return WoW.linkLevels[id] or i.itemLevel, false, i.itemLevel
 end
 -- What the player wears in an inventory slot (dump: GetInventoryItemLink).
 function GetInventoryItemLink(unit, slot)

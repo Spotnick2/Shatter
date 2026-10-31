@@ -110,25 +110,53 @@ function API.IsInEquipmentSet(bag, slot)
     return nil
 end
 
--- The item level of what's worn in an inventory slot (#37), or nil when the
--- slot is empty or the level can't be read: C_Item.GetCurrentItemLevel
--- (dump 2222) on ItemLocation:CreateFromEquipmentSlot (Blizzard_ObjectAPI),
--- else the slot's link through C_Item.GetItemInfo.
-function API.GetEquippedItemLevel(slot)
-    if C_Item.GetCurrentItemLevel and C_Item.DoesItemExist and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
-        local ok, level = pcall(function()
-            local location = ItemLocation:CreateFromEquipmentSlot(slot)
-            if not C_Item.DoesItemExist(location) then return false end
-            return C_Item.GetCurrentItemLevel(location)
-        end)
-        if ok and level == false then return nil end
-        if ok and type(level) == "number" and level > 0 then return level end
-    end
-    local link = GetInventoryItemLink and GetInventoryItemLink("player", slot)
-    if not link then return nil end
-    local _, _, _, itemLevel = API.GetItemInfo(link)
-    if type(itemLevel) == "number" and itemLevel > 0 then return itemLevel end
+-- An item instance's own level (#37): C_Item.GetCurrentItemLevel on its
+-- location (dump 2222, optional), else C_Item.GetDetailedItemLevelInfo on its
+-- link (dump 2226, may return nothing), else C_Item.GetItemInfo's. nil when
+-- none can say.
+local function PositiveLevel(ok, level)
+    if ok and type(level) == "number" and level > 0 then return level end
     return nil
+end
+local function InstanceItemLevel(location, link)
+    local level
+    if location and C_Item.GetCurrentItemLevel then
+        level = PositiveLevel(pcall(C_Item.GetCurrentItemLevel, location))
+    end
+    if not level and link and C_Item.GetDetailedItemLevelInfo then
+        level = PositiveLevel(pcall(C_Item.GetDetailedItemLevelInfo, link))
+    end
+    if not level and link then
+        local ok, _, _, _, itemLevel = pcall(API.GetItemInfo, link)
+        level = PositiveLevel(ok, itemLevel)
+    end
+    return level
+end
+
+local function Location(create, ...)
+    if not (ItemLocation and ItemLocation[create]) then return nil end
+    local ok, location = pcall(ItemLocation[create], ItemLocation, ...)
+    return ok and location or nil
+end
+
+-- What's worn in an inventory slot (#37): its level, and whether the slot
+-- holds anything. A worn item whose level can't be read yet is nil, true;
+-- only an empty slot is nil, false.
+function API.GetEquippedItemLevel(slot)
+    local link = GetInventoryItemLink and GetInventoryItemLink("player", slot)
+    local location = Location("CreateFromEquipmentSlot", slot)
+    local occupied = link ~= nil
+    if not occupied and location and C_Item.DoesItemExist then
+        local ok, exists = pcall(C_Item.DoesItemExist, location)
+        occupied = ok and exists == true
+    end
+    if not occupied then return nil, false end
+    return InstanceItemLevel(location, link), true
+end
+
+-- The level of the item instance in a bag slot (#37), or nil.
+function API.GetBagItemLevel(bag, slot, link)
+    return InstanceItemLevel(Location("CreateFromBagAndSlot", bag, slot), link)
 end
 
 -- The version from the TOC. An unpackaged copy still carries the packager's

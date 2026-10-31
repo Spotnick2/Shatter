@@ -3,7 +3,9 @@
 -- on, Solo leaves out items at or above an item level, with the reason; off,
 -- or on without a level, nothing is filtered (and Settings says so). Suggest
 -- fills the level from the lowest item level worn, without the shirt, the
--- tabard or empty slots. Mail mode is unaffected, at the scan and the click.
+-- tabard or empty slots, and declines while a worn level isn't loaded. The
+-- rule reads the bag instance's level. Mail mode is unaffected, at the scan
+-- and the click.
 ------------------------------------------------------------
 
 local H = dofile("tests/harness.lua")
@@ -129,6 +131,32 @@ ui.keepLevelSuggest.scripts.OnClick(ui.keepLevelSuggest)
 H.eq(Shatter.Database:GetSettings().keepItemLevelAtOrAbove, 27, "...the level is unchanged")
 H.check(tostring(ui.keepLevelHelp:GetText()):find("Nothing equipped to suggest from", 1, true), "...and the help line says why")
 
+-- A worn item whose level can't be read yet: no suggestion, rather than one
+-- that skips it (and could be too high); its data is requested.
+local SLOW = 7007
+WoW.AddItem(SLOW, { name = "Slow Gloves", quality = 2, itemLevel = 22, classID = 4, subclassID = 2, equipLoc = "INVTYPE_HAND" })
+WoW.equipped[1] = { itemID = HIGH, level = 33 }
+WoW.equipped[10] = { itemID = SLOW, level = false }
+WoW.cacheMiss[SLOW] = true
+local lowest, why = Shatter.ItemScanner:LowestEquippedItemLevel()
+H.check(lowest == nil and why == "not loaded", "a worn level not loaded: no suggestion (" .. tostring(lowest) .. ", " .. tostring(why) .. ")")
+local requested = false
+for _, id in ipairs(WoW.itemRequests) do if id == SLOW then requested = true end end
+H.check(requested, "...and its item data is requested")
+ui.keepLevelSuggest.scripts.OnClick(ui.keepLevelSuggest)
+H.eq(Shatter.Database:GetSettings().keepItemLevelAtOrAbove, 27, "...Suggest leaves the level alone")
+H.check(tostring(ui.keepLevelHelp:GetText()):find("isn't loaded yet", 1, true), "...and says to try again")
+-- No link yet, but the slot holds an item: still not loaded, not empty.
+local inventoryLink = GetInventoryItemLink
+GetInventoryItemLink = function(unit, slot) if slot == 10 then return nil end return inventoryLink(unit, slot) end
+H.eq(select(2, Shatter.ItemScanner:LowestEquippedItemLevel()), "not loaded", "...also with no link, the slot isn't empty")
+GetInventoryItemLink = inventoryLink
+WoW.cacheMiss[SLOW] = nil
+H.eq(Shatter.ItemScanner:LowestEquippedItemLevel(), 22, "once loaded: the link's level counts (22)")
+WoW.linkLevels[SLOW] = 24
+H.eq(Shatter.ItemScanner:LowestEquippedItemLevel(), 24, "...the link's instance level, not the item's own")
+WoW.equipped = {}
+
 -- 8. Saved after the scan, before the click: the click is refused.
 setup()
 local selected = Shatter.Queue:GetSelected()
@@ -138,6 +166,30 @@ WoW.click(Shatter.MainFrame.primary, "LeftButton")
 H.eq(#WoW.actionsOf("cast"), 0, "kept since the scan: no cast")
 local shown = tostring(Shatter.MainFrame.status:GetText())
 H.check(shown:find(("item level %d or more (kept)"):format(selected.itemLevel), 1, true), "...and the status says why (" .. shown .. ")")
+
+-- 8b. The bag item's own level, not its item's: a blade of item level 40
+-- that reads 60 is kept at 50; one whose level can't be read at all is kept.
+setup()
+WoW.bags[0][3].level = 60
+keep(true, 50)
+rescan()
+H.eq(queued(HIGH), false, "an instance at level 60 (item level 40) is kept at 50")
+H.eq(queued(LOW), true, "...an item level 20 one is not")
+WoW.bags[0][3].level = false
+WoW.linkLevels[HIGH] = 55
+rescan()
+H.eq(queued(HIGH), false, "...the link's level, without the location's")
+WoW.linkLevels[HIGH] = nil
+rescan()
+H.eq(queued(HIGH), true, "...and without either, the item's own (40)")
+local unknown = Shatter.ItemScanner:BuildItem(0, 1)
+unknown.itemLevel, unknown.currentItemLevel = nil, nil
+H.eq(select(2, Shatter.ItemScanner:IsCandidateDisenchantable(unknown)), "item level unknown (kept)", "no level at all: kept")
+local selected2 = Shatter.Queue:GetSelected()
+WoW.bags[selected2.bag][selected2.slot].level = 70
+keep(true, 65)
+WoW.click(Shatter.MainFrame.primary, "LeftButton")
+H.eq(#WoW.actionsOf("cast"), 0, "at the click, the instance's level is read again: no cast")
 
 -- 9. Mail mode is unaffected: its items belong to their senders.
 local mailItem = Shatter.ItemScanner:BuildItem(0, 3)

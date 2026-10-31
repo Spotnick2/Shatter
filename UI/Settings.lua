@@ -340,8 +340,8 @@ function SettingsUI:Create(parent)
     local suggest = CreatePanelButton(content, "Suggest", 70)
     suggest:SetPoint("LEFT", keepLevelBox, "RIGHT", 8, 0)
     suggest:SetScript("OnClick", function()
-        local lowest = Shatter.ItemScanner:LowestEquippedItemLevel()
-        SettingsUI.suggestFailed = not lowest
+        local lowest, why = Shatter.ItemScanner:LowestEquippedItemLevel()
+        SettingsUI.suggestFailed = not lowest and why or nil
         if lowest then
             SetKeepLevel(lowest)
         else
@@ -571,7 +571,9 @@ function SettingsUI:RefreshKeepLevel(settings)
         self.keepLevelBox:SetText(level and tostring(level) or "")
     end
     local text, color
-    if self.suggestFailed then
+    if self.suggestFailed == "not loaded" then
+        text, color = "An equipped item's level isn't loaded yet: click Suggest again in a moment.", Shatter.C.ACCENT
+    elseif self.suggestFailed then
         text, color = "Nothing equipped to suggest from: enter an item level.", Shatter.C.ACCENT
     elseif settings.keepItemLevel and not level then
         text, color = "No item level set: nothing is kept. Enter one, or click Suggest.", Shatter.C.ACCENT

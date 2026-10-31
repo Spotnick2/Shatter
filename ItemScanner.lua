@@ -58,23 +58,35 @@ function ItemScanner:IsCandidateDisenchantable(item)
     -- received item isn't in the player's sets.
     if item.bag and item.slot and API.IsInEquipmentSet(item.bag, item.slot) then return false, "in an equipment set" end
     -- Possible upgrades (#37), Solo only: Mail items belong to their senders.
+    -- The instance's own level; one that can't be read is kept.
     local keepAt = item.mode == Shatter.Constants.MODES.SOLO and Shatter.Database:GetKeepItemLevel()
-    if keepAt and (item.itemLevel or 0) >= keepAt then
-        return false, ("item level %d or more (kept)"):format(keepAt)
+    if keepAt then
+        local level = item.currentItemLevel or item.itemLevel
+        if not level then return false, "item level unknown (kept)" end
+        if level >= keepAt then return false, ("item level %d or more (kept)"):format(keepAt) end
     end
     return true
 end
 
 -- The lowest item level the player wears (#37), for Suggest: below it,
--- nothing is an upgrade. Empty slots, the shirt and the tabard don't count;
--- nil when nothing is worn.
+-- nothing is an upgrade. Empty slots, the shirt and the tabard don't count.
+-- nil, "nothing worn"; or nil, "not loaded" when a worn item's level can't be
+-- read yet (its data is requested): skipping it could suggest too high.
 function ItemScanner:LowestEquippedItemLevel()
-    local lowest
+    local lowest, unread
     for _, slot in ipairs(Shatter.Constants.KEEP_ITEM_LEVEL_SLOTS) do
-        local level = API.GetEquippedItemLevel(slot)
-        if level and (not lowest or level < lowest) then lowest = level end
+        local level, occupied = API.GetEquippedItemLevel(slot)
+        if level then
+            if not lowest or level < lowest then lowest = level end
+        elseif occupied then
+            unread = true
+            local link = GetInventoryItemLink("player", slot)
+            if link then pcall(C_Item.RequestLoadItemDataByID, link) end
+        end
     end
-    return lowest and math.floor(lowest) or nil
+    if unread then return nil, "not loaded" end
+    if not lowest then return nil, "nothing worn" end
+    return math.floor(lowest)
 end
 
 -- Weapons and armor worn in a slot: what Disenchant takes, whatever the
@@ -118,6 +130,7 @@ function ItemScanner:BuildItem(bag, slot)
         count = count or 1,
         quality = quality,
         itemLevel = itemLevel,
+        currentItemLevel = API.GetBagItemLevel(bag, slot, itemLink or link),
         className = className,
         subclassName = subclassName,
         classID = classID or instantClassID,

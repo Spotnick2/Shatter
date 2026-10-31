@@ -21,8 +21,9 @@
 --               status then and after reopening;
 --   guid        an item's GUID across a drag, a bag sort and a /reload;
 --   sets (#36)  equipment sets: the client's, and Shatter leaving their items out;
---   ilvl (#37)  the item level of each worn slot, both ways, against its
---               tooltip, and what Suggest fills in;
+--   ilvl (#37)  the item level of each worn slot and of bag items with a
+--               level of their own, against the tooltip, and what Suggest
+--               fills in;
 --   next        Shatter Next: one left click, one cast, disarmed after; a
 --               right click and a press released off the button cast nothing;
 --   looks (#28, #24)  each look over a bright and a dark background, and the
@@ -437,15 +438,49 @@ local function readItemLevels()
                 return C_Item.GetCurrentItemLevel(ItemLocation:CreateFromEquipmentSlot(slot))
             end)
             local _, _, _, own = C_Item.GetItemInfo(link)
+            local okDetailed, detailed = Probe:Try("C_Item.GetDetailedItemLevelInfo", C_Item.GetDetailedItemLevelInfo, link)
             local read = addon and addon.API and addon.API.GetEquippedItemLevel(slot)
-            rows[#rows + 1] = ("slot %d %s: current %s, item %s, Shatter %s"):format(slot, link,
-                okCurrent and Show(current) or "ERROR", Show(own), Show(read))
+            rows[#rows + 1] = ("slot %d %s: current %s, detailed %s, item %s, Shatter %s"):format(slot, link,
+                okCurrent and Show(current) or "ERROR", okDetailed and Show(detailed) or "ERROR", Show(own), Show(read))
         end
     end
-    local lowest = addon and addon.ItemScanner and addon.ItemScanner:LowestEquippedItemLevel()
-    local text = ("%d worn, Suggest %s: %s"):format(#rows, Show(lowest), #rows > 0 and table.concat(rows, "; ") or "nothing")
+    local lowest, why
+    if addon and addon.ItemScanner then lowest, why = addon.ItemScanner:LowestEquippedItemLevel() end
+    local text = ("%d worn, Suggest %s%s: %s"):format(#rows, Show(lowest), why and (" (" .. why .. ")") or "",
+        #rows > 0 and table.concat(rows, "; ") or "nothing")
     say("ilvl: " .. text)
     return #rows, text
+end
+
+-- The bag items' levels: the instance's (location, link) against the item's
+-- own, and the level Shatter's keep rule uses. Only the ones that differ are
+-- listed by name.
+local function readBagLevels()
+    local addon = rawget(_G, "Shatter")
+    local count, differ = 0, {}
+    for bag = 0, NUM_BAG_SLOTS or 4 do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            local link = type(info) == "table" and info.hyperlink
+            if link then
+                count = count + 1
+                local okCurrent, current = Probe:Try("C_Item.GetCurrentItemLevel", function()
+                    return C_Item.GetCurrentItemLevel(ItemLocation:CreateFromBagAndSlot(bag, slot))
+                end)
+                local _, detailed = Probe:Try("C_Item.GetDetailedItemLevelInfo", C_Item.GetDetailedItemLevelInfo, link)
+                local _, _, _, own = C_Item.GetItemInfo(link)
+                local used = addon and addon.API and addon.API.GetBagItemLevel(bag, slot, link)
+                if not okCurrent or current ~= own or detailed ~= own or used ~= current then
+                    differ[#differ + 1] = ("bag %d slot %d %s: current %s, detailed %s, item %s, Shatter %s"):format(bag, slot,
+                        link, okCurrent and Show(current) or "ERROR", Show(detailed), Show(own), Show(used))
+                end
+            end
+        end
+    end
+    local text = ("%d bag items, %d with a level of their own: %s"):format(count, #differ,
+        #differ > 0 and table.concat(differ, "; ") or "none")
+    say("ilvl bags: " .. text)
+    return #differ, text
 end
 
 local ILVL = {
@@ -458,6 +493,10 @@ local ILVL = {
       run = readItemLevels },
     { text = "Does its tooltip's item level match the console's \"current\"?", ask = true,
       screenshot = "the high-level item's tooltip" },
+    { text = "Press Run to read your bag items' levels. If one's tooltip item level differs from the item's "
+        .. "usual one (Wowhead's), keep it in your bags.", button = "Run", run = readBagLevels },
+    { text = "For an item the console lists (or Skip if none): does its tooltip's item level match "
+        .. "\"Shatter\"?", ask = true, screenshot = "a bag item's tooltip" },
     { text = "In Shatter's Settings, tick \"Keep items at or above item level\" and click Suggest. Is the "
         .. "number the console's Suggest (the lowest worn, without shirt and tabard)?", ask = true,
       screenshot = "Settings" },
@@ -766,4 +805,4 @@ end)
 
 NS._test = { Probe = Probe, readSkill = readSkill, watch = watch, since = since, outcome = outcome,
              recorded = recorded, REFUSE = REFUSE, LOOT = LOOT, MAIL = MAIL, GUID = GUID, NEXT = NEXT,
-             LOOKS = LOOKS, TIPS = TIPS, SETS = SETS, ILVL = ILVL, readItemLevels = readItemLevels, timeline = timeline, findNext = findNext }
+             LOOKS = LOOKS, TIPS = TIPS, SETS = SETS, ILVL = ILVL, readItemLevels = readItemLevels, readBagLevels = readBagLevels, timeline = timeline, findNext = findNext }
