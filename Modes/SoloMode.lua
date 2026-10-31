@@ -17,12 +17,14 @@ function SoloMode:Initialize()
     if not Shatter.Events then return end
     Shatter.Events:Register("BAG_UPDATE_DELAYED", self, self.OnEvent)
     Shatter.Events:Register("GET_ITEM_INFO_RECEIVED", self, self.OnEvent)
+    -- Gear saved in a set leaves the queue, and comes back when it's removed (#36).
+    Shatter.Events:Register("EQUIPMENT_SETS_CHANGED", self, self.OnEvent)
     self:ScheduleScan("PLAYER_LOGIN", 0)
 end
 
 function SoloMode:OnEvent(event)
     if not Shatter.isActive then return end
-    if event == "BAG_UPDATE_DELAYED" or event == "GET_ITEM_INFO_RECEIVED" then
+    if event == "BAG_UPDATE_DELAYED" or event == "GET_ITEM_INFO_RECEIVED" or event == "EQUIPMENT_SETS_CHANGED" then
         if Shatter.Disenchant and Shatter.Disenchant:HasPending() then return end
         self:ScheduleScan(event, event == "BAG_UPDATE_DELAYED" and 0.15 or 0.25)
     end

@@ -44,7 +44,7 @@ function ItemScanner:CanBeDisenchanted(item)
 end
 
 -- CanBeDisenchanted, and the player's own choices: ignored items, the
--- quality cap, soulbound.
+-- quality cap, soulbound, and gear saved in an equipment set.
 function ItemScanner:IsCandidateDisenchantable(item)
     local settings = Shatter.Database:GetSettings()
     if not item or not item.itemID then return false, "missing item" end
@@ -53,6 +53,9 @@ function ItemScanner:IsCandidateDisenchantable(item)
     if not ok then return false, reason end
     if item.quality > (settings.maxQuality or Shatter.Constants.DEFAULT_MAX_QUALITY) then return false, "quality too high" end
     if item.isSoulbound and not settings.includeSoulbound then return false, "soulbound" end
+    -- By bag slot (#36): a Mail attachment has none until taken, and a
+    -- received item isn't in the player's sets.
+    if item.bag and item.slot and API.IsInEquipmentSet(item.bag, item.slot) then return false, "in an equipment set" end
     return true
 end
 
