@@ -162,6 +162,7 @@ Phase 1 MVP is Solo Mode only.
 
 - Hand-curated TBC disenchant result tables by quality, item class, and item level.
 - Optional external price source integration.
+- An essence with no price of its own takes the other size's: three lesser = one greater (`Constants.ESSENCE_GREATER`, #39). Its own price always wins.
 - Threshold filtering only when a reliable expected value exists.
 - Clear `unknown` state when value data is missing.
 

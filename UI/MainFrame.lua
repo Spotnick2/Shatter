@@ -297,7 +297,9 @@ local function UpdateDetailSections(detail, selected)
         end
 
         if estimate and estimate.expectedValueCopper then
-            detail.valueText:SetText("Expected DE Value: " .. (FormatMoneyWithIcons(estimate.expectedValueCopper) or tostring(estimate.expectedValueCopper)) .. "\nSource: " .. FormatPriceSource(estimate.valueSource))
+            local derived = Shatter.DisenchantTables:FormatDerivedPrices(estimate)
+            detail.valueText:SetText("Expected DE Value: " .. (FormatMoneyWithIcons(estimate.expectedValueCopper) or tostring(estimate.expectedValueCopper)) .. "\nSource: " .. FormatPriceSource(estimate.valueSource)
+                .. (derived and (" (" .. derived .. ")") or ""))
         else
             detail.valueText:SetText("Unavailable")
         end

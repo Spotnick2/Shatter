@@ -293,6 +293,26 @@ local function AddEstimate(results, itemID, chance, minAmount, maxAmount)
     entry.maxAmount = math.max(entry.maxAmount or maxAmount, maxAmount or minAmount or 1)
 end
 
+local ESSENCE_LESSER = {}
+for lesser, greater in pairs(C.ESSENCE_GREATER) do ESSENCE_LESSER[greater] = lesser end
+
+-- A material's price and its source: its own, else, for an essence, the
+-- other size's at three lesser to one greater (#39), with the item priced.
+function Tables:GetMaterialValue(itemID)
+    local value, source = Shatter.AuctionData:GetItemValue(itemID)
+    if value then return value, source end
+    local per = C.ESSENCE_LESSER_PER_GREATER
+    local greater, lesser = C.ESSENCE_GREATER[itemID], ESSENCE_LESSER[itemID]
+    if greater then
+        value, source = Shatter.AuctionData:GetItemValue(greater)
+        if value then return value / per, source, greater end
+    elseif lesser then
+        value, source = Shatter.AuctionData:GetItemValue(lesser)
+        if value then return value * per, source, lesser end
+    end
+    return nil
+end
+
 function Tables:GetExpected(item)
     if not item or not item.quality or not item.itemLevel then return nil end
     local results = {}
@@ -312,14 +332,16 @@ function Tables:GetExpected(item)
     end
 
     local list = {}
-    local expectedValue, valueSource
+    local expectedValue, valueSource, derived
     for _, entry in pairs(results) do
         if Shatter.AuctionData then
-            local value, source = Shatter.AuctionData:GetItemValue(entry.itemID)
+            local value, source, from = self:GetMaterialValue(entry.itemID)
             if value then
                 entry.valueCopper = value
+                entry.valueFrom = from
                 expectedValue = (expectedValue or 0) + entry.expectedAmount * value
                 valueSource = valueSource or source
+                if from then derived = true end
             end
         end
         table.insert(list, entry)
@@ -327,8 +349,23 @@ function Tables:GetExpected(item)
     table.sort(list, function(a, b) return (a.expectedAmount or 0) > (b.expectedAmount or 0) end)
     return {
         materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain,
-        measured = measured ~= nil, samples = samples,
+        measured = measured ~= nil, samples = samples, valueDerived = derived,
     }
+end
+
+-- "Lesser Astral Essence from Greater Astral Essence", for each material
+-- priced from its other size (#39); nil when none is.
+function Tables:FormatDerivedPrices(estimate)
+    if not estimate or not estimate.valueDerived then return nil end
+    local parts = {}
+    for _, entry in ipairs(estimate.materials or {}) do
+        if entry.valueFrom then
+            local name = Shatter.API.GetItemInfo(entry.itemID) or ("item:" .. entry.itemID)
+            local from = Shatter.API.GetItemInfo(entry.valueFrom) or ("item:" .. entry.valueFrom)
+            parts[#parts + 1] = name .. " from " .. from
+        end
+    end
+    return #parts > 0 and table.concat(parts, ", ") or nil
 end
 
 function Tables:FormatMoney(copper)
@@ -354,7 +391,9 @@ function Tables:FormatEstimate(estimate)
         table.insert(lines, string.format("%s x%.2f (%d%%, %d-%d)", label, entry.expectedAmount or 0, chance, entry.minAmount or 1, entry.maxAmount or 1))
     end
     if estimate.expectedValueCopper then
-        table.insert(lines, "Expected value: " .. self:FormatMoney(estimate.expectedValueCopper) .. (estimate.valueSource and (" via " .. estimate.valueSource) or ""))
+        local derived = self:FormatDerivedPrices(estimate)
+        table.insert(lines, "Expected value: " .. self:FormatMoney(estimate.expectedValueCopper) .. (estimate.valueSource and (" via " .. estimate.valueSource) or "")
+            .. (derived and (" (" .. derived .. ")") or ""))
     else
         table.insert(lines, "Expected value: no pricing source")
     end

@@ -174,6 +174,22 @@ Constants.MATERIAL_ITEM_IDS = {
     [20725] = true, -- Nexus Crystal
 }
 
+-- Essences come in two sizes per tier (#39): three lesser combine into one
+-- greater, and a greater splits into three lesser. Client 1.60.1.70532: each
+-- essence's ItemEffect casts a create-item spell (SpellEffect 24) making the
+-- other size, 1 greater or 3 lesser; the combine takes 2 more lesser
+-- (SpellReagents) besides the one used. Wowhead Forever agrees: spells 13361
+-- "Turn three lesser magic essences into a greater one" and 13362.
+-- Lesser -> greater.
+Constants.ESSENCE_LESSER_PER_GREATER = 3
+Constants.ESSENCE_GREATER = {
+    [10938] = 10939, -- Magic
+    [10998] = 11082, -- Astral
+    [11134] = 11135, -- Mystic
+    [11174] = 11175, -- Nether
+    [16202] = 16203, -- Eternal
+}
+
 Constants.NON_DISENCHANTABLE = {
     -- Equipment that cannot be disenchanted despite its class and slot, and
     -- that the client's own flag (Data/NoDisenchant.lua) misses. Add entries
