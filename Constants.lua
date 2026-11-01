@@ -12,6 +12,8 @@ Constants.SPELL_DISENCHANT = 13262
 -- stale constant cannot agree with itself.
 Constants.MEASURED_ON_BUILD = "1.60.1.70334"
 Constants.MAX_LOAD_STAMPS = 30
+-- Learning mode (#40): the raw disenchant log keeps this many, oldest dropped.
+Constants.YIELD_LOG_MAX = 2000
 
 Constants.QUALITY_UNCOMMON = 2
 Constants.QUALITY_RARE = 3

@@ -373,6 +373,7 @@ function Disenchant:Finish(trigger)
         -- (and its estimates) synchronously.
         if itemDisappeared and Shatter.DisenchantTables then
             Shatter.DisenchantTables:RecordYield(pending.item, pending.loot)
+            Shatter.DisenchantTables:LogDisenchant(pending.item, pending.loot)
         end
         if Shatter.Session then
             Shatter.Session:RecordResult(pending.item, result or {})

@@ -302,6 +302,22 @@ function Database:ResetYields()
     ShatterDB.yields = nil
 end
 
+-- Learning mode's raw disenchant log (#40), account-wide:
+-- { enabled = bool, entries = { ... } }. Absent until it is first turned on;
+-- `create` makes it.
+function Database:GetYieldLog(create)
+    ShatterDB = ShatterDB or {}
+    local log = ShatterDB.yieldLog
+    if type(log) ~= "table" then
+        if not create then return nil end
+        log = {}
+        ShatterDB.yieldLog = log
+    end
+    log.enabled = log.enabled == true
+    if type(log.entries) ~= "table" then log.entries = {} end
+    return log
+end
+
 -- The item level Solo keeps from (#37): nil while the setting is off or has
 -- no level.
 function Database:GetKeepItemLevel()

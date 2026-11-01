@@ -53,15 +53,18 @@ try {
         if ($LASTEXITCODE -ne 0) { $failed++ }
     }
 
-    # Tools/gen_no_disenchant.py (#6), when Python is here (CI always runs it).
+    # The Python tools (Tools/gen_no_disenchant.py #6, Tools/yield_report.py
+    # #40), when Python is here (CI always runs them).
     $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($python) {
-        Write-Host "-- test_gen_no_disenchant.py " -NoNewline -ForegroundColor Cyan
-        $out = & $python.Source (Join-Path $PSScriptRoot "test_gen_no_disenchant.py") 2>&1
-        Write-Host ($out | Select-Object -Last 1)
-        if ($LASTEXITCODE -ne 0) { $out | Write-Host; $failed++ }
-    } else {
-        Write-Host "-- test_gen_no_disenchant.py skipped: no python on PATH" -ForegroundColor DarkGray
+    Get-ChildItem (Join-Path $PSScriptRoot "test_*.py") | Sort-Object Name | ForEach-Object {
+        if ($python) {
+            Write-Host "-- $($_.Name) " -NoNewline -ForegroundColor Cyan
+            $out = & $python.Source $_.FullName 2>&1
+            Write-Host ($out | Select-Object -Last 1)
+            if ($LASTEXITCODE -ne 0) { $out | Write-Host; $failed++ }
+        } else {
+            Write-Host "-- $($_.Name) skipped: no python on PATH" -ForegroundColor DarkGray
+        }
     }
 
     if ($failed -gt 0) {
