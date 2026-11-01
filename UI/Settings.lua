@@ -298,7 +298,7 @@ function SettingsUI:Create(parent)
     valueHelp:SetPoint("LEFT", value10g, "RIGHT", 10, 0)
     valueHelp:SetPoint("RIGHT", content, "RIGHT", -12, 0)
     valueHelp:SetJustifyH("LEFT")
-    valueHelp:SetText("Uses optional TSM, Auctioneer, or Auctionator prices when available.")
+    valueHelp:SetText("Uses a pricing addon's prices (Auctionator) when available.")
 
     local soulbound = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
     soulbound:SetPoint("TOPLEFT", valueOff, "BOTTOMLEFT", -4, -8)
@@ -389,7 +389,7 @@ function SettingsUI:Create(parent)
         Shatter.Database:GetSettings().useAuctionData = self:GetChecked() and true or false
         if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_VALUE_FILTER", 0.05) end
     end)
-    AddTooltip(useValues, "Filter by expected value", "Use installed TSM, Auctioneer, or Auctionator prices to filter the queue by the selected minimum expected value. Items stay visible if no pricing data is available.")
+    AddTooltip(useValues, "Filter by expected value", "Use a pricing addon's prices (Auctionator) to filter the queue by the selected minimum expected value. Items stay visible if no pricing data is available.")
     self.useValues = useValues
 
     -- Value rules (#38), Solo only.
@@ -539,7 +539,7 @@ function SettingsUI:Create(parent)
     note:SetPoint("TOPLEFT", simulate, "BOTTOMLEFT", 4, -10)
     note:SetPoint("RIGHT", content, "RIGHT", -12, 0)
     note:SetJustifyH("LEFT")
-    note:SetText("Expected materials use built-in disenchant tables. Value filters use optional TSM, Auctioneer, or Auctionator prices when available. Mail and Raid modes are reserved for later phases.")
+    note:SetText("Expected materials use built-in tables, corrected by your own disenchants. Values need a pricing addon (Auctionator). Mail Mode's actions stay off until tested in game.")
 
     self:Refresh()
     return frame
