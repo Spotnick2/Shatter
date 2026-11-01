@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Settings, the Summary and the Raid tab no longer describe Shatter as an early plan: the pricing notes name Auctionator (the pricing addon that runs on Forever), the Settings footnote says Mail Mode's actions stay off until tested in game, and the Raid tab says what it's for. The licence now lists the libraries that ship with Shatter (LibGlass-1.0 and LibStub).
+
 ## v1.0.0-beta1 - 2026-11-01
 
 The first beta, for the launch of WoW Forever. Versions now count from 1.0.0; the 0.2 alphas came before.
