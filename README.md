@@ -57,14 +57,13 @@ type `/shatter` or click Shatter's minimap button.
 - **Values, with a pricing addon.** With [Auctionator](https://www.curseforge.com/wow/addons/auctionator)
   and a scan, Shatter shows each item's expected value. An essence without a price of its own is
   valued from the other size of its tier (three lesser make one greater). Settings > "Filter queue
-  by expected value" then offers:
+  by expected value" then offers these rules, all off by default. Without prices, none of them
+  leaves anything out.
   - a minimum expected value;
   - "Only disenchant if worth more than vendoring": an item whose materials are worth no more than
     its vendor price is left out. When only some of its materials have prices, it stays in;
   - "Keep items worth at least N gold on the auction house": items to sell instead. An item with no
     auction price isn't kept, and neither is a soulbound one.
-
-  All of them are off by default, and without prices none of them leaves anything out.
 - **A summary.** Summary shows what you've disenchanted, skipped, ignored and failed since you
   logged in, and the materials it gave.
 - **The look.** Shatter looks like the game's own windows by default (WoW Forever). Settings > Look
