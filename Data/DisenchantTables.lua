@@ -239,6 +239,94 @@ function Tables:MigrateYields()
     end
 end
 
+-- Learning mode (#40): while it is on (/shatter learn on, account-wide, off
+-- by default), every disenchant whose loot window Shatter read is logged raw
+-- in ShatterDB.yieldLog, for Tools/yield_report.py to set against RULES.
+-- Unlike RecordYield it keeps what doesn't fit, flagged: an item no rule
+-- matches (unmatched), loot that isn't a material (unknownLoot), a material
+-- no rule predicts for the item (surprise). Estimates never read it. The
+-- entry is built field by field, so a Mail item's sender is never stored.
+-- Returns true when logged.
+function Tables:LogDisenchant(item, loot)
+    local log = Shatter.Database and Shatter.Database:GetYieldLog()
+    if not (log and log.enabled) or not item or not item.itemID then return false end
+    if type(loot) ~= "table" or not next(loot) then return false end
+    local predicted, matched = {}, false
+    if item.quality and item.itemLevel then
+        for _, rule in ipairs(RULES) do
+            if RuleMatches(rule, item) then
+                predicted[rule[5]] = true
+                matched = true
+            end
+        end
+    end
+    local version, build = GetBuildInfo()
+    local entry = {
+        time = time(), build = tostring(version) .. "." .. tostring(build), mode = item.mode,
+        itemID = item.itemID, itemLevel = item.itemLevel, quality = item.quality,
+        classID = item.classID, subclassID = item.subclassID, equipLoc = item.equipLoc,
+        loot = {},
+    }
+    -- The instance's own level, only where it differs from the generic one
+    -- the rules match on.
+    if type(item.currentItemLevel) == "number" and item.currentItemLevel ~= item.itemLevel then
+        entry.currentItemLevel = item.currentItemLevel
+    end
+    for itemID, count in pairs(loot) do
+        count = tonumber(count)
+        if type(itemID) == "number" and count and count > 0 then
+            entry.loot[itemID] = count
+            if not C.MATERIAL_ITEM_IDS[itemID] then
+                entry.unknownLoot = true
+            elseif matched and not predicted[itemID] then
+                entry.surprise = true
+            end
+        end
+    end
+    if not next(entry.loot) then return false end
+    if not matched then entry.unmatched = true end
+    local entries = log.entries
+    entries[#entries + 1] = entry
+    while #entries > C.YIELD_LOG_MAX do table.remove(entries, 1) end
+    return true
+end
+
+local function LogFlags(e)
+    local flags = {}
+    if e.unmatched then flags[#flags + 1] = "no table rule" end
+    if e.unknownLoot then flags[#flags + 1] = "not a material" end
+    if e.surprise then flags[#flags + 1] = "a material the table doesn't predict" end
+    return flags
+end
+
+-- Chat lines for /shatter learn: on or off, the count, and the latest
+-- flagged entries (up to `maxFlagged`, 10 by default), newest first.
+function Tables:FormatLog(maxFlagged)
+    local log = Shatter.Database and Shatter.Database:GetYieldLog()
+    local entries = log and log.entries or {}
+    local flagged = {}
+    for i = #entries, 1, -1 do
+        local e = entries[i]
+        if type(e) == "table" and #LogFlags(e) > 0 then flagged[#flagged + 1] = e end
+    end
+    local lines = { string.format("Learning mode is %s: %d disenchant%s logged (the last %d are kept), %d flagged.",
+        log and log.enabled and "on" or "off", #entries, #entries == 1 and "" or "s", C.YIELD_LOG_MAX, #flagged) }
+    for i = 1, math.min(#flagged, maxFlagged or 10) do
+        local e = flagged[i]
+        local loot = {}
+        for itemID, count in pairs(type(e.loot) == "table" and e.loot or {}) do
+            local name = Shatter.API.GetItemInfo(itemID)
+            loot[#loot + 1] = string.format("%s x%s", name or ("item:" .. tostring(itemID)), tostring(count))
+        end
+        table.sort(loot)
+        local name = Shatter.API.GetItemInfo(e.itemID)
+        lines[#lines + 1] = string.format("%s (%s %s, item level %s): %s - %s",
+            name or ("item:" .. tostring(e.itemID)), QUALITY_NAMES[e.quality] or ("quality " .. tostring(e.quality)),
+            CLASS_NAMES[e.classID] or "other", tostring(e.itemLevel), table.concat(loot, ", "), table.concat(LogFlags(e), ", "))
+    end
+    return lines
+end
+
 -- Chat lines for /shatter yields: every measured bucket, Uncommon to Epic.
 function Tables:FormatYields()
     local yields = Shatter.Database and Shatter.Database:GetYields()

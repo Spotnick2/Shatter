@@ -263,6 +263,21 @@ SlashCmdList.SHATTER = function(message)
         end
         Shatter.Print("Measured disenchants cleared; estimates use the built-in table.")
         return
+    elseif message == "learn" or message:match("^learn ") then
+        -- Learning mode (#40): the developer's raw disenchant log, deliberately
+        -- left out of Settings and the command list above.
+        local arg = message:match("^learn%s+(%S+)$")
+        if arg == "on" or arg == "off" then
+            Shatter.Database:GetYieldLog(true).enabled = arg == "on"
+        elseif arg == "clear" then
+            local log = Shatter.Database:GetYieldLog()
+            if log then log.entries = {} end
+        elseif message ~= "learn" then
+            Shatter.Print("Use /shatter learn on|off|clear.")
+            return
+        end
+        for _, line in ipairs(Shatter.DisenchantTables:FormatLog()) do Shatter.Print(line) end
+        return
     elseif message == "ignored" then
         local ids = Shatter.Database:GetIgnoredItems()
         if #ids == 0 then
