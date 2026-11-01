@@ -19,7 +19,7 @@ import yield_report as yr  # noqa: E402
 RULES = """local TOP = 1000
 local RULES = {
     { 2, ARMOR, 16, 20, 10940, 0.75, 2, 3 }, { 2, ARMOR, 21, 25, 10940, 0.75, 4, 6 },
-    { 2, ARMOR, 26, 30, 11083, 0.75, 1, 2 },
+    { 2, ARMOR, 26, 30, 11083, 0.75, 1, 2 }, { 2, WEAPON, 16, 20, 10938, 0.75, 1, 2 },
     { 2, ARMOR, 16, 25, 10978, 0.05, 1, 1 },
     { 3, nil, 1, TOP, 10978, 1.00, 1, 1 },
 }
@@ -119,10 +119,11 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # 2. The table and the names.
     rules = yr.read_rules(rules_path)
-    check(len(rules) == 5 and rules[-1] == (3, None, 1, 1000, 10978, 1.0, 1, 1), "rules, TOP and nil class read")
+    check(len(rules) == 6 and rules[-1] == (3, None, 1, 1000, 10978, 1.0, 1, 1), "rules, TOP and nil class read")
     names = yr.read_material_names(constants_path)
     check(names == {10940: "Strange Dust", 11083: "Soul Dust", 10978: "Small Glimmering Shard"}, "material names")
-    check(yr.predict(rules, 2, 4, 20) == {10940: (0.75, 2, 3), 10978: (0.05, 1, 1)}, "predict a level")
+    check(yr.predict(rules, 2, 4, 20) == {10940: (0.75, 2, 3), 10978: (0.05, 1, 1)}, "predict a level, armor only")
+    check(yr.predict(rules, 2, 2, 20) == {10938: (0.75, 1, 2)}, "...and weapon only")
 
     # 2b. The real table reads whole: as many rules as the file has tuples.
     real = os.path.join(REPO, "Data", "DisenchantTables.lua")
@@ -140,7 +141,7 @@ with tempfile.TemporaryDirectory() as tmp:
     has("%d disenchants logged (%s: %d, %s: 2)." % (len(ENTRIES), B1, len(ENTRIES) - 2, B2), "the header")
     has("Uncommon armor 20: 13 disenchants\n", "a level's count")
     has("  Strange Dust: seen 100% x2.2 (2-3); table 75% x2.5 (2-3)", "seen against the table")
-    has("  Small Glimmering Shard: never seen; table 5% x1.0 (1-1)", "predicted, not seen, too rare to note")
+    has("  Small Glimmering Shard: never seen; table 5% x1.0 (1-1)\n", "predicted, not seen, too rare to note")
     has("  item:2589: seen 8% x1.0 (1-1); table none  <- not in the table", "a non-material")
     has("  Strange Dust: never seen; table 75% x5.0 (4-6)  <- about 9 expected, none seen", "a material missing")
     has("  Small Glimmering Shard: seen 100% x1.0 (1-1); table 5% x1.0 (1-1)  <- chance differs", "a chance that differs")
@@ -154,6 +155,11 @@ with tempfile.TemporaryDirectory() as tmp:
     has("item:2589 (Uncommon armor, item level 24, %s): Strange Dust x5, Soul Dust x1 - a material the table doesn't predict"
         % B1, "surprise flagged")
     has("Uncommon armor 24 (1), Uncommon armor 26 (1), Epic armor 30 (1)", "too few to judge")
+
+    # 3a. The sample cutoff: a level with exactly min_samples is judged.
+    at = "\n".join(yr.report(log, rules, names, min_samples=12))
+    check("Uncommon armor 21: 12 disenchants\n" in at and "Uncommon armor 21 (12)" not in at,
+          "a level with exactly min_samples is not too few")
 
     # 3b. One build only.
     only = "\n".join(yr.report(log, rules, names, build=B2))
