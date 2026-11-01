@@ -1,94 +1,148 @@
 # Shatter
 
-**Shatter** is a standalone disenchanting workflow addon for *World of Warcraft: Forever*.
+Disenchanting a bag of greens means casting Disenchant, clicking the item, looting, then
+doing it again for the next one, while making sure the cloak you meant to keep, the set piece for
+your second spec or the blue worth more on the auction house isn't the one under the cursor.
 
-This is the Forever edition. Shatter started as a TBC Anniversary addon; that version is frozen at the tag `v0.1.22-alpha`.
+Shatter turns that into one button. It lists what in your bags can be disenchanted, leaves out what
+you want to keep, and shows what each item should give. Click **Shatter Next** (or press its key)
+and it disenchants the selected item: one click, one item, every time.
 
-The MVP is planned as a lightweight replacement for the useful parts of the TradeSkillMaster Destroy UI for disenchanting, without requiring TSM. Shatter will guide enchanters through one safe player-clicked action at a time.
+Made for **World of Warcraft: Forever**, for characters with Enchanting.
 
-## Planned Modes
+<!-- Screenshot: the main window with a queue, the selected item's expected materials and Shatter Next.
+![The Shatter window: the Solo queue, the selected item's expected materials and value, and Shatter Next](https://raw.githubusercontent.com/Spotnick2/Shatter/main/docs/screenshots/main.png)
+-->
 
-- Solo Mode: scan bags, queue disenchantable items, disenchant one item per click, and track results.
-- Mail Mode: guide mailed disenchant requests, track the sender for each item, and help return generated materials.
-- Raid / Trade Mode: track items received by trade, disenchant them, and guide material trade-back.
+## Install
 
-## Status
+Install **Shatter** from [CurseForge](https://www.curseforge.com/wow/addons/shatter) or
+[Wago](https://addons.wago.io/addons/v63QE4Gb), with their apps or by unzipping it into the
+`Interface\AddOns` folder inside your Forever game folder. Then start the game, or restart it
+if it's running: the game finds a new addon only when it starts (`/reload` is enough for an
+update). Type `/shatter` or click Shatter's minimap button.
 
-This repository currently contains a working Solo Mode MVP with guided disenchanting, result tracking, Shatter-owned progress UI, queue ordering, expected material estimates, and optional value filtering. Mail Mode and Raid / Trade Mode are documented but not implemented yet.
+## How it works
 
-## Usage
+- **The Solo queue.** Shatter scans your bags and lists the weapons and armor Disenchant takes,
+  uncommon and rare by default (Settings > Maximum quality: Uncommon, Rare or Epic). It rescans
+  when your bags change. The list is in bag order, or first in first out, or last in first out
+  (Settings > Solo queue order).
+- **Shatter Next** disenchants the selected item. It's a secure button: one left click casts
+  Disenchant on that bag slot, once, and nothing else. It does nothing for a right click, in
+  combat, while you're casting, while another spell is waiting for a target, with full bags, or for
+  a locked item, and says why.
+- **A key for it:** Options > Keybindings > Shatter > Shatter Next. One press works like a click,
+  and the key shows on the button. It does nothing while Shatter's window is closed.
+- **Skip and Ignore.** Skip leaves the selected item out until a /reload. Ignore keeps it out for
+  good: Settings > Ignored items lists those items, with Remove for each and Reset all (which asks
+  first). `/shatter ignored` lists them, and `/shatter unignore <itemID or link>` removes one.
+- **What it never queues:**
+  - items the game won't let you disenchant: enchanter-made wands, PvP insignias and rank gear, some
+    quest items. The list comes from the game's own item data;
+  - soulbound items, unless you turn on Settings > Include soulbound items;
+  - gear saved in an equipment set. A second copy of the same item outside the set is still
+    queued.
+- **Keeping possible upgrades.** Settings > "Keep items at or above item level" leaves items at
+  or above that level out of the queue. Suggest fills it in from the lowest item level you have
+  equipped (not the shirt or tabard), since nothing below it is an upgrade. Off by default.
+- **Expected materials.** The selected item shows what it should give, each material with its
+  chance and amount. The rates are Vanilla's, from Shatter's own tables, since Forever's are
+  unpublished. Shatter also counts every disenchant whose loot window it reads, for the item's
+  quality, armor or weapon, and item-level bracket. Once a bracket has 20, its estimate blends your
+  results with the table, leaning on yours as they grow ("Expected Materials (measured, 20)").
+  `/shatter yields` lists what it has measured, and `/shatter yields reset` clears it.
+- **Item tooltips** show what an item disenchants into, wherever it appears: bags, bank, loot,
+  chat links, vendors, the auction house. Settings > Item tooltips (or `/shatter tooltip`) shows
+  them always, only while Shift, Alt or Ctrl is held, or never.
+- **Values, with a pricing addon.** With [Auctionator](https://www.curseforge.com/wow/addons/auctionator)
+  and a scan, Shatter shows each item's expected value. An essence without a price of its own is
+  valued from the other size of its tier (three lesser make one greater). Settings > "Filter queue
+  by expected value" then offers these rules, all off by default. Without prices, none of them
+  leaves anything out.
+  - a minimum expected value;
+  - "Only disenchant if worth more than vendoring": an item whose materials are worth no more than
+    its vendor price is left out. When only some of its materials have prices, it stays in;
+  - "Keep items worth at least N gold on the auction house": items to sell instead. An item with no
+    auction price isn't kept, and neither is a soulbound one.
+- **A summary.** Summary shows what you've disenchanted, skipped, ignored and failed since you
+  logged in, and the materials it gave.
+- **The look.** Shatter looks like the game's own windows by default (WoW Forever). Settings > Look
+  (or `/shatter skin`) switches to Clear glass, Smoked glass or Flat, at once, even in combat. With
+  Glass UI installed, Shatter follows its look unless you choose Flat; a change made in Glass UI
+  applies after a /reload.
+- **The window** resizes from its bottom-right grip. Shift-drag the grip to scale the whole
+  window, right-click it to reset size, scale and position. In combat, opening, closing, moving and
+  resizing wait until combat ends.
+- **Settings profiles.** Settings are shared by all your characters (Global), or per character
+  (Personal).
 
-Open Shatter:
+## Mail Mode (in testing)
 
-```text
-/shatter
-```
+For an enchanter who disenchants for others: they mail you their greens, you mail back the
+materials.
 
-Other early commands:
+- **At the mailbox**, Shatter's Mail panel opens beside it. Start a session for all mail or mail
+  from one sender; with [Postal](https://www.curseforge.com/wow/addons/postal), also for the mails
+  you ticked in its inbox (other mail addons' selections aren't read). Choose where the materials
+  go: back to each sender, all to one character ("Funnel to"), or kept.
+- **A session lasts until you close it**, across mailbox visits and reloads. Shatter lists the
+  attachments, takes them, and disenchants them with Shatter Next, crediting each item's materials
+  to its sender. Your own items stay out of it, even an identical one, and a received item stays
+  its sender's when you move or sort it.
+- **Not yet on:** taking attachments and disenchanting mail items stay off until they're tested on
+  the live game. `/shatter mailtest` turns them on until your next /reload, to try them.
+- **Not built yet:** sending the materials back. Return them by hand.
 
-```text
-/shatter scan
-/shatter yields
-/shatter yields reset
-/shatter ignored
-/shatter unignore <itemID or link>
-/shatter tooltip always|modifier|never
-/shatter skin forever|clear|smoked|flat
-/shatter debug
-/shatter trace
-/shatter sim
-/shatter simreset
-/shatter reset
-```
+Raid / Trade Mode (items received by trade) is planned, and its tab is a placeholder.
 
-Shatter's window looks like the game's own (WoW Forever: the tooltip's border and background) by default; Settings > Look (or `/shatter skin`) switches to Clear glass, Smoked glass or Flat, the original opaque look, immediately. The glass is Pearl, the shared material of the Glass addons, embedded as LibGlass-1.0. With Glass UI installed, Shatter follows its look (body and accent) unless you choose Flat; a change made in Glass UI applies after a /reload.
+## Commands
 
-An item's tooltip shows what it disenchants into: each material with its chance and amount, and the expected value when a pricing addon has prices. Settings > Item tooltips (or `/shatter tooltip`) shows them always, only with Shift, Alt or Ctrl held, or never.
+`/shatter` (or `/shat`) opens or closes the window. The minimap button does the same; right-click
+it for Settings.
 
-Skip leaves the selected item out until a /reload. Ignore keeps it out for good: Settings > Ignored items lists those items, with Remove for each and Reset all, and `/shatter unignore` removes one from chat.
+- `/shatter scan`: rescan your bags
+- `/shatter yields`, `/shatter yields reset`: the measured disenchants; clear them
+- `/shatter ignored`, `/shatter unignore <itemID or link>`: the ignored items; bring one back
+- `/shatter tooltip always|modifier|never`: item tooltips
+- `/shatter skin forever|clear|smoked|flat`: the look
+- `/shatter reset`: put the window back where it started
+- `/shatter mailtest`: Mail Mode's actions, until your next /reload
+- `/shatter help`: the list of commands
 
-Gear saved in an equipment set is never queued. To keep possible upgrades too, Settings > "Keep items at or above item level" leaves items at or above that level out of the Solo queue; Suggest fills in the lowest item level you have equipped.
+## Good to know
 
-With a pricing addon (Auctionator), two value rules can also leave items out of the Solo queue: "Only disenchant if worth more than vendoring" (the expected materials against the vendor price), and "Keep items worth at least N gold on the auction house". Both are off by default. Without prices, neither leaves anything out.
+- **Only for enchanters.** On a character without Enchanting, Shatter stays off and says so. It
+  turns on when you learn Enchanting, without a reload.
+- **It never acts on its own.** Every disenchant is a click or key press of yours on Shatter Next,
+  for one item.
+- **The rates are Vanilla's** until your own disenchants correct them, and items above item
+  level 92 show "Expected Materials (unverified)".
+- **Forever is new.** Shatter's behaviour on the live client is being checked as players get in.
+  If something doesn't work, a bug report helps (below).
 
-Shatter Next can be bound to a key under Options > Keybindings > Shatter: one press disenchants the selected item, like a click. The key does nothing while Shatter's window is closed.
+## Bug reports and ideas
 
-The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
+On [GitHub Issues](https://github.com/Spotnick2/Shatter/issues). With an error, turn Lua errors
+on first (`/console scriptErrors 1`; they're off by default on this client) and paste the message.
 
-`/shatter sim` toggles development simulation mode. In simulation mode Shatter records fake disenchant results and advances through the queue without casting Disenchant or consuming items. `/shatter simreset` makes simulated items visible again for another test pass.
+## For developers
 
-Simulation mode is a development setting. Enabling it through the slash command also enables debug mode; in the settings UI it is only shown while debug mode is active.
-When simulation is enabled, Shatter shows a small `SIMULATION` badge in the header and status text warning that no items will be disenchanted.
+- **Tests:** `pwsh tests/run.ps1` (Lua 5.1, plus Python for the tools).
+- **Deploy:** from a checkout, `pwsh Tools/deploy.ps1` copies the addon, with the LibGlass-1.0
+  checkout next to it, into `_forever_\Interface\AddOns\Shatter`. A brand-new addon folder needs a
+  full client restart once; after that, `/reload`.
+- **Diagnostics:** `/shatter debug` and `/shatter trace` log what Shatter does. `/shatter sim`
+  turns on simulation: fake results, no casting, nothing consumed, with a SIMULATION badge in the
+  window; `/shatter simreset` shows the simulated items again.
+- `AGENTS.md` and `SPEC.md` describe the design, and `CHANGELOG.md` the releases.
 
-Debug logging reports meaningful state changes. `/shatter trace` enables verbose scan and event logging for short troubleshooting sessions.
+Shatter started as a TBC Anniversary addon; that version is frozen at the tag `v0.1.22-alpha`.
 
-## Phase 1 Notes
+## Supported version
 
-Solo Mode is the only implemented mode. Mail and Raid / Trade tabs are disabled placeholders for later phases.
+World of Warcraft: Forever, client 1.60.1 (Interface 16001).
 
-The real `Shatter Next` path is a secure button: one left click casts Disenchant (by spell ID) on the selected bag slot. Blizzard's secure handler targets the slot only while Disenchant is waiting for an item, so a cast that fails to start never uses the item. In-game validation on Forever is still needed before treating real disenchant result tracking as final.
+## Author and license
 
-## Phase 2 Notes
-
-Expected materials use built-in Shatter tables for Vanilla disenchant outcomes (Forever is Vanilla content); Forever's own rates are not published. Shatter measures as you go: every real disenchant whose loot window it reads is counted for the item's quality, armor/weapon and item-level bracket (items above item level 92 apart from Vanilla's), and once a bracket has 20 measured disenchants its estimates blend those measurements with the table, leaning on the measurements as they grow ("Expected Materials (measured, n)"). `/shatter yields` lists the measurements; `/shatter yields reset` clears them. Expected value is optional and only appears when a supported pricing addon is installed and has data for the resulting materials. An essence without a price of its own is valued from the other size of its tier (three lesser essences make one greater).
-
-Value filtering is opt-in from Settings. If no pricing source is available, Shatter keeps otherwise eligible items in the queue instead of hiding them.
-
-## Installation
-
-Manual install target:
-
-```text
-C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter\
-```
-
-From a checkout, `pwsh Tools/deploy.ps1` copies exactly the files the TOC loads there. A brand-new addon folder needs a full client restart once; after that, run:
-
-```text
-/reload
-```
-
-## Supported Version
-
-- World of Warcraft: Forever (client 1.60.1)
-- Interface: `16001`
+By Spotnick. MIT (`LICENSE`). Shatter embeds LibGlass-1.0, also MIT, by the same author.

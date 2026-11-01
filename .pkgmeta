@@ -32,6 +32,8 @@ ignore:
   - CLAUDE.md
   - SPEC.md
   - README.md
+  # Untracked (.git/info/exclude): the CurseForge description, pasted by hand.
+  - README.curseforge.md
   - CHANGELOG.md
   # The packager does not apply an external's own ignore list: LibGlass's
   # non-dot entries, repeated. Its LICENSE ships.
