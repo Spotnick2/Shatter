@@ -234,6 +234,16 @@ do
         and not text:find("Hi", 1, true), "a Mail item's entry has no sender, mail or subject")
 end
 
+-- 10b. The switch and the entries are saved: loaded back (a /reload or a new
+-- login), learning mode is still on and adds to the same log.
+button = setup(nil, { yieldLog = { enabled = true, entries = { { itemID = VEST, itemLevel = 20, quality = 2, loot = { [DUST] = 1 } } } } })
+disenchant(button, lootOf(DUST, 2))
+H.check(ShatterDB.yieldLog.enabled == true and #entries() == 2 and entries()[1].loot[DUST] == 1 and entries()[2].loot[DUST] == 2,
+    "a saved log that is on: still on after loading, and the next disenchant is added")
+button = setup(nil, { yieldLog = { enabled = false, entries = { { itemID = VEST, itemLevel = 20, quality = 2, loot = { [DUST] = 1 } } } } })
+disenchant(button, lootOf(DUST, 2))
+H.check(ShatterDB.yieldLog.enabled == false and #entries() == 1, "a saved log that is off: stays off, entries kept")
+
 -- 11. A malformed saved log is replaced rather than trusted.
 button = setup(nil, { yieldLog = "junk" })
 H.eq(Shatter.Database:GetYieldLog(), nil, "a log that isn't a table reads as none")
