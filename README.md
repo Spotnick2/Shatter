@@ -18,8 +18,9 @@ Made for **World of Warcraft: Forever**, for characters with Enchanting.
 
 Install **Shatter** from [CurseForge](https://www.curseforge.com/wow/addons/shatter) or
 [Wago](https://addons.wago.io/addons/v63QE4Gb), with their apps or by unzipping it into the
-`Interface\AddOns` folder inside your Forever game folder. Then `/reload`, or start the game, and
-type `/shatter` or click Shatter's minimap button.
+`Interface\AddOns` folder inside your Forever game folder. Then start the game, or restart it
+if it's running: the game finds a new addon only when it starts (`/reload` is enough for an
+update). Type `/shatter` or click Shatter's minimap button.
 
 ## How it works
 
@@ -81,9 +82,10 @@ type `/shatter` or click Shatter's minimap button.
 For an enchanter who disenchants for others: they mail you their greens, you mail back the
 materials.
 
-- **At the mailbox**, Shatter's Mail panel opens beside it. Start a session for all mail, mail from
-  one sender, or the mails you selected in [Postal](https://www.curseforge.com/wow/addons/postal).
-  Choose where the materials go: back to each sender, all to one character ("Funnel to"), or kept.
+- **At the mailbox**, Shatter's Mail panel opens beside it. Start a session for all mail or mail
+  from one sender; with [Postal](https://www.curseforge.com/wow/addons/postal), also for the mails
+  you ticked in its inbox (other mail addons' selections aren't read). Choose where the materials
+  go: back to each sender, all to one character ("Funnel to"), or kept.
 - **A session lasts until you close it**, across mailbox visits and reloads. Shatter lists the
   attachments, takes them, and disenchants them with Shatter Next, crediting each item's materials
   to its sender. Your own items stay out of it, even an identical one, and a received item stays
