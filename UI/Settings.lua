@@ -421,7 +421,7 @@ function SettingsUI:Create(parent)
         SettingsUI:Refresh()
         RescanForValue()
     end)
-    AddTooltip(keepValue, "Keep valuable items", "Leave items worth at least this much on the auction house out of the Solo queue, to sell them instead. Needs a pricing addon. An item with no auction price isn't kept by this rule. Mail mode is unaffected.")
+    AddTooltip(keepValue, "Keep valuable items", "Leave items worth at least this much on the auction house out of the Solo queue, to sell them instead. Needs a pricing addon. An item with no auction price isn't kept by this rule, and neither is a soulbound one, which can't be auctioned. Mail mode is unaffected.")
     self.keepValue = keepValue
 
     local keepValueBox = CreateNumberBox(content, 56, 5, function(text)

@@ -142,6 +142,19 @@ own.itemLink = "|cff1eff00|Hitem:" .. CHEAP .. "::::::::60:::1:1234::::|h[Cheap 
 Shatter.ItemScanner:CheckValueRules(own)
 H.eq(priceLinks[1], own.itemLink, "the item's own link is priced (a suffix of its own)")
 
+-- 6b. A soulbound item can't be auctioned: priced or not, it isn't kept,
+-- though the vendor rule still judges it.
+settings().includeSoulbound = true
+WoW.bags[0][3].bound = true
+price({ [DEAR] = 25000 })
+H.check(queued(DEAR), "a soulbound item worth 2g 50s: not kept, queued")
+settings().onlyAboveVendorPrice = true
+price({ [DUST] = 200, [GREATER] = 1000, [SHARD] = 500, [DEAR] = 25000 })
+H.eq(why(DEAR), "worth more to vendor (15s 00c)", "...the vendor rule still leaves it out")
+settings().onlyAboveVendorPrice = false
+WoW.bags[0][3].bound = nil
+settings().includeSoulbound = false
+
 -- 7. Keep valuable on without an amount: nothing kept, and Settings says so.
 price({ [CHEAP] = 9999, [EVEN] = 10000, [DEAR] = 25000 })
 settings().keepAuctionValueAtOrAboveCopper = nil

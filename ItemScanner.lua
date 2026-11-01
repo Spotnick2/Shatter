@@ -44,13 +44,14 @@ function ItemScanner:CanBeDisenchanted(item)
 end
 
 -- The value rules (#38), Solo only: an item worth at least the chosen
--- amount on the auction house is kept, and with "only if worth more than
--- vendoring", one whose materials are worth no more than its vendor price
--- is left out. Without the prices to judge by, neither leaves anything out;
+-- amount on the auction house is kept, unless soulbound, and with "only if
+-- worth more than vendoring", one whose materials are worth no more than its
+-- vendor price is left out. Without the prices to judge by, neither leaves anything out;
 -- a partial value (some materials unpriced) only ever lets an item in.
 function ItemScanner:CheckValueRules(item)
     local settings = Shatter.Database:GetSettings()
-    local keepWorth = Shatter.Database:GetKeepAuctionValue()
+    -- A soulbound item can't be auctioned, whatever its link's price.
+    local keepWorth = not item.isSoulbound and Shatter.Database:GetKeepAuctionValue()
     if keepWorth then
         local worth = Shatter.AuctionData:GetItemValue(item.itemID, item.itemLink)
         if worth and worth >= keepWorth then
