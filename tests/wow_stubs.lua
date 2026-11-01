@@ -1014,7 +1014,7 @@ local KNOWN_ABSENT = {
     PickupContainerItem = true, MouseIsOver = true, MAX_PLAYER_LEVEL = true,
     -- Optional third-party addons: absent unless a test installs them.
     TSM_API = true, Auctionator = true, AucAdvanced = true, Postal = true, Postal_Select = true,
-    Gargul = true, GL = true, GlassUI = true,
+    Gargul = true, GL = true, GlassUI = true, GlassMail = true,
     -- The probe host and its modules' saved tables (Tools/ShatterProbe).
     ForeverProbe = true, ForeverProbeDB = true, ShatterProbeDB = true,
     -- The addon's own globals, nil until it creates them / SavedVariables load.

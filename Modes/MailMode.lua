@@ -154,6 +154,58 @@ function MailMode:GetPostalSelectedMailIndices()
     return selected
 end
 
+-- "Selected mails" (#49) reads Glass Mail's public selection API when Glass
+-- Mail is loaded (it owns the inbox rows then; see its docs/PUBLIC-API.md),
+-- else Postal's checkboxes. Glass Mail's indices span the whole inbox;
+-- Postal's, the current page. Either way they are read once at Start and
+-- turned into the session's own rows.
+local function GlassMailSelection()
+    local glassMail = _G.GlassMail
+    local selection = type(glassMail) == "table" and glassMail.Selection
+    if type(selection) == "table" and type(selection.Get) == "function" then return selection end
+    return nil
+end
+
+-- "Glass Mail", "Postal", or nil when neither offers a selection.
+function MailMode:GetSelectionSource()
+    if GlassMailSelection() then return "Glass Mail" end
+    if self:IsPostalAvailable() then return "Postal" end
+    return nil
+end
+
+-- Glass Mail's API is always readable; Postal's checkboxes exist once its
+-- Select module has made them.
+function MailMode:IsSelectionReady()
+    if GlassMailSelection() then return true end
+    return self:IsPostalSelectionReady()
+end
+
+-- The selected mails, { [inboxIndex] = true }: never nil.
+function MailMode:GetSelectedMailIndices()
+    local selection = GlassMailSelection()
+    if not selection then return self:GetPostalSelectedMailIndices() end
+    local selected = {}
+    local ok, result = pcall(selection.Get)
+    if ok and type(result) == "table" then
+        for index, on in pairs(result) do
+            if on == true and type(index) == "number" then selected[index] = true end
+        end
+    end
+    return selected
+end
+
+-- Glass Mail reports changes to its selection: the launch panel's count
+-- follows them. Registered once (Glass Mail has no way to unregister).
+function MailMode:WatchGlassMailSelection()
+    local selection = GlassMailSelection()
+    if self.glassMailWatched or not selection or type(selection.OnChange) ~= "function" then return end
+    self.glassMailWatched = true
+    pcall(selection.OnChange, function()
+        local panel = Shatter.MailLaunchPanel
+        if panel and panel.frame and panel.frame:IsShown() then panel:Refresh() end
+    end)
+end
+
 function MailMode:GetLaunchSenders()
     return self.launchSenders or {}
 end
@@ -248,14 +300,15 @@ function MailMode:GetLaunchContext()
     end
     local modes = Shatter.Constants and Shatter.Constants.MAIL_SELECTION_MODE or {}
     local selectionMode = self.launchOptions and self.launchOptions.selectionMode or (modes.ALL or "ALL")
-    local postalSelected = self:GetPostalSelectedMailIndices()
+    local source = self:GetSelectionSource()
+    local selected = source and self:GetSelectedMailIndices() or {}
     return {
         mailboxOpen = IsMailboxOpen(),
         hasSession = Shatter.MailSession and Shatter.MailSession:HasActiveSession() or false,
         senders = self:GetLaunchSenders(),
-        postalAvailable = self:IsPostalAvailable(),
-        postalSelectionReady = self:IsPostalSelectionReady(),
-        postalSelectedCount = CountEntries(postalSelected),
+        selectionSource = source,
+        selectionReady = source ~= nil and self:IsSelectionReady(),
+        selectedCount = CountEntries(selected),
         selectionMode = selectionMode,
         selectedSender = self.launchOptions and self.launchOptions.sender or nil,
         recipientMode = self.launchOptions and self.launchOptions.recipientMode or (Shatter.Constants and Shatter.Constants.MAIL_RECIPIENT_MODE.ORIGINAL_SENDERS),
@@ -323,9 +376,11 @@ function MailMode:ActivateFromMailbox()
         Shatter.MailSession:Log("info", "Mailbox opened; Mail Mode active.")
     end
     self:RefreshLaunchSenders()
+    self:WatchGlassMailSelection()
     -- Once per mailbox visit, not on every panel refresh: an installed but
-    -- unloaded Postal gets one chance to provide its selection checkboxes.
-    if self:IsPostalAvailable() and not self:IsPostalSelectionReady() then
+    -- unloaded Postal gets one chance to provide its selection checkboxes
+    -- (not needed when Glass Mail provides the selection).
+    if self:GetSelectionSource() == "Postal" and not self:IsPostalSelectionReady() then
         TryLoadAddOnSafe("Postal")
     end
     if Shatter.MailLaunchPanel then
@@ -338,7 +393,7 @@ end
 
 -- Checks the launch panel's choices before a session starts or continues
 -- with them. `checkSelection` is false when the mail selection is not being
--- changed. Returns true plus the Postal selection (in that mode), or false
+-- changed. Returns true plus the selected mails (in that mode), or false
 -- plus what is missing.
 function MailMode:CheckLaunchOptions(options, checkSelection)
     local modes = Shatter.Constants.MAIL_SELECTION_MODE
@@ -352,8 +407,11 @@ function MailMode:CheckLaunchOptions(options, checkSelection)
                 return false, "No mailbox senders were detected for Mail from filter."
             end
         elseif options.selectionMode == modes.POSTAL_SELECTED then
-            selectedMailIndices = self:GetPostalSelectedMailIndices()
+            selectedMailIndices = self:GetSelectedMailIndices()
             if CountEntries(selectedMailIndices) == 0 then
+                if self:GetSelectionSource() == "Glass Mail" then
+                    return false, "No mails selected in Glass Mail."
+                end
                 return false, "No Postal selected mails on the current inbox page."
             end
         end
@@ -370,7 +428,9 @@ local function LogSelection(selectionMode, sender, selectedMailIndices)
     if selectionMode == modes.SENDER then
         Shatter.MailSession:Log("info", "Mail selection: sender '%s'.", tostring(sender))
     elseif selectionMode == modes.POSTAL_SELECTED then
-        Shatter.MailSession:Log("info", "Mail selection: %d Postal-selected mail(s) on current page.", CountEntries(selectedMailIndices))
+        local source = Shatter.MailMode:GetSelectionSource() or "?"
+        Shatter.MailSession:Log("info", "Mail selection: %d mail(s) selected in %s%s.", CountEntries(selectedMailIndices), source,
+            source == "Postal" and " (current page)" or "")
     else
         Shatter.MailSession:Log("info", "Mail selection: all mail.")
     end

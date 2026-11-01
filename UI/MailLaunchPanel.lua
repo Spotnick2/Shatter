@@ -224,19 +224,20 @@ function MailLaunchPanel:Create()
     end)
     self.senderButton = senderButton
 
-    local processPostal = CreateRadioButton(frame, "Selected mails (Postal)")
-    processPostal:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -2)
-    processPostal:SetScript("OnClick", function()
+    -- Its label names the source (Glass Mail or Postal) at each refresh.
+    local processSelected = CreateRadioButton(frame, "Selected mails")
+    processSelected:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -2)
+    processSelected:SetScript("OnClick", function()
         if Shatter.MailMode then
             Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
         end
     end)
-    self.processPostal = processPostal
+    self.processSelected = processSelected
 
-    local postalCount = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    postalCount:SetPoint("LEFT", processPostal.label, "RIGHT", 6, 0)
-    postalCount:SetJustifyH("LEFT")
-    self.postalCount = postalCount
+    local selectedCount = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    selectedCount:SetPoint("LEFT", processSelected.label, "RIGHT", 6, 0)
+    selectedCount:SetJustifyH("LEFT")
+    self.selectedCount = selectedCount
 
     local returnTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     returnTitle:SetPoint("TOPLEFT", processSender, "BOTTOMLEFT", 0, -10)
@@ -415,7 +416,7 @@ function MailLaunchPanel:Refresh()
     if self.processAll then
         self.processAll:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.ALL)
         self.processSender:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
-        self.processPostal:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
+        self.processSelected:SetChecked(selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED)
     end
 
     if self.senderButton and self.senderButton.text then
@@ -427,20 +428,22 @@ function MailLaunchPanel:Refresh()
     end
     SetShown(self.senderButton, selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.SENDER)
 
-    if self.postalCount then
-        if context.postalSelectionReady then self:HookPostalCheckboxes() end
-        if context.postalAvailable then
-            self.postalCount:SetText(string.format("(%d selected)", context.postalSelectedCount or 0))
-            self.postalCount:SetTextColor(unpack(Shatter.C.TEXT_DIM))
-            self.processPostal:Show()
-            self.postalCount:Show()
-            if not context.postalSelectionReady then
-                self.postalCount:SetText("(Select module inactive)")
-                self.postalCount:SetTextColor(unpack(Shatter.C.BAD))
+    if self.selectedCount then
+        local source = context.selectionSource
+        if source == "Postal" and context.selectionReady then self:HookPostalCheckboxes() end
+        if source then
+            self.processSelected.label:SetText("Selected mails (" .. source .. ")")
+            self.selectedCount:SetText(string.format("(%d selected)", context.selectedCount or 0))
+            self.selectedCount:SetTextColor(unpack(Shatter.C.TEXT_DIM))
+            self.processSelected:Show()
+            self.selectedCount:Show()
+            if not context.selectionReady then
+                self.selectedCount:SetText("(Select module inactive)")
+                self.selectedCount:SetTextColor(unpack(Shatter.C.BAD))
             end
         else
-            self.processPostal:Hide()
-            self.postalCount:Hide()
+            self.processSelected:Hide()
+            self.selectedCount:Hide()
             if selectionMode == Shatter.Constants.MAIL_SELECTION_MODE.POSTAL_SELECTED and Shatter.MailMode then
                 Shatter.MailMode:SetLaunchMailSelectionMode(Shatter.Constants.MAIL_SELECTION_MODE.ALL)
             end
@@ -449,8 +452,8 @@ function MailLaunchPanel:Refresh()
 
     if self.returnTitle then
         self.returnTitle:ClearAllPoints()
-        if context.postalAvailable then
-            self.returnTitle:SetPoint("TOPLEFT", self.processPostal, "BOTTOMLEFT", 0, -10)
+        if context.selectionSource then
+            self.returnTitle:SetPoint("TOPLEFT", self.processSelected, "BOTTOMLEFT", 0, -10)
         else
             self.returnTitle:SetPoint("TOPLEFT", self.processSender, "BOTTOMLEFT", 0, -10)
         end

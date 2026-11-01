@@ -83,9 +83,10 @@ For an enchanter who disenchants for others: they mail you their greens, you mai
 materials.
 
 - **At the mailbox**, Shatter's Mail panel opens beside it. Start a session for all mail or mail
-  from one sender; with [Postal](https://www.curseforge.com/wow/addons/postal), also for the mails
-  you ticked in its inbox (other mail addons' selections aren't read). Choose where the materials
-  go: back to each sender, all to one character ("Funnel to"), or kept.
+  from one sender; with [Glass Mail](https://www.curseforge.com/wow/addons/glass-mail) or
+  [Postal](https://www.curseforge.com/wow/addons/postal), also for the mails you ticked in its
+  inbox. Choose where the materials go: back to each sender, all to one character ("Funnel to"),
+  or kept.
 - **A session lasts until you close it**, across mailbox visits and reloads. Shatter lists the
   attachments, takes them, and disenchants them with Shatter Next, crediting each item's materials
   to its sender. Your own items stay out of it, even an identical one, and a received item stays
