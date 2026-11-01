@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-beta1 - 2026-11-01
+
+The first beta, for the launch of WoW Forever. Versions now count from 1.0.0; the 0.2 alphas came before.
 
 - Items the game says can't be disenchanted (enchanter-made wands, PvP insignias and rank gear, some quest items) are no longer queued, taken from the mail or given a disenchant tooltip. The list comes from the game's own item data. In a Mail session, such an item already received is marked failed rather than queued, and a received item left over keeps Close Session behind its confirm click.
 - New default look, **WoW Forever**: the game's own window style (the tooltip's border and background), with matching buttons, panes and rows. Settings > Look (or `/shatter skin forever|clear|smoked|flat`) switches between WoW Forever, Clear glass, Smoked glass and Flat, immediately, even in combat. Without LibGlass, the glass looks show WoW Forever instead of Flat. With Glass UI loaded and followed, Glass UI's look still replaces every look but Flat.
