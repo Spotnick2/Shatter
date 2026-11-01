@@ -11,6 +11,7 @@
 - Gear saved in an equipment set is never queued: a spare set (fire resistance, a second spec's weapons) can't be disenchanted by mistake. A second copy of the same item outside the set is still queued, and the queue follows changes to your sets.
 - Possible upgrades can be kept: Settings > "Keep items at or above item level" leaves items at or above that level out of the Solo queue. Suggest fills it in from the lowest item level you have equipped (not the shirt or tabard), below which nothing is an upgrade. Off by default; with no level set, Settings says nothing is kept yet. Mail mode is unaffected.
 - Mail Mode: a funnel recipient typed with a trailing space is now always trimmed.
+- Essences with no auction price of their own are valued from the other size of the same tier: three lesser essences make one greater, so a lesser is a third of a greater and a greater three lesser. The expected value, the value filter and the tooltip count them, and the item's detail names the essence priced this way. An essence with its own price keeps it.
 - Shatter Next can have a key: Options > Keybindings > Shatter > Shatter Next. One press disenchants the selected item, exactly like a click, and the key shows on the button. It does nothing while Shatter's window is closed.
 - Mail Mode no longer thinks the mailbox is still open after you close it. Before, it could scan the inbox or try to take attachments with the mailbox closed, and the status didn't ask you to reopen it.
 
