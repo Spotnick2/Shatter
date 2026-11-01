@@ -26,7 +26,7 @@ function SummaryUI:Create(parent)
 
     local note = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     note:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    note:SetText("Phase 1 session totals for the current login session.")
+    note:SetText("Totals since you logged in.")
 
     local previous = note
     for i = 1, 12 do
