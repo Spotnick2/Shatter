@@ -5,6 +5,7 @@
 ## Version: @project-version@
 ## IconTexture: Interface\Icons\Spell_Holy_RemoveCurse
 ## SavedVariables: ShatterDB
+## OptionalDeps: GlassMail
 ## X-Curse-Project-ID: 1545161
 ## X-Wago-ID: v63QE4Gb
 

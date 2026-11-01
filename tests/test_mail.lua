@@ -724,11 +724,11 @@ installPostal({})
 MailFrame:Show()
 WoW.fire("MAIL_SHOW")
 WoW.flushTimers()
-H.eq(Shatter.MailLaunchPanel.postalCount:GetText(), "(0 selected)", "nothing checked yet")
+H.eq(Shatter.MailLaunchPanel.selectedCount:GetText(), "(0 selected)", "nothing checked yet")
 local cb2 = rawget(_G, "PostalInboxCB2")
 cb2:SetChecked(true)
 cb2:Click()
-H.eq(Shatter.MailLaunchPanel.postalCount:GetText(), "(1 selected)", "a Postal checkbox click updates the count")
+H.eq(Shatter.MailLaunchPanel.selectedCount:GetText(), "(1 selected)", "a Postal checkbox click updates the count")
 removePostal()
 
 

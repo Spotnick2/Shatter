@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Mail Mode's "Selected mails" now works with Glass Mail: with Glass Mail loaded, a session can start from the mails ticked in Glass Mail's inbox, and the count follows your ticks. With Postal only, it reads Postal's checkboxes as before. Needs a Glass Mail version with its selection API.
 - Settings, the Summary and the Raid tab no longer describe Shatter as an early plan: the pricing notes name Auctionator (the pricing addon that runs on Forever), the Settings footnote says Mail Mode's actions stay off until tested in game, and the Raid tab says what it's for. The licence now lists the libraries that ship with Shatter (LibGlass-1.0 and LibStub).
 
 ## v1.0.0-beta1 - 2026-11-01
