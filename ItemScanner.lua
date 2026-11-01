@@ -43,9 +43,34 @@ function ItemScanner:CanBeDisenchanted(item)
     return self:IsDisenchantableKind(item)
 end
 
+-- The value rules (#38), Solo only: an item worth at least the chosen
+-- amount on the auction house is kept, and with "only if worth more than
+-- vendoring", one whose materials are worth no more than its vendor price
+-- is left out. Without the prices to judge by, neither leaves anything out;
+-- a partial value (some materials unpriced) only ever lets an item in.
+function ItemScanner:CheckValueRules(item)
+    local settings = Shatter.Database:GetSettings()
+    local keepWorth = Shatter.Database:GetKeepAuctionValue()
+    if keepWorth then
+        local worth = Shatter.AuctionData:GetItemValue(item.itemID, item.itemLink)
+        if worth and worth >= keepWorth then
+            return false, ("worth %s on the auction house (kept)"):format(Shatter.DisenchantTables:FormatMoney(worth))
+        end
+    end
+    local sell = item.sellPrice
+    if settings.onlyAboveVendorPrice and type(sell) == "number" and sell > 0 then
+        local estimate = Shatter.DisenchantTables:GetExpected(item)
+        local value = estimate and estimate.expectedValueCopper
+        if value and value <= sell and not estimate.valuePartial then
+            return false, ("worth more to vendor (%s)"):format(Shatter.DisenchantTables:FormatMoney(sell))
+        end
+    end
+    return true
+end
+
 -- CanBeDisenchanted, and the player's own choices: ignored items, the
--- quality cap, soulbound, gear saved in an equipment set, and possible
--- upgrades.
+-- quality cap, soulbound, gear saved in an equipment set, possible
+-- upgrades, and the value rules.
 function ItemScanner:IsCandidateDisenchantable(item)
     local settings = Shatter.Database:GetSettings()
     if not item or not item.itemID then return false, "missing item" end
@@ -66,6 +91,7 @@ function ItemScanner:IsCandidateDisenchantable(item)
         if not level then return false, "item level unknown (kept)" end
         if level >= keepAt then return false, ("item level %d or more (kept)"):format(keepAt) end
     end
+    if item.mode == Shatter.Constants.MODES.SOLO then return self:CheckValueRules(item) end
     return true
 end
 
@@ -111,7 +137,7 @@ function ItemScanner:BuildItem(bag, slot)
     itemID = itemID or ParseItemID(link)
     if not itemID and not link then return nil end
 
-    local name, itemLink, quality, itemLevel, _, className, subclassName, _, equipLoc, itemTexture, _, classID, subclassID = API.GetItemInfo(link or itemID)
+    local name, itemLink, quality, itemLevel, _, className, subclassName, _, equipLoc, itemTexture, sellPrice, classID, subclassID = API.GetItemInfo(link or itemID)
     local instantEquipLoc, instantTexture, instantClassID, instantSubclassID = GetInstantInfo(link or itemID)
 
     if not name then
@@ -131,6 +157,7 @@ function ItemScanner:BuildItem(bag, slot)
         count = count or 1,
         quality = quality,
         itemLevel = itemLevel,
+        sellPrice = sellPrice,
         currentItemLevel = API.GetBagItemLevel(bag, slot, itemLink or link),
         className = className,
         subclassName = subclassName,

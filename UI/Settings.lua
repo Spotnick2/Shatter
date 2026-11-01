@@ -29,6 +29,27 @@ local function SetShown(frame, shown)
     end
 end
 
+-- A whole-number box: Enter or leaving it commits its text; Escape puts the
+-- saved value back (through Refresh).
+local function CreateNumberBox(parent, width, letters, commit)
+    local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    box:SetSize(width, 20)
+    box:SetAutoFocus(false)
+    box:SetNumeric(true)
+    box:SetMaxLetters(letters)
+    box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    box:SetScript("OnEditFocusLost", function(self)
+        if not self.reverting then commit(self:GetText()) end
+    end)
+    box:SetScript("OnEscapePressed", function(self)
+        self.reverting = true
+        self:ClearFocus()
+        self.reverting = nil
+        Shatter.SettingsUI:Refresh()
+    end)
+    return box
+end
+
 local function AddTooltip(frame, title, text)
     if not frame then return end
     frame:SetScript("OnEnter", function(self)
@@ -318,22 +339,8 @@ function SettingsUI:Create(parent)
         SettingsUI:Refresh()
         if changed and Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_KEEP_ITEM_LEVEL", 0.05) end
     end
-    local keepLevelBox = CreateFrame("EditBox", nil, content, "InputBoxTemplate")
-    keepLevelBox:SetSize(40, 20)
+    local keepLevelBox = CreateNumberBox(content, 40, 3, SetKeepLevel)
     keepLevelBox:SetPoint("LEFT", keepLevel.label, "RIGHT", 10, 0)
-    keepLevelBox:SetAutoFocus(false)
-    keepLevelBox:SetNumeric(true)
-    keepLevelBox:SetMaxLetters(3)
-    keepLevelBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    keepLevelBox:SetScript("OnEditFocusLost", function(self)
-        if not self.reverting then SetKeepLevel(self:GetText()) end
-    end)
-    keepLevelBox:SetScript("OnEscapePressed", function(self)
-        self.reverting = true
-        self:ClearFocus()
-        self.reverting = nil
-        SettingsUI:Refresh()
-    end)
     AddTooltip(keepLevelBox, "Item level", "Items at this item level or higher are kept. Press Enter to apply.")
     self.keepLevelBox = keepLevelBox
 
@@ -385,11 +392,64 @@ function SettingsUI:Create(parent)
     AddTooltip(useValues, "Filter by expected value", "Use installed TSM, Auctioneer, or Auctionator prices to filter the queue by the selected minimum expected value. Items stay visible if no pricing data is available.")
     self.useValues = useValues
 
+    -- Value rules (#38), Solo only.
+    local function RescanForValue()
+        if Shatter.SoloMode then Shatter.SoloMode:ScheduleScan("SETTINGS_VALUE_RULES", 0.05) end
+    end
+    local vendorRule = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    vendorRule:SetPoint("TOPLEFT", useValues, "BOTTOMLEFT", 0, -6)
+    vendorRule:SetSize(24, 24)
+    vendorRule.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    vendorRule.label:SetPoint("LEFT", vendorRule, "RIGHT", 4, 0)
+    vendorRule.label:SetText("Only disenchant if worth more than vendoring")
+    vendorRule:SetScript("OnClick", function(self)
+        Shatter.Database:GetSettings().onlyAboveVendorPrice = self:GetChecked() and true or false
+        SettingsUI:Refresh()
+        RescanForValue()
+    end)
+    AddTooltip(vendorRule, "Worth more than vendoring", "Leave an item out of the Solo queue when its expected materials, at auction prices, are worth no more than what a vendor pays for it. Needs a pricing addon. An item whose materials have no prices stays in the queue, and so does one whose priced materials alone are worth less: the others could make up the difference. Mail mode is unaffected.")
+    self.vendorRule = vendorRule
+
+    local keepValue = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
+    keepValue:SetPoint("TOPLEFT", vendorRule, "BOTTOMLEFT", 0, -6)
+    keepValue:SetSize(24, 24)
+    keepValue.label = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    keepValue.label:SetPoint("LEFT", keepValue, "RIGHT", 4, 0)
+    keepValue.label:SetText("Keep items worth at least")
+    keepValue:SetScript("OnClick", function(self)
+        Shatter.Database:GetSettings().keepAuctionValue = self:GetChecked() and true or false
+        SettingsUI:Refresh()
+        RescanForValue()
+    end)
+    AddTooltip(keepValue, "Keep valuable items", "Leave items worth at least this much on the auction house out of the Solo queue, to sell them instead. Needs a pricing addon. An item with no auction price isn't kept by this rule. Mail mode is unaffected.")
+    self.keepValue = keepValue
+
+    local keepValueBox = CreateNumberBox(content, 56, 5, function(text)
+        local settings = Shatter.Database:GetSettings()
+        local copper = Shatter.Database.NormalizeAuctionValue((tonumber(text) or 0) * 10000)
+        local changed = copper ~= settings.keepAuctionValueAtOrAboveCopper
+        settings.keepAuctionValueAtOrAboveCopper = copper
+        SettingsUI:Refresh()
+        if changed then RescanForValue() end
+    end)
+    keepValueBox:SetPoint("LEFT", keepValue.label, "RIGHT", 10, 0)
+    AddTooltip(keepValueBox, "Auction value", "Items worth this many gold or more on the auction house are kept. Press Enter to apply.")
+    self.keepValueBox = keepValueBox
+    local keepValueUnit = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    keepValueUnit:SetPoint("LEFT", keepValueBox, "RIGHT", 6, 0)
+    keepValueUnit:SetText("gold on the auction house")
+
+    local valueRulesHelp = content:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    valueRulesHelp:SetPoint("TOPLEFT", keepValue, "BOTTOMLEFT", 4, -2)
+    valueRulesHelp:SetPoint("RIGHT", content, "RIGHT", -12, 0)
+    valueRulesHelp:SetJustifyH("LEFT")
+    self.valueRulesHelp = valueRulesHelp
+
     -- Ignored items (#4): what Ignore put away, each with Remove, and Reset
     -- all. Reset asks again in place, not through a StaticPopup (Blizzard's
     -- popups can taint), and the list grows the scroll content.
     local ignoredLabel = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    ignoredLabel:SetPoint("TOPLEFT", useValues, "BOTTOMLEFT", 4, -12)
+    ignoredLabel:SetPoint("TOPLEFT", valueRulesHelp, "BOTTOMLEFT", 0, -12)
     self.ignoredLabel = ignoredLabel
 
     local resetIgnored = CreatePanelButton(content, "Reset all", 96)
@@ -486,7 +546,7 @@ function SettingsUI:Create(parent)
 end
 
 -- The scroll content's height without the ignored list's rows.
-local CONTENT_HEIGHT = 540
+local CONTENT_HEIGHT = 610
 local IGNORED_ROW = 24
 
 local function IgnoredRow(self, index)
@@ -586,6 +646,31 @@ function SettingsUI:RefreshKeepLevel(settings)
     Shatter.SetTextColor(self.keepLevelHelp, color or Shatter.C.TEXT_DIM)
 end
 
+-- The value rules (#38). The help line says when they can't judge: no
+-- pricing addon, or keeping on without an amount.
+function SettingsUI:RefreshValueRules(settings)
+    if not self.vendorRule then return end
+    local copper = settings.keepAuctionValueAtOrAboveCopper
+    self.vendorRule:SetChecked(settings.onlyAboveVendorPrice)
+    self.keepValue:SetChecked(settings.keepAuctionValue)
+    if not self.keepValueBox:HasFocus() then
+        self.keepValueBox:SetText(copper and tostring(copper / 10000) or "")
+    end
+    local on = settings.onlyAboveVendorPrice or settings.keepAuctionValue
+    local text, color
+    if on and not Shatter.AuctionData:IsAvailable() then
+        text, color = "No pricing addon loaded (Auctionator): these rules leave nothing out.", Shatter.C.ACCENT
+    elseif settings.keepAuctionValue and not copper then
+        text, color = "No amount set: nothing is kept for its auction value. Enter one in gold.", Shatter.C.ACCENT
+    elseif settings.keepAuctionValue then
+        text = ("Items worth %dg or more on the auction house stay out of the Solo queue."):format(copper / 10000)
+    else
+        text = "Both use auction prices from a pricing addon (Auctionator). Mail mode is unaffected."
+    end
+    self.valueRulesHelp:SetText(text)
+    Shatter.SetTextColor(self.valueRulesHelp, color or Shatter.C.TEXT_DIM)
+end
+
 function SettingsUI:Refresh()
     if not self.frame then return end
     self:RefreshIgnored()
@@ -594,6 +679,7 @@ function SettingsUI:Refresh()
     self:RefreshKeepLevel(settings)
     if self.minimap then self.minimap:SetChecked(not (settings.minimap and settings.minimap.hide)) end
     if self.useValues then self.useValues:SetChecked(settings.useAuctionData) end
+    self:RefreshValueRules(settings)
     if self.debug then self.debug:SetChecked(settings.debug) end
     if self.trace then self.trace:SetChecked(settings.traceDebug) end
     if self.simulate then self.simulate:SetChecked(settings.simulateDisenchant) end

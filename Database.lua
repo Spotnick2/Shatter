@@ -12,6 +12,12 @@ local DEFAULTS = {
         -- Keep possible upgrades (#37): Solo leaves out items at or above
         -- keepItemLevelAtOrAbove (optional, a whole item level) while on.
         keepItemLevel = false,
+        -- Value rules (#38), Solo only. onlyAboveVendorPrice: an item is
+        -- eligible only if its expected materials are worth more than its
+        -- vendor price. keepAuctionValue: an item whose own auction value is
+        -- at or above keepAuctionValueAtOrAboveCopper (optional) is kept.
+        onlyAboveVendorPrice = false,
+        keepAuctionValue = false,
         minExpectedValueCopper = 0,
         useAuctionData = false,
         minimap = { hide = false, angle = 225 },
@@ -134,6 +140,15 @@ function Database.NormalizeItemLevel(value)
     return value
 end
 
+-- A whole number of gold from 1 to MAX_KEEP_AUCTION_GOLD, in copper, or nil.
+function Database.NormalizeAuctionValue(copper)
+    copper = tonumber(copper)
+    if not copper then return nil end
+    local gold = math.floor(copper / 10000)
+    if gold < 1 or gold > Shatter.Constants.MAX_KEEP_AUCTION_GOLD then return nil end
+    return gold * 10000
+end
+
 local function NormalizeSettings(settings)
     settings = settings or {}
     CopyDefaults(DEFAULTS.settings, settings)
@@ -145,6 +160,9 @@ local function NormalizeSettings(settings)
     NormalizeWindow(settings.window)
     settings.keepItemLevel = settings.keepItemLevel == true
     settings.keepItemLevelAtOrAbove = Database.NormalizeItemLevel(settings.keepItemLevelAtOrAbove)
+    settings.onlyAboveVendorPrice = settings.onlyAboveVendorPrice == true
+    settings.keepAuctionValue = settings.keepAuctionValue == true
+    settings.keepAuctionValueAtOrAboveCopper = Database.NormalizeAuctionValue(settings.keepAuctionValueAtOrAboveCopper)
     if not Shatter.Skin.IsValid(settings.skin) then
         settings.skin = DEFAULTS.settings.skin
     end
@@ -290,6 +308,14 @@ function Database:GetKeepItemLevel()
     local settings = self:GetSettings()
     if not settings.keepItemLevel then return nil end
     return Database.NormalizeItemLevel(settings.keepItemLevelAtOrAbove)
+end
+
+-- The auction value at or above which items are kept (#38), in copper, or
+-- nil when the rule is off or has no amount.
+function Database:GetKeepAuctionValue()
+    local settings = self:GetSettings()
+    if not settings.keepAuctionValue then return nil end
+    return Database.NormalizeAuctionValue(settings.keepAuctionValueAtOrAboveCopper)
 end
 
 function Database:IsIgnored(itemID)

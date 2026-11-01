@@ -21,6 +21,8 @@ Constants.DEFAULT_MAX_QUALITY = Constants.QUALITY_RARE
 -- head through ranged, without the shirt (4) and the tabard (19).
 Constants.KEEP_ITEM_LEVEL_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
 Constants.MAX_KEEP_ITEM_LEVEL = 999
+-- The largest auction value Settings takes for keeping items (#38), in gold.
+Constants.MAX_KEEP_AUCTION_GOLD = 99999
 
 Constants.QUEUE_ORDER = {
     BAG_SLOT = "BAG_SLOT",
