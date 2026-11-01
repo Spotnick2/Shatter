@@ -332,7 +332,7 @@ function Tables:GetExpected(item)
     end
 
     local list = {}
-    local expectedValue, valueSource, derived
+    local expectedValue, valueSource, derived, unpriced
     for _, entry in pairs(results) do
         if Shatter.AuctionData then
             local value, source, from = self:GetMaterialValue(entry.itemID)
@@ -342,6 +342,8 @@ function Tables:GetExpected(item)
                 expectedValue = (expectedValue or 0) + entry.expectedAmount * value
                 valueSource = valueSource or source
                 if from then derived = true end
+            else
+                unpriced = true
             end
         end
         table.insert(list, entry)
@@ -350,6 +352,8 @@ function Tables:GetExpected(item)
     return {
         materials = list, expectedValueCopper = expectedValue, valueSource = valueSource, uncertain = uncertain,
         measured = measured ~= nil, samples = samples, valueDerived = derived,
+        -- Some materials have no price: the value is a lower bound (#38).
+        valuePartial = expectedValue ~= nil and unpriced or nil,
     }
 end
 

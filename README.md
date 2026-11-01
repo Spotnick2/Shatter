@@ -49,6 +49,8 @@ Skip leaves the selected item out until a /reload. Ignore keeps it out for good:
 
 Gear saved in an equipment set is never queued. To keep possible upgrades too, Settings > "Keep items at or above item level" leaves items at or above that level out of the Solo queue; Suggest fills in the lowest item level you have equipped.
 
+With a pricing addon (Auctionator), two value rules can also leave items out of the Solo queue: "Only disenchant if worth more than vendoring" (the expected materials against the vendor price), and "Keep items worth at least N gold on the auction house". Both are off by default. Without prices, neither leaves anything out.
+
 Shatter Next can be bound to a key under Options > Keybindings > Shatter: one press disenchants the selected item, like a click. The key does nothing while Shatter's window is closed.
 
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.
