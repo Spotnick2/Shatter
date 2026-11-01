@@ -17,6 +17,10 @@ Constants.QUALITY_UNCOMMON = 2
 Constants.QUALITY_RARE = 3
 Constants.QUALITY_EPIC = 4
 Constants.DEFAULT_MAX_QUALITY = Constants.QUALITY_RARE
+-- The inventory slots Suggest reads for the lowest item level worn (#37):
+-- head through ranged, without the shirt (4) and the tabard (19).
+Constants.KEEP_ITEM_LEVEL_SLOTS = { 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 }
+Constants.MAX_KEEP_ITEM_LEVEL = 999
 
 Constants.QUEUE_ORDER = {
     BAG_SLOT = "BAG_SLOT",

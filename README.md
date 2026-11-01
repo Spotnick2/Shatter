@@ -47,6 +47,8 @@ An item's tooltip shows what it disenchants into: each material with its chance 
 
 Skip leaves the selected item out until a /reload. Ignore keeps it out for good: Settings > Ignored items lists those items, with Remove for each and Reset all, and `/shatter unignore` removes one from chat.
 
+Gear saved in an equipment set is never queued. To keep possible upgrades too, Settings > "Keep items at or above item level" leaves items at or above that level out of the Solo queue; Suggest fills in the lowest item level you have equipped.
+
 Shatter Next can be bound to a key under Options > Keybindings > Shatter: one press disenchants the selected item, like a click. The key does nothing while Shatter's window is closed.
 
 The main window can be resized from the bottom-right grip. Hold Shift while dragging the grip to scale the full window, or right-click the grip to reset size, scale, and position.

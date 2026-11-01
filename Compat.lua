@@ -110,6 +110,51 @@ function API.IsInEquipmentSet(bag, slot)
     return nil
 end
 
+-- An item instance's own level (#37): C_Item.GetCurrentItemLevel on its
+-- location (dump 2222, optional), else C_Item.GetDetailedItemLevelInfo on its
+-- link (dump 2226, may return nothing). nil when neither can say: the item's
+-- generic level (C_Item.GetItemInfo) isn't the instance's, so it never stands in.
+local function PositiveLevel(ok, level)
+    if ok and type(level) == "number" and level > 0 then return level end
+    return nil
+end
+local function InstanceItemLevel(location, link)
+    local level
+    if location and C_Item.GetCurrentItemLevel then
+        level = PositiveLevel(pcall(C_Item.GetCurrentItemLevel, location))
+    end
+    if not level and link and C_Item.GetDetailedItemLevelInfo then
+        level = PositiveLevel(pcall(C_Item.GetDetailedItemLevelInfo, link))
+    end
+    return level
+end
+
+local function Location(create, ...)
+    if not (ItemLocation and ItemLocation[create]) then return nil end
+    local ok, location = pcall(ItemLocation[create], ItemLocation, ...)
+    return ok and location or nil
+end
+
+-- What's worn in an inventory slot (#37): its level, and whether the slot
+-- holds anything. A worn item whose level can't be read yet is nil, true;
+-- only an empty slot is nil, false.
+function API.GetEquippedItemLevel(slot)
+    local link = GetInventoryItemLink and GetInventoryItemLink("player", slot)
+    local location = Location("CreateFromEquipmentSlot", slot)
+    local occupied = link ~= nil
+    if not occupied and location and C_Item.DoesItemExist then
+        local ok, exists = pcall(C_Item.DoesItemExist, location)
+        occupied = ok and exists == true
+    end
+    if not occupied then return nil, false end
+    return InstanceItemLevel(location, link), true
+end
+
+-- The level of the item instance in a bag slot (#37), or nil.
+function API.GetBagItemLevel(bag, slot, link)
+    return InstanceItemLevel(Location("CreateFromBagAndSlot", bag, slot), link)
+end
+
 -- The version from the TOC. An unpackaged copy still carries the packager's
 -- token; assemble it at runtime, because the packager rewrites the whole token
 -- wherever it appears in shipped files.

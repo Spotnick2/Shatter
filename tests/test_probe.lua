@@ -214,7 +214,7 @@ SlashCmdList.FOREVERPROBE("sh clear")
 SlashCmdList.FOREVERPROBE("sh skill")
 H.check(logHas("Enchanting:"), "/fp sh skill logs after a clear")
 
-for _, name in ipairs({ "loot", "mail", "guid", "next", "looks", "tips", "sets" }) do
+for _, name in ipairs({ "loot", "mail", "guid", "next", "looks", "tips", "sets", "ilvl" }) do
     SlashCmdList.FOREVERPROBE("steps sh " .. name)
     rec = ForeverProbeDB.steps.records["ShatterProbe/" .. name]
     H.check(rec and rec.status == "active", "/fp steps sh " .. name .. " starts")
@@ -233,6 +233,32 @@ WoW.SetBagItem(0, 3, { itemID = VEST })
 WoW.loadAddon()
 WoW.flushTimers()
 Shatter.MainFrame:Show()
+-- 12a. ilvl (#37): each worn slot both ways, what Shatter reads, and Suggest.
+local IL = T.ILVL
+WoW.equipped = {}
+H.eq((IL[1].check()), false, "ilvl: nothing worn, the step fails")
+WoW.equipped[5] = { itemID = 2589, level = 27 }
+WoW.equipped[4] = { itemID = 2589, level = 1 }   -- shirt
+local nWorn, worn = T.readItemLevels()
+H.eq(nWorn, 2, "ilvl: reads every worn slot, the shirt too")
+H.check(worn:find("slot 5 ", 1, true) and worn:find("current 27, detailed 20, item 20, Shatter 27", 1, true),
+    "...with the current level, the item's own and Shatter's (" .. tostring(worn) .. ")")
+H.check(worn:find("Suggest 27", 1, true), "...and Suggest, without the shirt")
+H.eq((IL[1].check()), true, "...the step passes")
+WoW.equipped[6] = { itemID = 2589, level = false }
+WoW.cacheMiss[2589] = true
+nWorn, worn = T.readItemLevels()
+H.check(worn:find("Suggest nil (not loaded)", 1, true), "...a worn level not loaded: no Suggest, and why")
+WoW.cacheMiss[2589] = nil
+WoW.equipped = {}
+local nDiffer, bags = T.readBagLevels()
+H.eq(nDiffer, 0, "ilvl bags: no bag item with a level of its own")
+WoW.bags[0][3].level = 33
+nDiffer, bags = T.readBagLevels()
+H.check(nDiffer == 1 and bags:find("bag 0 slot 3 ", 1, true) and bags:find("current 33, detailed 20, item 20, Shatter 33", 1, true),
+    "...one at 33 is listed, with the level Shatter uses (" .. tostring(bags) .. ")")
+WoW.bags[0][3].level = nil
+
 local N = T.NEXT
 H.eq(N[1].run(), true, "next: finds Shatter Next under ShatterMainFrame")
 local button = T.findNext()

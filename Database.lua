@@ -9,6 +9,9 @@ local DEFAULTS = {
     settings = {
         maxQuality = 3,
         includeSoulbound = false,
+        -- Keep possible upgrades (#37): Solo leaves out items at or above
+        -- keepItemLevelAtOrAbove (optional, a whole item level) while on.
+        keepItemLevel = false,
         minExpectedValueCopper = 0,
         useAuctionData = false,
         minimap = { hide = false, angle = 225 },
@@ -122,6 +125,15 @@ local function CopyTable(source)
     return copy
 end
 
+-- A whole item level from 1 to MAX_KEEP_ITEM_LEVEL, or nil.
+function Database.NormalizeItemLevel(value)
+    value = tonumber(value)
+    if not value then return nil end
+    value = math.floor(value)
+    if value < 1 or value > Shatter.Constants.MAX_KEEP_ITEM_LEVEL then return nil end
+    return value
+end
+
 local function NormalizeSettings(settings)
     settings = settings or {}
     CopyDefaults(DEFAULTS.settings, settings)
@@ -131,6 +143,8 @@ local function NormalizeSettings(settings)
     end
     NormalizeQueueOrder(settings)
     NormalizeWindow(settings.window)
+    settings.keepItemLevel = settings.keepItemLevel == true
+    settings.keepItemLevelAtOrAbove = Database.NormalizeItemLevel(settings.keepItemLevelAtOrAbove)
     if not Shatter.Skin.IsValid(settings.skin) then
         settings.skin = DEFAULTS.settings.skin
     end
@@ -268,6 +282,14 @@ end
 function Database:ResetYields()
     ShatterDB = ShatterDB or {}
     ShatterDB.yields = nil
+end
+
+-- The item level Solo keeps from (#37): nil while the setting is off or has
+-- no level.
+function Database:GetKeepItemLevel()
+    local settings = self:GetSettings()
+    if not settings.keepItemLevel then return nil end
+    return Database.NormalizeItemLevel(settings.keepItemLevelAtOrAbove)
 end
 
 function Database:IsIgnored(itemID)
