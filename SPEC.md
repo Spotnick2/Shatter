@@ -308,6 +308,25 @@ ShatterDB = {
         history = {},
     },
     debugLog = {},
+    -- Learning mode (#40), account-wide, absent until first turned on. A
+    -- developer tool: /shatter learn on|off|clear, deliberately not in
+    -- Settings or the command list. Read by Tools/yield_report.py; estimates
+    -- never use it.
+    yieldLog = {
+        enabled = false,
+        entries = {     -- the last Constants.YIELD_LOG_MAX (2000), oldest dropped
+            {
+                time = 1790000000, build = "1.60.1.70532", mode = "SOLO",
+                itemID = 2589, itemLevel = 20, quality = 2, classID = 4, subclassID = 2,
+                equipLoc = "INVTYPE_CHEST",
+                currentItemLevel = nil, -- only where it differs from itemLevel
+                loot = { [10940] = 2 }, -- every looted item, materials or not
+                unmatched = nil,        -- true: no table rule for the item
+                unknownLoot = nil,      -- true: something that isn't a material
+                surprise = nil,         -- true: a material the table doesn't predict
+            },
+        },
+    },
 }
 ```
 
