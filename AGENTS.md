@@ -152,15 +152,17 @@ heavy runtime dependencies.
 - Update `CHANGELOG.md` for user-visible changes.
 - Keep packaging compatible with CurseForge `.pkgmeta`; CI dry-runs the BigWigs packager and checks
   the zip holds exactly the TOC's files plus LICENSE.
-- **Releases:** tags are `v0.2.<buildnumber>-alpha`, where `<buildnumber>` is the commit count
-  after the release metadata commit. (0.2 keeps Forever versions distinct from the TBC addon's
-  0.1 line.) Keep `## Version: @project-version@`. Add a top changelog entry, commit, tag, push the
-  branch, then the tag. The `v0.1.*` tags are the TBC releases: never move or delete them.
+- **Releases:** from 1.0.0 (owner, 2026-11-01), tags are `vX.Y.Z` for a release and
+  `vX.Y.Z-betaN` / `vX.Y.Z-alphaN` for a pre-release (`v1.0.0-beta1` was the first). The tag
+  name sets the file type: beta or alpha on CurseForge and Wago, a pre-release on GitHub. The
+  Forever alphas before it were `v0.2.<buildnumber>-alpha` (`v0.2.80-alpha`). Keep
+  `## Version: @project-version@`. Add a top changelog entry, merge it, then tag `main` and push
+  the tag. The `v0.1.*` tags are the TBC releases: never move or delete them.
 - **A tag publishes three times** (`C:\Projects\WoW\References\Docs\RELEASING.md`): CurseForge
   builds its own file from the webhook. `.github/workflows/package-check.yml` checks the zip, then
   its `release` job makes the GitHub Release (zip, `release.json`, the tag's changelog section)
-  and its `wago` job uploads the same zip to Wago. The notes are the `## v0.2.N-alpha` section, else
-  `## v0.2.N`, else `## Unreleased`. The TBC history's own unreleased heading must never read
+  and its `wago` job uploads the same zip to Wago. The notes are the tag's own section
+  (`## v1.0.0-beta1`), else, for a pre-release, `## v1.0.0`, else `## Unreleased`. The TBC history's own unreleased heading must never read
   `## Unreleased` again. Republish a tag where it failed with `gh workflow run package-check.yml -f
   tag=<tag> -f publish=github|wago|both`.
 - Wago Addons: project **v63QE4Gb** (`## X-Wago-ID` in the TOC, https://addons.wago.io/addons/v63QE4Gb);
