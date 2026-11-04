@@ -85,8 +85,9 @@ materials.
 - **At the mailbox**, Shatter's Mail panel opens beside it. Start a session for all mail or mail
   from one sender; with [Glass Mail](https://www.curseforge.com/wow/addons/glass-mail) or
   [Postal](https://www.curseforge.com/wow/addons/postal), also for the mails you ticked in its
-  inbox. Choose where the materials go: back to each sender, all to one character ("Funnel to"),
-  or kept.
+  inbox. With both, Shatter reads Glass Mail's ticks. Glass Mail needs version 0.2.0 or later
+  (an alpha or beta for now). Choose where the materials go: back to each sender, all to one
+  character ("Funnel to"), or kept.
 - **A session lasts until you close it**, across mailbox visits and reloads. Shatter lists the
   attachments, takes them, and disenchants them with Shatter Next, crediting each item's materials
   to its sender. Your own items stay out of it, even an identical one, and a received item stays
@@ -146,4 +147,5 @@ World of Warcraft: Forever, client 1.60.1 (Interface 16001).
 
 ## Author and license
 
-By Spotnick. MIT (`LICENSE`). Shatter embeds LibGlass-1.0, also MIT, by the same author.
+By Spotnick. MIT (`LICENSE`). Shatter embeds LibGlass-1.0, also MIT, by the same author,
+and the LibStub it bundles (public domain).
