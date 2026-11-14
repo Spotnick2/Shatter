@@ -105,10 +105,16 @@ end
 
 -- One line when the client is not the build these notes and the adapter
 -- were measured on: something may have moved (porting guide, s0). A note
--- for the developer, so only a dev copy (unpackaged TOC) shows it; players
--- on a release never see it (#61).
+-- for the developer, so only a dev copy shows it; players on a release
+-- never see it (#61). A dev copy reads "dev" (a checkout: the TOC still
+-- carries the packager's token) or "dev-<revision>" (Tools/deploy.ps1
+-- stamps the deployed TOC); a packaged version starts with "v".
+local function IsDevCopy(version)
+    return version == "dev" or (type(version) == "string" and version:find("^dev%-") ~= nil)
+end
+
 local function CheckBuild()
-    if Shatter.VERSION ~= "dev" then return end
+    if not IsDevCopy(Shatter.VERSION) then return end
     local version, build = GetBuildInfo()
     local current = tostring(version) .. "." .. tostring(build)
     if current ~= Shatter.Constants.MEASURED_ON_BUILD then

@@ -30,9 +30,22 @@ H.eq(Shatter.VERSION, "dev", "an unpackaged TOC reads as dev")
 H.check(WoW.chat():find("This client is 1.60.1.70400; Shatter was measured on " .. MEASURED, 1, true),
     "dev copy: a different build is announced at login")
 
+-- A deployed dev copy: Tools/deploy.ps1 stamps "dev-<revision>" (or "dev"
+-- without git) into the deployed TOC. The reminder is for exactly this copy.
+for _, version in ipairs({ "dev-7442134", "dev" }) do
+    WoW.reset()
+    dofile("tests/wow_stubs.lua")
+    WoW.enchanter()
+    WoW.build = "70400"
+    WoW.version = version
+    WoW.loadAddon()
+    H.check(WoW.chat():find("This client is 1.60.1.70400; Shatter was measured on " .. MEASURED, 1, true),
+        "deployed " .. version .. ": a different build is announced at login")
+end
+
 -- A packaged release says nothing on another build (#61): the note is for
--- the developer, not players.
-for _, version in ipairs({ "v1.0.0", "v1.0.1-beta1" }) do
+-- the developer, not players. "develop"-like text doesn't count as dev.
+for _, version in ipairs({ "v1.0.0", "v1.0.1-beta1", "development" }) do
     WoW.reset()
     dofile("tests/wow_stubs.lua")
     WoW.enchanter()
