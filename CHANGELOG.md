@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## v1.0.0 - 2026-11-14
 
-- Learned yields leave out disenchants done near an Arcane Salvager. Its "Boosted Disenchanting" buff raises the chance of bonus materials, which would make the measured odds too high for everyone else. A disenchant that started or ended under the buff still counts in the session, and learning mode logs it marked as boosted: `/shatter learn` counts them, and `Tools/yield_report.py` leaves them out (`--boosted` reports only those).
+The first stable release for WoW Forever: everything in the two betas below, plus:
+
+- Measured odds leave out disenchants done near an Arcane Salvager. Its "Boosted Disenchanting" buff raises the chance of bonus materials, which would make the measured odds too high. Such a disenchant still counts in the session and its summary.
 - Blue items at item level 20 or below, which Forever adds (mostly crafted gear), have disenchant brackets of their own in the game, armor and weapons apart. Their tooltip and the Expected Materials pane now say the estimate is unverified ("(estimate)", "(unverified)") until enough of them have been disenchanted, and their measured odds are kept apart from the level 21-25 blues. Measurements saved for blues at levels 1-25 are reset once, since they can't be split by item level.
 
 ## v1.0.0-beta2 - 2026-11-04
