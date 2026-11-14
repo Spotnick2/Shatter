@@ -35,13 +35,16 @@ CONSTANTS = """Constants.MATERIAL_ITEM_IDS = {
 B1, B2 = "1.60.1.70532", "1.60.1.70685"
 
 
-def entry(level, loot, quality=2, classID=4, build=B1, **flags):
+def entry(level, loot, quality=2, classID=4, build=B1, boosted=False, **flags):
+    """`boosted`: True, False (as logged since #57) or None (no reading: left out)."""
     lines = ['{', '["itemID"] = 2589,', '["itemLevel"] = %d,' % level, '["quality"] = %d,' % quality,
              '["classID"] = %d,' % classID, '["subclassID"] = 2,', '["equipLoc"] = "INVTYPE_CHEST",',
              '["mode"] = "SOLO",', '["build"] = "%s",' % build, '["time"] = 1790000000,', '["loot"] = {']
     lines += ['[%d] = %d,' % (i, c) for i, c in loot.items()]
     lines.append('},')
     lines += ['["%s"] = true,' % k for k in flags]
+    if boosted is not None:
+        lines.append('["boosted"] = %s,' % ("true" if boosted else "false"))
     lines.append('}, -- [n]')
     return "\n".join(lines)
 
@@ -166,19 +169,28 @@ with tempfile.TemporaryDirectory() as tmp:
     check("2 disenchants logged" in only and "Uncommon armor 20: 2 disenchants" in only
           and "Strange Dust: seen 100% x3.0 (3-3)" in only, "--build keeps that build's entries")
 
-    # 3c. Boosted Disenchanting (#57): left out by default, alone with boosted=True.
-    boosted_log = log + [dict(log[0], boosted=True, loot={10940: 9}) for _ in range(3)]
-    plain = "\n".join(yr.report(boosted_log, rules, names))
+    # 3c. Boosted Disenchanting (#57): the baseline is the entries read as not
+    # boosted. Boosted ones are left out (alone with boosted=True); ones with
+    # no reading (a failed read, or logged before #57) are left out unless
+    # include_unknown, and counted either way.
+    check(log[0]["boosted"] is False, "the fixture's entries are read as not boosted")
+    no_reading = {k: v for k, v in log[0].items() if k != "boosted"}
+    mixed = (log + [dict(log[0], boosted=True, loot={10940: 9}) for _ in range(3)]
+             + [dict(no_reading, loot={10940: 7}) for _ in range(2)])
+    plain = "\n".join(yr.report(mixed, rules, names))
     check("%d disenchants logged" % len(ENTRIES) in plain
-          and "3 under Boosted Disenchanting left out (--boosted reports them)." in plain
-          and "Uncommon armor 20: 13 disenchants\n" in plain and "x9" not in plain,
-          "boosted entries are left out of the report, and counted")
-    check("Boosted Disenchanting" not in out, "...and nothing is said when there are none")
-    boost = "\n".join(yr.report(boosted_log, rules, names, boosted=True))
+          and "; 3 under Boosted Disenchanting left out (--boosted reports them)" in plain
+          and "; 2 with no boost reading (failed, or logged before it was read) left out (--include-unknown adds them)." in plain
+          and "Uncommon armor 20: 13 disenchants\n" in plain and "x9" not in plain and "x7" not in plain,
+          "boosted and unknown entries are left out of the baseline, and counted")
+    check("boost" not in out, "...and nothing is said when every entry was read as not boosted")
+    boost = "\n".join(yr.report(mixed, rules, names, boosted=True))
     check("3 disenchants logged" in boost and "; Boosted Disenchanting only." in boost
-          and "Strange Dust: seen 100% x9.0 (9-9)" in boost, "boosted=True reports only those")
-    unknown = "\n".join(yr.report(log + [dict(log[0], boosted=False)], rules, names))
-    check("Uncommon armor 20: 14 disenchants" in unknown, "boosted false: reported as usual")
+          and "Strange Dust: seen 100% x9.0 (9-9)" in boost and "x7" not in boost, "boosted=True reports only those")
+    withu = "\n".join(yr.report(mixed, rules, names, include_unknown=True))
+    check("%d disenchants logged" % (len(ENTRIES) + 2) in withu and "; 2 with no boost reading included" in withu
+          and "Uncommon armor 20: 15 disenchants" in withu and "x9" not in withu,
+          "include_unknown adds the unknown entries, never the boosted ones")
 
     # 4. The command line.
     buf = io.StringIO()
@@ -189,6 +201,16 @@ with tempfile.TemporaryDirectory() as tmp:
     with contextlib.redirect_stdout(buf):
         code = yr.main(["--saved", saved, "--rules", rules_path, "--constants", constants_path, "--boosted"])
     check(code == 0 and "0 disenchants logged" in buf.getvalue(), "main --boosted: only boosted (none here)")
+    legacy = write(tmp, "Legacy.lua", SAVED.replace('["boosted"] = false,\n', ""))
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = yr.main(["--saved", legacy, "--rules", rules_path, "--constants", constants_path])
+    check(code == 0 and "0 disenchants logged" in buf.getvalue()
+          and "%d with no boost reading" % len(ENTRIES) in buf.getvalue(), "main: a log from before #57 is all unknown")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = yr.main(["--saved", legacy, "--rules", rules_path, "--constants", constants_path, "--include-unknown"])
+    check(code == 0 and "Uncommon armor 20: 13 disenchants" in buf.getvalue(), "main --include-unknown reports it")
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
         code = yr.main(["--saved", empty, "--rules", rules_path, "--constants", constants_path])
