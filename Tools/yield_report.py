@@ -208,16 +208,36 @@ def flags_of(entry):
     return flags
 
 
-def report(entries, rules, names, min_samples=10, build=None):
+def report(entries, rules, names, min_samples=10, build=None, boosted=False, include_unknown=False):
+    """The table is the unboosted rate (#57), so by default only entries read as
+    not boosted (`boosted` false) are reported. An entry with no reading (an
+    aura read that failed, or logged before #57) could be either: left out and
+    counted unless `include_unknown`. `boosted`: only the boosted ones."""
     lines = []
     builds = {}
     for e in entries:
         builds[e.get("build", "?")] = builds.get(e.get("build", "?"), 0) + 1
     if build:
         entries = [e for e in entries if e.get("build") == build]
-    lines.append("%d disenchants logged (%s)%s." % (
+    under = [e for e in entries if e.get("boosted") is True]
+    unknown = [e for e in entries if not isinstance(e.get("boosted"), bool)]
+    if boosted:
+        entries = under
+        boost_note = "; Boosted Disenchanting only"
+    else:
+        entries = [e for e in entries if e.get("boosted") is False or (include_unknown and e in unknown)]
+        notes = []
+        if under:
+            notes.append("%d under Boosted Disenchanting left out (--boosted reports them)" % len(under))
+        if unknown and include_unknown:
+            notes.append("%d with no boost reading included" % len(unknown))
+        elif unknown:
+            notes.append("%d with no boost reading (failed, or logged before it was read) left out"
+                         " (--include-unknown adds them)" % len(unknown))
+        boost_note = "".join("; " + n for n in notes)
+    lines.append("%d disenchants logged (%s)%s%s." % (
         len(entries), ", ".join("%s: %d" % (b, n) for b, n in sorted(builds.items())),
-        "; build %s only" % build if build else ""))
+        "; build %s only" % build if build else "", boost_note))
 
     groups = {}
     for e in entries:
@@ -305,6 +325,10 @@ def main(argv=None):
     parser.add_argument("--saved", action="append",
                         help="a Shatter.lua SavedVariables file (repeatable); default: every account under _forever_")
     parser.add_argument("--build", help="only this client build, e.g. 1.60.1.70685")
+    parser.add_argument("--boosted", action="store_true",
+                        help="only the disenchants done under Boosted Disenchanting (left out by default)")
+    parser.add_argument("--include-unknown", action="store_true",
+                        help="also report disenchants with no boost reading (logged before it was read, or a failed read)")
     parser.add_argument("--min-samples", type=int, default=10, help="fewer disenchants than this at a level: too few")
     parser.add_argument("--rules", default=os.path.join(REPO, "Data", "DisenchantTables.lua"))
     parser.add_argument("--constants", default=os.path.join(REPO, "Constants.lua"))
@@ -326,7 +350,7 @@ def main(argv=None):
         return 1
     rules = read_rules(args.rules)
     names = read_material_names(args.constants)
-    for line in report(entries, rules, names, args.min_samples, args.build):
+    for line in report(entries, rules, names, args.min_samples, args.build, args.boosted, args.include_unknown):
         print(line)
     return 0
 

@@ -82,6 +82,31 @@ local function GetSimulatedResult(item)
 end
 Disenchant._GetSimulatedResult = GetSimulatedResult
 
+-- Boosted Disenchanting (#57). Every touch of the aura is inside the pcall:
+-- a secret aura (combat) throws when it is tested, not only when it is read
+-- (porting guide, "Auras go dark").
+local function ReadBoostAura()
+    if C_UnitAuras.GetPlayerAuraBySpellID(Shatter.Constants.SPELL_BOOSTED_DISENCHANTING) then return true end
+    return false
+end
+
+-- true or false; nil when the aura can't be read (unknown).
+local function ReadBoost()
+    if not (C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID) then return nil end
+    local ok, boosted = pcall(ReadBoostAura)
+    if not ok then return nil end
+    return boosted
+end
+Disenchant._ReadBoost = ReadBoost
+
+-- Two reads of the same cast: boosted if either saw the aura, unknown if
+-- either failed and neither saw it, else not boosted.
+local function CombineBoost(a, b)
+    if a == true or b == true then return true end
+    if a == nil or b == nil then return nil end
+    return false
+end
+
 local function HasInventorySpace()
     for bag = 0, NUM_BAG_SLOTS do
         local free, bagType
@@ -267,6 +292,8 @@ function Disenchant:BeginSecureClick(button)
             bagUpdated = false,
             chatLoot = false,
             startedAt = GetTime and GetTime() or 0,
+            -- Read again with the loot (#57): the aura can come or go mid-cast.
+            boost = ReadBoost(),
         }
         self.finalizing = false
         if Shatter.Session then Shatter.Session:BeginAction(item) end
@@ -365,15 +392,19 @@ function Disenchant:Finish(trigger)
         if Shatter.MaterialTracker and Shatter.MaterialTracker:IsEmpty(result) then
             result = Shatter.MaterialTracker:Diff(pending.before, Shatter.MaterialTracker:Snapshot())
         end
-        self:Trace("Finish check: disappeared=%s result=%s", tostring(itemDisappeared), Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown")
+        self:Trace("Finish check: disappeared=%s result=%s boosted=%s", tostring(itemDisappeared),
+            Shatter.MaterialTracker and Shatter.MaterialTracker:Format(result or {}) or "unknown",
+            pending.boost == nil and "unknown" or tostring(pending.boost))
 
         -- Measured yields learn only from this cast's loot window, with the
         -- item gone: a bag diff can include anything else that arrived.
         -- Recorded before the session result, which rebuilds a Mail queue
         -- (and its estimates) synchronously.
+        -- A cast under Boosted Disenchanting (or one whose aura couldn't be
+        -- read) is logged, flagged, but never learned (#57).
         if itemDisappeared and Shatter.DisenchantTables then
-            Shatter.DisenchantTables:RecordYield(pending.item, pending.loot)
-            Shatter.DisenchantTables:LogDisenchant(pending.item, pending.loot)
+            Shatter.DisenchantTables:RecordYield(pending.item, pending.loot, pending.boost)
+            Shatter.DisenchantTables:LogDisenchant(pending.item, pending.loot, pending.boost)
         end
         if Shatter.Session then
             Shatter.Session:RecordResult(pending.item, result or {})
@@ -484,6 +515,7 @@ function Disenchant:OnEvent(event, ...)
             end
             self.pending.loot = loot
         end
+        self.pending.boost = CombineBoost(self.pending.boost, ReadBoost())
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(Shatter.Constants.STATUS.WAITING_RESULT, false) end
         return
     elseif event == "LOOT_CLOSED" then

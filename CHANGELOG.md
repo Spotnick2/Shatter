@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Learned yields leave out disenchants done near an Arcane Salvager. Its "Boosted Disenchanting" buff raises the chance of bonus materials, which would make the measured odds too high for everyone else. A disenchant that started or ended under the buff still counts in the session, and learning mode logs it marked as boosted: `/shatter learn` counts them, and `Tools/yield_report.py` leaves them out (`--boosted` reports only those).
+- Blue items at item level 20 or below, which Forever adds (mostly crafted gear), have disenchant brackets of their own in the game, armor and weapons apart. Their tooltip and the Expected Materials pane now say the estimate is unverified ("(estimate)", "(unverified)") until enough of them have been disenchanted, and their measured odds are kept apart from the level 21-25 blues. Measurements saved for blues at levels 1-25 are reset once, since they can't be split by item level.
+
 ## v1.0.0-beta2 - 2026-11-04
 
 - Mail Mode's "Selected mails" now works with Glass Mail: with Glass Mail loaded, a session can start from the mails ticked in Glass Mail's inbox, and the count follows your ticks. With Postal only, it reads Postal's checkboxes as before. Needs a Glass Mail version with its selection API.

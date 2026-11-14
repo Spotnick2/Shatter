@@ -64,6 +64,21 @@ for ilvl = 40, 100 do
     H.check(next((materials(4, WEAPON, ilvl))) ~= nil, "epic ilvl " .. ilvl .. " has an estimate")
 end
 
+-- #58: rares up to 20 are in the client's Forever-only brackets: an
+-- estimate for armor and weapons alike, marked uncertain; from 21 the
+-- Vanilla brackets, not marked.
+for ilvl = 1, 25 do
+    local _, a = materials(3, ARMOR, ilvl)
+    local _, w = materials(3, WEAPON, ilvl)
+    local forever = ilvl <= T.FOREVER_RARE_MAX_ITEM_LEVEL
+    H.check(w and #w.materials > 0, "rare weapon ilvl " .. ilvl .. " has an estimate")
+    H.check(a.uncertain == forever and w.uncertain == forever,
+        "rare ilvl " .. ilvl .. (forever and ": uncertain (Forever bracket)" or ": not uncertain"))
+end
+H.eq(T.FOREVER_RARE_MAX_ITEM_LEVEL, 20, "the Forever rare brackets end at 20")
+local _, green = materials(2, ARMOR, 15)
+H.eq(green.uncertain, false, "an uncommon at 15 is not marked")
+
 -- Bracket edges.
 local m = materials(2, ARMOR, 60)
 H.check(m[16204] and m[16204].maxAmount == 2, "uncommon 60: Illusion Dust 1-2")

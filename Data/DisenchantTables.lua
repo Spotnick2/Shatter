@@ -21,6 +21,12 @@ local WEAPON = C.ITEM_CLASS_WEAPON
 -- (an epic's 1-2 Nexus Crystals lean towards 2), so values read slightly low.
 local TOP = 1000
 Tables.VANILLA_MAX_ITEM_LEVEL = 92
+-- Rares up to this level fall in Forever-only client brackets (#58):
+-- ItemDisenchantLoot rows 335-338, 5-15 and 16-20, armor and weapon apart
+-- (wago 1.60.1.70938). Their loot is server-side and unmeasured, so the
+-- rules below keep Vanilla's shard as a placeholder, split as the client
+-- splits them, and the estimate is marked uncertain until measured.
+Tables.FOREVER_RARE_MAX_ITEM_LEVEL = 20
 
 local RULES = {
     -- Uncommon: dust (armor-heavy), essence (weapon-heavy), and a small shard chance.
@@ -58,8 +64,11 @@ local RULES = {
     { 2, ARMOR, 51, 55, 14343, 0.05, 1, 1 }, { 2, WEAPON, 51, 55, 14343, 0.05, 1, 1 },
     { 2, ARMOR, 56, TOP, 14344, 0.05, 1, 1 }, { 2, WEAPON, 56, TOP, 14344, 0.05, 1, 1 },
 
-    -- Rare: one shard; from 56 a small Nexus Crystal chance.
-    { 3, nil, 1, 25, 10978, 1.00, 1, 1 }, { 3, nil, 26, 30, 11084, 1.00, 1, 1 },
+    -- Rare: one shard; from 56 a small Nexus Crystal chance. Up to 20, the
+    -- Forever-only brackets (FOREVER_RARE_MAX_ITEM_LEVEL): placeholders.
+    { 3, ARMOR, 1, 15, 10978, 1.00, 1, 1 }, { 3, WEAPON, 1, 15, 10978, 1.00, 1, 1 },
+    { 3, ARMOR, 16, 20, 10978, 1.00, 1, 1 }, { 3, WEAPON, 16, 20, 10978, 1.00, 1, 1 },
+    { 3, nil, 21, 25, 10978, 1.00, 1, 1 }, { 3, nil, 26, 30, 11084, 1.00, 1, 1 },
     { 3, nil, 31, 35, 11138, 1.00, 1, 1 }, { 3, nil, 36, 40, 11139, 1.00, 1, 1 },
     { 3, nil, 41, 45, 11177, 1.00, 1, 1 }, { 3, nil, 46, 50, 11178, 1.00, 1, 1 },
     { 3, nil, 51, 55, 14343, 1.00, 1, 1 },
@@ -138,9 +147,12 @@ function Tables:GetBucket(item)
 end
 
 -- One real disenchant's loot. Only a clean observation counts: at least one
--- looted item, every one a disenchanting material, and an item with a
--- bucket. Returns true when recorded.
-function Tables:RecordYield(item, loot)
+-- looted item, every one a disenchanting material, an item with a bucket,
+-- and `boosted` false: a cast under Boosted Disenchanting, or one whose aura
+-- couldn't be read (nil), would skew the bucket (#57). Returns true when
+-- recorded.
+function Tables:RecordYield(item, loot, boosted)
+    if boosted ~= false then return false end
     if type(loot) ~= "table" or not next(loot) or not Shatter.Database then return false end
     for itemID, count in pairs(loot) do
         if not C.MATERIAL_ITEM_IDS[itemID] or (tonumber(count) or 0) <= 0 then return false end
@@ -237,6 +249,15 @@ function Tables:MigrateYields()
             yields[newKey] = b
         end
     end
+    -- #58: the rare 1-25 bucket became 1-15 and 16-20 (armor and weapon
+    -- apart) and 21-25. Its samples carry no item level to divide them by,
+    -- so it is dropped; the new buckets start from the table.
+    for key, b in pairs(yields) do
+        if IsValidBucket(b) and b.quality == C.QUALITY_RARE and b.classID == nil
+            and b.minLevel <= self.FOREVER_RARE_MAX_ITEM_LEVEL then
+            yields[key] = nil
+        end
+    end
 end
 
 -- Learning mode (#40): while it is on (/shatter learn on, account-wide, off
@@ -246,8 +267,9 @@ end
 -- matches (unmatched), loot that isn't a material (unknownLoot), a material
 -- no rule predicts for the item (surprise). Estimates never read it. The
 -- entry is built field by field, so a Mail item's sender is never stored.
--- Returns true when logged.
-function Tables:LogDisenchant(item, loot)
+-- `boosted` (#57) is stored as read, true or false; unknown (nil) leaves it
+-- out. Returns true when logged.
+function Tables:LogDisenchant(item, loot, boosted)
     local log = Shatter.Database and Shatter.Database:GetYieldLog()
     if not (log and log.enabled) or not item or not item.itemID then return false end
     if type(loot) ~= "table" or not next(loot) then return false end
@@ -267,6 +289,7 @@ function Tables:LogDisenchant(item, loot)
         classID = item.classID, subclassID = item.subclassID, equipLoc = item.equipLoc,
         loot = {},
     }
+    if boosted ~= nil then entry.boosted = boosted == true end
     -- The instance's own level, only where it differs from the generic one
     -- the rules match on.
     if type(item.currentItemLevel) == "number" and item.currentItemLevel ~= item.itemLevel then
@@ -304,13 +327,15 @@ end
 function Tables:FormatLog(maxFlagged)
     local log = Shatter.Database and Shatter.Database:GetYieldLog()
     local entries = log and log.entries or {}
-    local flagged = {}
+    local flagged, boosted = {}, 0
     for i = #entries, 1, -1 do
         local e = entries[i]
         if type(e) == "table" and #LogFlags(e) > 0 then flagged[#flagged + 1] = e end
+        if type(e) == "table" and e.boosted == true then boosted = boosted + 1 end
     end
-    local lines = { string.format("Learning mode is %s: %d disenchant%s logged (the last %d are kept), %d flagged.",
-        log and log.enabled and "on" or "off", #entries, #entries == 1 and "" or "s", C.YIELD_LOG_MAX, #flagged) }
+    local lines = { string.format("Learning mode is %s: %d disenchant%s logged (the last %d are kept), %d flagged%s.",
+        log and log.enabled and "on" or "off", #entries, #entries == 1 and "" or "s", C.YIELD_LOG_MAX, #flagged,
+        boosted > 0 and string.format(", %d under Boosted Disenchanting", boosted) or "") }
     for i = 1, math.min(#flagged, maxFlagged or 10) do
         local e = flagged[i]
         local loot = {}
@@ -413,6 +438,7 @@ function Tables:GetExpected(item)
     end
     if not found then return nil end
     local uncertain = item.itemLevel > Tables.VANILLA_MAX_ITEM_LEVEL
+        or (item.quality == C.QUALITY_RARE and item.itemLevel <= Tables.FOREVER_RARE_MAX_ITEM_LEVEL)
     local samples, measured = self:GetMeasured(item, results)
     if measured then
         results = measured

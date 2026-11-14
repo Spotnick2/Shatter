@@ -5,6 +5,11 @@ Shatter.Constants = Constants
 Shatter.RegisterModule("Constants", Constants)
 
 Constants.SPELL_DISENCHANT = 13262
+-- "Boosted Disenchanting" (#57): the player's aura near a Forever Arcane
+-- Salvager (item 279985), "chance of bonus disenchanting output is
+-- increased" (wago SpellName 1.60.1.70938). Not the Salvager's own spells:
+-- 1263056 crafts it, 1307223 places it.
+Constants.SPELL_BOOSTED_DISENCHANTING = 1283701
 
 -- The client build the Forever port was last measured on (API dump
 -- References/Forever/api/forever-api-1.60.1.70334.md). A human bumps it after
