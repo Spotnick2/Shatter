@@ -51,7 +51,9 @@ update). Type `/shatter` or click Shatter's minimap button.
   unpublished. Shatter also counts every disenchant whose loot window it reads, for the item's
   quality, armor or weapon, and item-level bracket. Once a bracket has 20, its estimate blends your
   results with the table, leaning on yours as they grow ("Expected Materials (measured, 20)").
-  `/shatter yields` lists what it has measured, and `/shatter yields reset` clears it.
+  A disenchant done near an Arcane Salvager isn't counted: its Boosted Disenchanting buff raises
+  the odds of bonus materials. `/shatter yields` lists what it has measured, and
+  `/shatter yields reset` clears it.
 - **Item tooltips** show what an item disenchants into, wherever it appears: bags, bank, loot,
   chat links, vendors, the auction house. Settings > Item tooltips (or `/shatter tooltip`) shows
   them always, only while Shift, Alt or Ctrl is held, or never.
@@ -118,8 +120,10 @@ it for Settings.
   turns on when you learn Enchanting, without a reload.
 - **It never acts on its own.** Every disenchant is a click or key press of yours on Shatter Next,
   for one item.
-- **The rates are Vanilla's** until your own disenchants correct them, and items above item
-  level 92 show "Expected Materials (unverified)".
+- **The rates are Vanilla's** until your own disenchants correct them. Two kinds of item show
+  "Expected Materials (unverified)" (and "(estimate)" in the tooltip) until then: items above item
+  level 92, and blue items at item level 20 or below, which Forever adds (mostly crafted gear) with
+  disenchant brackets of their own.
 - **Forever is new.** Shatter's behaviour on the live client is being checked as players get in.
   If something doesn't work, a bug report helps (below).
 
