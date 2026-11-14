@@ -10,20 +10,50 @@ dofile("tests/wow_stubs.lua")
 -- This literal is the point: it must be edited by hand together with the
 -- constant after re-measuring a new client build (porting guide, section 0).
 local MEASURED = "1.60.1.70334"
+-- A dev copy: the TOC still carries the packager's token (assembled, since
+-- the packager rewrites the token wherever it appears).
+local DEV = "@" .. "project-version" .. "@"
 
 WoW.enchanter()
 WoW.loadAddon()
 H.eq(Shatter.Constants.MEASURED_ON_BUILD, MEASURED, "MEASURED_ON_BUILD matches the measured build")
 H.check(not WoW.chat():find("Shatter was measured on", 1, true), "no notice on the measured build")
 
--- Another build: one line at login.
+-- Another build, in a dev copy: one line at login.
 WoW.reset()
 dofile("tests/wow_stubs.lua")
 WoW.enchanter()
 WoW.build = "70400"
+WoW.version = DEV
 WoW.loadAddon()
+H.eq(Shatter.VERSION, "dev", "an unpackaged TOC reads as dev")
 H.check(WoW.chat():find("This client is 1.60.1.70400; Shatter was measured on " .. MEASURED, 1, true),
-    "a different build is announced at login")
+    "dev copy: a different build is announced at login")
+
+-- A deployed dev copy: Tools/deploy.ps1 stamps "dev-<revision>" (or "dev"
+-- without git) into the deployed TOC. The reminder is for exactly this copy.
+for _, version in ipairs({ "dev-7442134", "dev" }) do
+    WoW.reset()
+    dofile("tests/wow_stubs.lua")
+    WoW.enchanter()
+    WoW.build = "70400"
+    WoW.version = version
+    WoW.loadAddon()
+    H.check(WoW.chat():find("This client is 1.60.1.70400; Shatter was measured on " .. MEASURED, 1, true),
+        "deployed " .. version .. ": a different build is announced at login")
+end
+
+-- A packaged release says nothing on another build (#61): the note is for
+-- the developer, not players. "develop"-like text doesn't count as dev.
+for _, version in ipairs({ "v1.0.0", "v1.0.1-beta1", "development" }) do
+    WoW.reset()
+    dofile("tests/wow_stubs.lua")
+    WoW.enchanter()
+    WoW.build = "70400"
+    WoW.version = version
+    WoW.loadAddon()
+    H.check(not WoW.chat():find("Shatter was measured on", 1, true), version .. " on another build: no notice")
+end
 
 -- Activation that comes later still announces it, once: a spellbook not
 -- ready at login, then SPELLS_CHANGED (and more of them)...
@@ -40,6 +70,7 @@ WoW.reset()
 dofile("tests/wow_stubs.lua")
 WoW.enchanter()
 WoW.build = "70400"
+WoW.version = DEV
 WoW.spellbookReady = false
 WoW.loadAddon()
 H.eq(notices(), 0, "spellbook not ready at login: no notice yet")
@@ -53,6 +84,7 @@ WoW.reset()
 dofile("tests/wow_stubs.lua")
 WoW.enchanter()
 WoW.build = "70400"
+WoW.version = DEV
 WoW.inCombat = true
 WoW.loadAddon()
 H.eq(notices(), 0, "activation waiting for combat: no notice yet")
@@ -64,6 +96,7 @@ H.eq(notices(), 1, "combat-deferred activation: announced once when it completes
 WoW.reset()
 dofile("tests/wow_stubs.lua")
 WoW.build = "70400"
+WoW.version = DEV
 WoW.loadAddon()
 H.check(not WoW.chat():find("Shatter was measured on", 1, true), "inactive characters get no build notice")
 
