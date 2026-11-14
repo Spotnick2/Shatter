@@ -166,11 +166,29 @@ with tempfile.TemporaryDirectory() as tmp:
     check("2 disenchants logged" in only and "Uncommon armor 20: 2 disenchants" in only
           and "Strange Dust: seen 100% x3.0 (3-3)" in only, "--build keeps that build's entries")
 
+    # 3c. Boosted Disenchanting (#57): left out by default, alone with boosted=True.
+    boosted_log = log + [dict(log[0], boosted=True, loot={10940: 9}) for _ in range(3)]
+    plain = "\n".join(yr.report(boosted_log, rules, names))
+    check("%d disenchants logged" % len(ENTRIES) in plain
+          and "3 under Boosted Disenchanting left out (--boosted reports them)." in plain
+          and "Uncommon armor 20: 13 disenchants\n" in plain and "x9" not in plain,
+          "boosted entries are left out of the report, and counted")
+    check("Boosted Disenchanting" not in out, "...and nothing is said when there are none")
+    boost = "\n".join(yr.report(boosted_log, rules, names, boosted=True))
+    check("3 disenchants logged" in boost and "; Boosted Disenchanting only." in boost
+          and "Strange Dust: seen 100% x9.0 (9-9)" in boost, "boosted=True reports only those")
+    unknown = "\n".join(yr.report(log + [dict(log[0], boosted=False)], rules, names))
+    check("Uncommon armor 20: 14 disenchants" in unknown, "boosted false: reported as usual")
+
     # 4. The command line.
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         code = yr.main(["--saved", saved, "--rules", rules_path, "--constants", constants_path])
     check(code == 0 and "Uncommon armor 20: 13 disenchants" in buf.getvalue(), "main prints the report")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = yr.main(["--saved", saved, "--rules", rules_path, "--constants", constants_path, "--boosted"])
+    check(code == 0 and "0 disenchants logged" in buf.getvalue(), "main --boosted: only boosted (none here)")
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
         code = yr.main(["--saved", empty, "--rules", rules_path, "--constants", constants_path])

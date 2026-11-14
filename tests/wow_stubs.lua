@@ -62,6 +62,8 @@ function WoW.reset()
     WoW.tooltipRefreshes = 0   -- RefreshData calls
     WoW.skillLines    = {}  -- C_SkillInfo rows: { skillID, name, rank, maxRank, isHeader, isCollapsed }
     WoW.gameErrors    = {}  -- [errorType] = errorName (GetGameMessageInfo)
+    WoW.playerAuras   = {}  -- [spellID] = AuraData (C_UnitAuras.GetPlayerAuraBySpellID)
+    WoW.aurasSecret   = false -- true: an aura read throws, as a secret aura does once tested (combat)
     WoW.cursor        = { 0, 0 }
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
     WoW.messages      = {}
@@ -809,6 +811,15 @@ function C_Spell.GetSpellInfo(spellID)
     local name = WoW.spellNames[spellID]
     if not name then return nil end
     return { name = name, spellID = spellID, iconID = 136244, castTime = 3000, minRange = 0, maxRange = 0 }
+end
+
+C_UnitAuras = {}
+-- An AuraData table or nil (dump 70334 and 70938). In combat the client
+-- makes auras secret, and testing one throws; aurasSecret models that as a
+-- throw from the call itself (porting guide, "Auras go dark").
+function C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+    if WoW.aurasSecret then error("Auras cannot be accessed when secret while tainted by 'Shatter'", 2) end
+    return WoW.playerAuras[spellID]
 end
 
 C_SpellBook = {}

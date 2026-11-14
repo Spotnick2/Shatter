@@ -208,16 +208,26 @@ def flags_of(entry):
     return flags
 
 
-def report(entries, rules, names, min_samples=10, build=None):
+def report(entries, rules, names, min_samples=10, build=None, boosted=False):
+    """`boosted`: report only the disenchants done under Boosted Disenchanting
+    (#57); by default they are left out, since the table is the unboosted rate."""
     lines = []
     builds = {}
     for e in entries:
         builds[e.get("build", "?")] = builds.get(e.get("build", "?"), 0) + 1
     if build:
         entries = [e for e in entries if e.get("build") == build]
-    lines.append("%d disenchants logged (%s)%s." % (
+    under = [e for e in entries if e.get("boosted") is True]
+    if boosted:
+        entries = under
+        boost_note = "; Boosted Disenchanting only"
+    else:
+        entries = [e for e in entries if e.get("boosted") is not True]
+        boost_note = ("; %d under Boosted Disenchanting left out (--boosted reports them)" % len(under)
+                      if under else "")
+    lines.append("%d disenchants logged (%s)%s%s." % (
         len(entries), ", ".join("%s: %d" % (b, n) for b, n in sorted(builds.items())),
-        "; build %s only" % build if build else ""))
+        "; build %s only" % build if build else "", boost_note))
 
     groups = {}
     for e in entries:
@@ -305,6 +315,8 @@ def main(argv=None):
     parser.add_argument("--saved", action="append",
                         help="a Shatter.lua SavedVariables file (repeatable); default: every account under _forever_")
     parser.add_argument("--build", help="only this client build, e.g. 1.60.1.70685")
+    parser.add_argument("--boosted", action="store_true",
+                        help="only the disenchants done under Boosted Disenchanting (left out by default)")
     parser.add_argument("--min-samples", type=int, default=10, help="fewer disenchants than this at a level: too few")
     parser.add_argument("--rules", default=os.path.join(REPO, "Data", "DisenchantTables.lua"))
     parser.add_argument("--constants", default=os.path.join(REPO, "Constants.lua"))
@@ -326,7 +338,7 @@ def main(argv=None):
         return 1
     rules = read_rules(args.rules)
     names = read_material_names(args.constants)
-    for line in report(entries, rules, names, args.min_samples, args.build):
+    for line in report(entries, rules, names, args.min_samples, args.build, args.boosted):
         print(line)
     return 0
 

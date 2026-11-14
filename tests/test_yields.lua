@@ -55,6 +55,12 @@ H.eq(key(2, ARMOR, 20), "2:4:16-20", "uncommon armor 20")
 H.eq(key(2, WEAPON, 20), "2:2:16-20", "uncommon weapon 20: its own bucket")
 H.eq(key(2, ARMOR, 58), "2:4:56-60", "uncommon armor 58: the shard rule's 56+ narrowed to 56-60")
 H.eq(key(3, WEAPON, 33), "3:any:31-35", "rare: no class split")
+-- #58: up to 20, the client's Forever-only rare brackets, armor and weapon apart.
+H.eq(key(3, ARMOR, 10), "3:4:1-15", "rare armor 10: Forever bracket")
+H.eq(key(3, WEAPON, 15), "3:2:1-15", "rare weapon 15: its own bucket")
+H.eq(key(3, WEAPON, 16), "3:2:16-20", "rare weapon 16")
+H.eq(key(3, ARMOR, 20), "3:4:16-20", "rare armor 20")
+H.eq(key(3, ARMOR, 21), "3:any:21-25", "rare 21: the Vanilla bracket, no class split")
 H.eq(key(4, ARMOR, 30), nil, "no rule, no bucket")
 H.eq(key(2, ARMOR, 70), "2:4:61-92", "the open top band stops at Vanilla's last item level")
 H.eq(key(2, ARMOR, 100), "2:4:93-1000", "...and items beyond Vanilla get their own bucket")
@@ -121,6 +127,60 @@ ShatterDB.yields = { ["2:4:61-92"] = { quality = 2, classID = ARMOR, minLevel = 
 H.eq(T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 70 }).measured, true, "ilvl 70 uses the 61-92 measurements")
 local beyond = T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 100 })
 H.check(beyond.measured == false and beyond.uncertain == true, "ilvl 100 does not: still the table, still unverified")
+ShatterDB.yields = { ["3:4:1-15"] = { quality = 3, classID = ARMOR, minLevel = 1, maxLevel = 15, n = T.MIN_YIELD_SAMPLES,
+    materials = { [DUST] = { drops = 16, total = 40, minAmount = 2, maxAmount = 3 } } } }
+local forever = T:GetExpected({ quality = 3, classID = ARMOR, itemLevel = 15 })
+H.check(forever.measured == true and forever.uncertain == false, "a measured Forever rare bracket is no longer uncertain (#58)")
+H.eq(T:GetExpected({ quality = 3, classID = WEAPON, itemLevel = 15 }).uncertain, true, "...the weapon bracket still is")
+
+-- 4b. Boosted Disenchanting (#57): the aura at the cast's start or with its
+-- loot, or an aura read that fails (secret), keeps the cast out of the
+-- measurements; it is still a result, and a disenchant without it is
+-- measured as before.
+local BOOST = Shatter.Constants.SPELL_BOOSTED_DISENCHANTING
+H.eq(BOOST, 1283701, "the aura is 1283701, not the Salvager's craft or use spell")
+local DUST_LOOT = { { link = WoW.link(DUST), count = 2, name = "Strange Dust" } }
+button = setup()
+SlashCmdList.SHATTER("learn on")
+WoW.playerAuras[BOOST] = { spellId = BOOST, name = "Boosted Disenchanting" }
+disenchant(button, DUST_LOOT)
+H.eq(yields(), nil, "boosted from the start: not measured")
+local logged = ShatterDB.yieldLog.entries
+H.check(#logged == 1 and logged[1].boosted == true and logged[1].loot[DUST] == 2, "...but logged raw, flagged boosted")
+SlashCmdList.SHATTER("learn")
+H.check(WoW.chat():find("1 disenchant logged (the last 2000 are kept), 0 flagged, 1 under Boosted Disenchanting.", 1, true),
+    "/shatter learn counts the boosted disenchants")
+button = setup()
+local item = Shatter.Queue:GetSelected()
+WoW.click(button, "LeftButton")
+WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
+WoW.bags[item.bag][item.slot] = nil
+WoW.playerAuras[BOOST] = { spellId = BOOST }
+WoW.loot = DUST_LOOT
+WoW.fire("LOOT_OPENED")
+WoW.playerAuras[BOOST] = nil
+WoW.SetBagItem(0, 10, { itemID = DUST, count = 2 })
+WoW.loot = {}
+WoW.fire("LOOT_CLOSED")
+WoW.flushTimers()
+H.eq(yields(), nil, "the aura arriving mid-cast, gone by the end: not measured")
+button = setup()
+WoW.aurasSecret = true
+disenchant(button, DUST_LOOT)
+H.eq(yields(), nil, "an aura read that fails: unknown, not measured")
+H.eq(Shatter.Disenchant._ReadBoost(), nil, "...the read says unknown rather than not boosted")
+WoW.aurasSecret = false
+H.eq(Shatter.Disenchant._ReadBoost(), false, "no aura: not boosted")
+button = setup()
+WoW.playerAuras[12345] = { spellId = 12345 }
+disenchant(button, DUST_LOOT)
+H.check(yields() and yields()["2:4:16-20"] and yields()["2:4:16-20"].n == 1, "another aura: measured as usual")
+button = setup()
+SlashCmdList.SHATTER("learn on")
+disenchant(button, DUST_LOOT)
+H.eq(ShatterDB.yieldLog.entries[1].boosted, false, "an unboosted disenchant is logged boosted = false")
+H.eq(T:RecordYield({ quality = 2, classID = ARMOR, itemLevel = 20 }, { [DUST] = 2 }), false,
+    "RecordYield without a boost reading (nil) does not record")
 
 -- 5. /shatter yields lists the buckets; /shatter yields reset clears them.
 button = setup()
@@ -205,6 +265,25 @@ H.eq(T:GetExpected({ quality = 2, classID = ARMOR, itemLevel = 70 }).samples, 30
 local wpn = y["2:2:61-92"]
 H.check(y["2:2:61-1000"] == nil and wpn.n == 6 and wpn.materials[16203].drops == 5 and wpn.materials[16203].total == 12
     and wpn.materials[16203].minAmount == 2 and wpn.materials[16203].maxAmount == 3, "the old weapon bucket merges into the new one")
+
+-- 5f. #58: the rare 1-25 bucket is dropped at load (its samples have no
+-- item level to split them by); other rare buckets stay.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.loadAddon({ savedDB = { yields = {
+    ["3:any:1-25"] = { quality = 3, minLevel = 1, maxLevel = 25, n = 12,
+        materials = { [10978] = { drops = 12, total = 12, minAmount = 1, maxAmount = 1 } } },
+    ["3:any:26-30"] = { quality = 3, minLevel = 26, maxLevel = 30, n = 5,
+        materials = { [11084] = { drops = 5, total = 5, minAmount = 1, maxAmount = 1 } } },
+    ["2:4:16-20"] = { quality = 2, classID = ARMOR, minLevel = 16, maxLevel = 20, n = 3,
+        materials = { [DUST] = { drops = 3, total = 6, minAmount = 2, maxAmount = 2 } } },
+} } })
+WoW.flushTimers()
+y = yields()
+H.eq(y["3:any:1-25"], nil, "the old rare 1-25 bucket is dropped")
+H.check(y["3:any:26-30"] and y["3:any:26-30"].n == 5, "the rare 26-30 bucket stays")
+H.check(y["2:4:16-20"] and y["2:4:16-20"].n == 3, "uncommon buckets stay")
 
 -- Mail: two vests from one sender, both received and queued by Mail.
 local function mailSetup()
