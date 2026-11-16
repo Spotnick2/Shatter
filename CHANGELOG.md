@@ -4,6 +4,7 @@
 
 - Shatter's cast bar now follows the real Disenchant cast. It used to fill in 1.5 seconds and then wait for the 3-second cast to finish.
 - Mail Mode: when Close Session is refused because the session still has unresolved work, the status line now says so. Before, it went blank.
+- Ships LibGlass r12, whose fonts follow the client's language (Russian, Korean and Chinese text no longer shows boxes in the Glass addons that use its fonts). Shatter's own text uses the game's fonts and looks the same.
 
 ## v1.0.0 - 2026-11-14
 
