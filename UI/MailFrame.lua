@@ -179,7 +179,7 @@ function MailFrame:Refresh()
     if not self.frame then return end
     local session = Shatter.MailSession and Shatter.MailSession:Get()
     local inputItems = session and session.inputItems or {}
-    local selected, de = Shatter.MailSession and Shatter.MailSession:CountSelected() or 0, 0
+    local selected, de = 0, 0
     if Shatter.MailSession then selected, de = Shatter.MailSession:CountSelected() end
     self.inputTitle:SetText(string.format("Input Queue (%d)", #inputItems))
     EnsureRows(self.inputRows, math.max(#inputItems, 1), self.inputContent, Shatter.MailRows.CreateInputRow)

@@ -178,4 +178,16 @@ WoW.flushTimers()
 H.eq(#WoW.actions, 0, "simulation: no cast, no item used")
 H.eq(armed(button), false, "simulation: never armed")
 
+-- The cast bar takes the cast's own start and end from UnitCastingInfo: a
+-- 3 s Disenchant that began 0.5 s before START reads 3 s long and 1/6 done.
+button = setup()
+WoW.click(button, "LeftButton")
+WoW.time = 100
+WoW.casting = { name = "Disenchant", startMs = 99500, endMs = 102500, spellID = 13262 }
+WoW.fire("UNIT_SPELLCAST_START", "player", "cast-1", 13262)
+local bar = Shatter.MainFrame.castBar
+H.eq(bar.duration, 3, "cast bar: the cast's own 3 s duration, not the 1.5 s fallback")
+H.eq(bar.startedAt, 99.5, "cast bar: the cast's own start time")
+WoW.casting = nil
+
 H.done("test_secure")

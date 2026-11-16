@@ -765,7 +765,9 @@ function MailMode:GetStatus()
 end
 
 function MailMode:CloseSession(force)
-    local ok, reason = Shatter.MailSession and Shatter.MailSession:Close(force)
+    if not Shatter.MailSession then return false end
+    -- Close's reason is its second return: called plainly, not through `and`.
+    local ok, reason = Shatter.MailSession:Close(force)
     if not ok then
         if Shatter.MainFrame then Shatter.MainFrame:SetStatus(reason, true, 4) end
         return false

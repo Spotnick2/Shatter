@@ -918,4 +918,32 @@ H.eq(Shatter.MailMode:IsMailboxOpen(), false, "#26: no event yet, MailFrame hidd
 MailFrame:Show()
 H.eq(Shatter.MailMode:IsMailboxOpen(), true, "#26: no event yet, MailFrame visible: open")
 
+
+-- 40. A plain Close Session over unresolved work is refused, and the status
+-- says why (its reason was lost to an `a and b:f()` truncation).
+setup()
+H.eq(Shatter.MailSession:HasUnresolvedWork(), true, "the queued vest is unresolved work")
+H.eq(Shatter.MailMode:CloseSession(false), false, "a plain close is refused")
+H.check(Shatter.MailSession:Get() ~= nil, "the session stays open")
+H.check((Shatter.MainFrame.status:GetText() or ""):find("unresolved work", 1, true), "the status says why")
+
+
+-- 41. An attachment that can't be disenchanted keeps the reason.
+WoW.reset()
+dofile("tests/wow_stubs.lua")
+WoW.enchanter()
+WoW.AddItem(VEST, { name = "Green Vest", quality = 2, itemLevel = 20, classID = 4, subclassID = 2, equipLoc = "INVTYPE_CHEST" })
+WoW.inbox = { { sender = "Alpha Smith", subject = "DE please", items = { [1] = { itemID = VEST } } } }
+WoW.loadAddon()
+WoW.flushTimers()
+Shatter.Database:SetIgnored(VEST, true)
+MailFrame:Show()
+WoW.fire("MAIL_SHOW")
+WoW.flushTimers()
+Shatter.MailMode:StartNewSessionFromLaunchPanel()
+WoW.flushTimers()
+local ignoredMail = Shatter.MailSession:Get().sourceMails[1]
+H.eq(ignoredMail.attachments[1].disenchantable, false, "the ignored vest is not disenchantable")
+H.eq(ignoredMail.attachments[1].ineligibleReason, "ignored", "and says why")
+
 H.done("test_mail")

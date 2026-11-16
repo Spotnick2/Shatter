@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Shatter's cast bar now follows the real Disenchant cast. It used to fill in 1.5 seconds and then wait for the 3-second cast to finish.
+- Mail Mode: when Close Session is refused because the session still has unresolved work, the status line now says so. Before, it went blank.
+
 ## v1.0.0 - 2026-11-14
 
 The first stable release for WoW Forever: everything in the two betas below, plus:
