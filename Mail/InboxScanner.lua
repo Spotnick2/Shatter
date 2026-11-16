@@ -78,7 +78,10 @@ local function ReadAttachment(mailIndex, attachmentIndex)
         isSoulbound = false,
         status = "queued",
     }
-    local ok, reason = Shatter.ItemScanner and Shatter.ItemScanner:IsCandidateDisenchantable(item)
+    -- Not `ItemScanner and ItemScanner:IsCandidate...(item)`: `and` keeps
+    -- only the first return, which dropped the reason.
+    local ok, reason = false, nil
+    if Shatter.ItemScanner then ok, reason = Shatter.ItemScanner:IsCandidateDisenchantable(item) end
     item.disenchantable = ok and true or false
     item.ineligibleReason = ok and nil or reason
     if Shatter.DisenchantTables and ok then

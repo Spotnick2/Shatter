@@ -552,7 +552,10 @@ function Disenchant:OnEvent(event, ...)
         end
     elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_DELAYED" then
         if Shatter.MainFrame then
-            local name, _, _, startTimeMS, endTimeMS = UnitCastingInfo and UnitCastingInfo("player")
+            -- Not `UnitCastingInfo and UnitCastingInfo(...)`: `and` keeps only
+            -- the first return, which left the bar on its 1.5 s fallback for
+            -- a 3 s cast.
+            local name, _, _, startTimeMS, endTimeMS = UnitCastingInfo("player")
             Shatter.MainFrame:ShowCastProgress(name or "Disenchanting...", self.pending.item, startTimeMS, endTimeMS)
         end
     elseif event == "UNIT_SPELLCAST_STOP" then
