@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.1 - 2026-11-16
 
 - Shatter's cast bar now follows the real Disenchant cast. It used to fill in 1.5 seconds and then wait for the 3-second cast to finish.
 - Mail Mode: when Close Session is refused because the session still has unresolved work, the status line now says so. Before, it went blank.
