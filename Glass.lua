@@ -11,7 +11,7 @@ local _, Shatter = ...
 -- Pearl, the Glass suite's theme (LibGlass r11), whether or not Shatter
 -- follows Glass UI (Suite.lua): following changes the body and the accent,
 -- never the material. The newest loaded copy of the library wins; when that
--- is older than r11 (Shatter itself embeds r11), the material is the classic
+-- is older than r11 (Shatter itself embeds r12), the material is the classic
 -- one and Suite.lua reports Pearl as "library-too-old".
 --
 -- Looked up quietly: a copy installed from a git clone has no Libs folder,
