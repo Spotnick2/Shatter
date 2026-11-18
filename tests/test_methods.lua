@@ -125,7 +125,6 @@ for _, w in ipairs(widgets) do
         end
     end
 end
-io.write("sweep ran " .. ran .. "\n")
 check(ran >= 200, "the sweep ran the frames' scripts (" .. ran .. ")")
 eq(#failures, 0, "every script runs without an error" .. (failures[1] and (": " .. failures[1]) or ""))
 WoW.step(0.1)
