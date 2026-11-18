@@ -9,35 +9,44 @@
 --     WoW.SetBagItem(0, 1, { itemID = 2589, ... })
 --     local ns = WoW.loadAddon()             -- TOC order, then PLAYER_LOGIN
 --
--- Three kinds of strictness, all on purpose:
---   * Reading a global this file doesn't define is an error. The stub is the
---     list of APIs verified present on build 1.60.1.70334 (the API dump in
---     C:\Projects\WoW\References\Forever\api and the client UI source), so it models the
---     ABSENCES too. KNOWN_ABSENT models a client with the Blizzard_Deprecated*
---     fallbacks switched off (CVar loadDeprecationFallbacks), which is the
---     state an addon must survive.
---   * Widgets have no catch-all: a method not defined here is nil, and calling
---     it errors exactly as the client does. Every method below was checked
---     against the dump's widget methods; SetBackdrop* exist only on frames
---     created with BackdropTemplate (it is a mixin), and SetHyperlink /
---     SetBagItem only on GameTooltips (TooltipDataHandler.lua mixin).
+-- The mechanics come from WowTestKit (tests/kit.lua loads the commit
+-- tests/kit.pin names; its README is the reference): strict globals, secrets,
+-- event names checked against the pinned build, widgets that record every
+-- method called (a method the build lacks reads as nil), protected frames in
+-- combat, print (with the stray-"|" check done() fails on), timers and the
+-- clock (WoW.now, WoW.advance, WoW.flushTimers), WoW.fire, check / eq / done.
+--
+-- This file adds Shatter's own client APIs, each verified present on build
+-- 1.60.1.70334 (the API dump in C:\Projects\WoW\References\Forever\api and the
+-- client UI source), and what Shatter's tests rely on beyond the kit, each
+-- with its reason. On top of the kit's strictness:
+--   * KNOWN_ABSENT models a client with the Blizzard_Deprecated* fallbacks
+--     switched off (CVar loadDeprecationFallbacks), which is the state an
+--     addon must survive: those names read as nil.
 --   * Writing a Blizzard-owned global (SlashCmdList, UISpecialFrames, ...)
 --     is an error: the write taints every secure macro on this client
---     (porting guide, section 3). Write fields, never the table.
+--     (porting guide, section 3). Write fields, never the table. The addon
+--     may create only the globals in ALLOWED_WRITES.
+--   * SetBackdrop* exist only on frames created with BackdropTemplate (it is
+--     a mixin), and SetHyperlink / SetBagItem only on GameTooltipTemplate
+--     tooltips (TooltipDataHandler.lua mixin).
+--   * A protected frame's refused call RAISES ADDON_ACTION_BLOCKED, so any
+--     path that reaches one in combat fails the test.
 -- Never add something because a test failed; confirm it exists first.
 ------------------------------------------------------------
 
-WoW = {}
-local WoW = WoW
+dofile("tests/kit.lua")
+local Methods = WoW.Methods
 
 local MEASURED_BUILD = "70334"
 
-function WoW.reset()
-    WoW.frames        = {}  -- every frame created, in order
-    WoW.events        = {}  -- [frame] = { [event] = true }
-    WoW.time          = 1000
+------------------------------------------------------------
+-- State, reset by WoW.reset() with the kit's
+------------------------------------------------------------
+
+local function reset()
+    WoW.now           = 1000  -- GetTime(); the tests' times are relative to it
     WoW.epoch         = 1790000000
-    WoW.inCombat      = false
     WoW.build         = MEASURED_BUILD
     WoW.version       = "v0.2.0-alpha"
     WoW.player        = { name = "Example Surname", realm = "ClassicBetaPvE", class = "MAGE" }
@@ -64,12 +73,10 @@ function WoW.reset()
     WoW.gameErrors    = {}  -- [errorType] = errorName (GetGameMessageInfo)
     WoW.playerAuras   = {}  -- [spellID] = AuraData (C_UnitAuras.GetPlayerAuraBySpellID)
     WoW.aurasSecret   = false -- true: an aura read throws, as a secret aura does once tested (combat)
-    WoW.cursor        = { 0, 0 }
+    WoW.cursorX, WoW.cursorY = 0, 0   -- GetCursorPosition (the kit's)
     WoW.addons        = {}  -- [name] = { loaded = bool, loadable = bool }
-    WoW.messages      = {}
-    WoW.timers        = {}
-    WoW.badEvents     = {}  -- RegisterEvent throws
-    WoW.refusedEvents = {}  -- RegisterEvent returns false
+    WoW.badEvents     = {}  -- RegisterEvent throws (a test's injected fault)
+    WoW.refusedEvents = {}  -- RegisterEvent returns false (a test's injected refusal)
     WoW.canUseSets    = true -- C_EquipmentSet.CanUseEquipmentSets (#36)
     WoW.equipped      = {}  -- [inventory slot] = { itemID, level } (#37); level is the current item level
     WoW.linkLevels    = {}  -- [itemID] = the level C_Item.GetDetailedItemLevelInfo reads from a link (#37)
@@ -80,50 +87,27 @@ function WoW.reset()
     WoW.scriptErrors  = {}  -- errors raised by click scripts (the client reports and continues)
     for bag = 0, 4 do WoW.bags[bag] = { size = bag == 0 and 16 or 0 } end
 end
-WoW.reset()
+table.insert(WoW.onReset, reset)
+reset()
 
 ------------------------------------------------------------
 -- Test helpers
 ------------------------------------------------------------
 
-function WoW.fire(event, ...)
-    for _, frame in ipairs(WoW.frames) do
-        local events = WoW.events[frame]
-        if events and events[event] and frame.scripts.OnEvent then
-            frame.scripts.OnEvent(frame, event, ...)
-        end
+-- Every printed line, joined: what the player read in chat.
+function WoW.chatText() return table.concat(WoW.chat, "\n") end
+
+-- The kit's flushTimers runs the timers due once; Shatter's tests flush the
+-- chains too (a timer that schedules the next: test_secure's recorded result
+-- schedules the rescan that empties the queue), as many rounds as it takes,
+-- at most `rounds` (10), as this stub did before the kit.
+local coreFlush = WoW.flushTimers
+function WoW.flushTimers(upTo, rounds)
+    for _ = 1, rounds or 10 do
+        if #WoW.timers == 0 then return end
+        coreFlush(upTo)
     end
 end
-
-function WoW.flushTimers(maxRounds)
-    for _ = 1, maxRounds or 10 do
-        local list = WoW.timers
-        if #list == 0 then return end
-        WoW.timers = {}
-        for _, t in ipairs(list) do t.fn() end
-    end
-end
-
-function WoW.advance(seconds) WoW.time = WoW.time + seconds end
-
--- Advances the clock by `seconds`, running timers as they come due, in order.
--- flushTimers ignores delays; use this where the order of timers matters.
-function WoW.runTimers(seconds)
-    local target = WoW.time + seconds
-    while true do
-        local nextIndex, nextDue
-        for i, t in ipairs(WoW.timers) do
-            if t.due <= target and (not nextDue or t.due < nextDue) then nextIndex, nextDue = i, t.due end
-        end
-        if not nextIndex then break end
-        local t = table.remove(WoW.timers, nextIndex)
-        if t.due > WoW.time then WoW.time = t.due end
-        t.fn()
-    end
-    WoW.time = target
-end
-
-function WoW.chat() return table.concat(WoW.messages, "\n") end
 
 function WoW.link(itemID)
     local item = WoW.items[itemID]
@@ -171,340 +155,163 @@ local function itemIDFrom(item)
 end
 
 ------------------------------------------------------------
--- Widgets
+-- Widgets: what Shatter needs beyond the kit's core
 ------------------------------------------------------------
-
-local Widget = {}
-local WidgetMeta = { __index = Widget }
-
--- A frame is protected when it is secure or holds a secure frame anywhere
--- below it (measured: a parent of secure buttons is protected, section 3).
-local function isProtected(w)
-    if w.secure then return true end
-    for _, child in ipairs(w.children) do
-        if isProtected(child) then return true end
-    end
-    return false
-end
-
-local function guard(w, what)
-    if WoW.inCombat and isProtected(w) then
-        error("ADDON_ACTION_BLOCKED: " .. what .. " on a protected frame in combat", 3)
-    end
-end
 
 local function hasTemplate(template, name)
     return type(template) == "string" and (("," .. template:gsub("%s", "") .. ","):find("," .. name .. ",", 1, true)) ~= nil
 end
 
-local Backdrop = {}
-function Backdrop:SetBackdrop(b) self.backdrop = b end
-function Backdrop:SetBackdropColor(...) self.backdropColor = { ... } end
-function Backdrop:SetBackdropBorderColor(...) self.backdropBorderColor = { ... } end
-
-local Tooltip = {}
-function Tooltip:SetOwner(owner, anchor) self.owner = owner self.lines = {} self.tooltipData = nil end
-function Tooltip:GetOwner() return self.owner end
-function Tooltip:SetText(t) self.lines = { t } self.tooltipData = nil end
-function Tooltip:AddLine(t) self.lines[#self.lines + 1] = t end
-function Tooltip:AddDoubleLine(l, r) self.lines[#self.lines + 1] = tostring(l) .. "\t" .. tostring(r) end
-function Tooltip:ClearLines() self.lines = {} end
-function Tooltip:NumLines() return #self.lines end
-function Tooltip:SetHyperlink(link) self.lines = { link } self.tooltipData = nil end
-function Tooltip:SetBagItem(bag, slot) self.lines = { "bag " .. bag .. " " .. slot } self.tooltipData = nil end
--- GameTooltipDataMixin (GameTooltip.lua:958): the data the tooltip was built
--- from, and the rebuild from it (fresh lines, post calls again).
-function Tooltip:GetPrimaryTooltipData() return self.tooltipData end
-function Tooltip:RefreshData()
-    WoW.tooltipRefreshes = WoW.tooltipRefreshes + 1
-    if self.tooltipData then WoW.showItemTooltip(self.tooltipData.id, self) end
+-- A protected frame refuses these in combat. The kit's list, plus what this
+-- stub refused before the kit: SetScale (WowTestKit #83), SetParent,
+-- StartSizing, and the button's Enable / Disable / SetEnabled (protected in
+-- SimpleButtonAPIDocumentation: IsProtectedFunction).
+for _, m in ipairs({ "SetScale", "SetParent", "StartSizing", "Enable", "Disable", "SetEnabled" }) do
+    WoW.PROTECTED[m] = true
 end
-
-local newWidget
-
-local function child(parent, kind, name)
-    local c = newWidget(kind, name, parent)
-    parent.children[#parent.children + 1] = c
-    return c
-end
-
-function newWidget(kind, name, parent, template)
-    local w = setmetatable({
-        kind = kind, name = name, parent = parent, template = template,
-        shown = true, scripts = {}, hooks = {}, attrs = {}, points = {}, children = {},
-        scale = 1, alpha = 1, _text = "", checked = false, enabled = true,
-        width = 0, height = 0, level = 1,
-        secure = hasTemplate(template, "SecureActionButtonTemplate"),
-    }, WidgetMeta)
-    if name then rawset(_G, name, w) end
-    WoW.frames[#WoW.frames + 1] = w
-    if hasTemplate(template, "BackdropTemplate") then
-        for k, fn in pairs(Backdrop) do w[k] = fn end
+-- ...and the refusal raises, as this stub's did: any path that reaches one in
+-- combat fails the test where the call is made (the kit records it in
+-- WoW.blocked and carries on, as the client does in game).
+function WoW.refused(w, what)
+    if WoW.combat and WoW.isProtected(w) then
+        table.insert(WoW.blocked, (w._name or w._type) .. ":" .. what)
+        error("ADDON_ACTION_BLOCKED: " .. what .. " on a protected frame in combat", 3)
     end
-    if kind == "GameTooltip" then
-        w.lines = {}
-        for k, fn in pairs(Tooltip) do w[k] = fn end
-        if hasTemplate(template, "GameTooltipTemplate") and name then
-            for i = 1, 30 do
-                child(w, "FontString", name .. "TextLeft" .. i)
-                child(w, "FontString", name .. "TextRight" .. i)
+end
+
+-- A test's injected faults: an event whose registration throws, or one the
+-- client refuses (returns false). Both measured shapes, porting guide
+-- section 3; the kit's own check (unknown names throw) still runs.
+local coreRegisterEvent = Methods.RegisterEvent
+function Methods.RegisterEvent(w, event)
+    if WoW.badEvents[event] then error("Attempt to register unknown event \"" .. tostring(event) .. "\"", 3) end
+    if WoW.refusedEvents[event] then return false end
+    return coreRegisterEvent(w, event)
+end
+
+-- Methods the kit doesn't implement (each in the dump's widget methods).
+function Methods.GetSize(w) return w._width, w._height end   -- WowTestKit #78
+function Methods.GetNumPoints(w) return #w._points end
+function Methods.SetScale(w, s) w._scale = s end
+function Methods.GetScale(w) return w._scale or 1 end
+function Methods.SetResizeBounds(w, minW, minH, maxW, maxH) w._resizeBounds = { minW, minH, maxW, maxH } end
+function Methods.StartMoving(w) w._moving = true end
+function Methods.StartSizing(w) w._sizing = true end
+function Methods.StopMovingOrSizing(w) w._moving, w._sizing = false, false end
+function Methods.RegisterForClicks(w, ...) w._registeredClicks = { ... } end
+function Methods.GetTexture(t) return t._file end
+function Methods.GetStringWidth(fs) return #(type(fs._text) == "string" and fs._text or "") * 6 end
+function Methods.GetMinMaxValues(b) return b._min or 0, b._max or 0 end
+function Methods.SetScrollChild(sf, c) sf._scrollChild = c end
+function Methods.GetScrollChild(sf) return sf._scrollChild end
+function Methods.SetVerticalScroll(sf, v) sf._vscroll = v end
+function Methods.GetVerticalScroll(sf) return sf._vscroll or 0 end
+function Methods.GetVerticalScrollRange(sf) return sf._vscrollRange or 0 end
+-- As the client does, focus changes fire OnEditFocusGained / OnEditFocusLost.
+function Methods.SetFocus(e)
+    if e._focus then return end
+    e._focus = true
+    local fn = e._scripts.OnEditFocusGained
+    if fn then fn(e) end
+end
+function Methods.ClearFocus(e)
+    if not e._focus then return end
+    e._focus = false
+    local fn = e._scripts.OnEditFocusLost
+    if fn then fn(e) end
+end
+function Methods.HasFocus(e) return e._focus or false end
+
+-- GameTooltip's own (C) methods: the lines it holds, and its owner.
+function Methods.SetOwner(tt, owner, anchor) tt._owner, tt._lines, tt._tooltipData = owner, {}, nil end
+function Methods.GetOwner(tt) return tt._owner end
+function Methods.AddLine(tt, text) tt._lines = tt._lines or {}; tt._lines[#tt._lines + 1] = text end
+function Methods.AddDoubleLine(tt, l, r) tt._lines = tt._lines or {}; tt._lines[#tt._lines + 1] = tostring(l) .. "\t" .. tostring(r) end
+function Methods.ClearLines(tt) tt._lines = {} end
+function Methods.NumLines(tt) return #(tt._lines or {}) end
+-- GameTooltip:SetText replaces the lines; everything else's is the kit's.
+local coreSetText = Methods.SetText
+function Methods.SetText(w, text, ...)
+    if w._type == "GameTooltip" then
+        w._lines, w._tooltipData = { text }, nil
+        return
+    end
+    return coreSetText(w, text, ...)
+end
+
+-- A mixin's methods, installed on the widget by its template as Lua does
+-- (Mixin copies them onto the frame), recorded for Kit.checkMethods like the
+-- kit's own: test_methods allows each pair, naming the Blizzard file.
+local function installMixin(w, mixin)
+    for k, fn in pairs(mixin) do
+        rawset(w, k, function(self, ...)
+            WoW.methodsCalled[self._type .. ":" .. k] = true
+            return fn(self, ...)
+        end)
+    end
+end
+
+-- BackdropTemplateMixin (Blizzard_SharedXML/Backdrop.lua).
+local BackdropMixin = {}
+function BackdropMixin:SetBackdrop(b) self._backdrop = b end
+function BackdropMixin:SetBackdropColor(...) self._backdropColor = { ... } end
+function BackdropMixin:SetBackdropBorderColor(...) self._backdropBorderColor = { ... } end
+WoW.templates.BackdropTemplate = function(w) installMixin(w, BackdropMixin) end
+
+-- GameTooltipDataMixin (Blizzard_GameTooltip/Mainline/GameTooltip.lua:951,
+-- over TooltipDataHandlerMixin, Blizzard_SharedXMLGame/Tooltip/
+-- TooltipDataHandler.lua): the setters, the data the tooltip was built from,
+-- and the rebuild from it (fresh lines, post calls again).
+local TooltipMixin = {}
+function TooltipMixin:SetHyperlink(link) self._lines, self._tooltipData = { link }, nil end
+function TooltipMixin:SetBagItem(bag, slot) self._lines, self._tooltipData = { "bag " .. bag .. " " .. slot }, nil end
+function TooltipMixin:GetPrimaryTooltipData() return self._tooltipData end
+function TooltipMixin:RefreshData()
+    WoW.tooltipRefreshes = WoW.tooltipRefreshes + 1
+    if self._tooltipData then WoW.showItemTooltip(self._tooltipData.id, self) end
+end
+-- GameTooltipTemplate (Blizzard_GameTooltip/Mainline/GameTooltip.xml:4): the
+-- mixin, and its numbered lines ($parentTextLeftN / RightN, GameTooltipText).
+WoW.templates.GameTooltipTemplate = function(w)
+    w._lines = {}
+    installMixin(w, TooltipMixin)
+    if w._name then
+        for i = 1, 30 do
+            for _, side in ipairs({ "Left", "Right" }) do
+                local name = w._name .. "Text" .. side .. i
+                local fs = WoW.addRegion(w, WoW.newWidget("FontString", w, name))
+                fs._fontTemplate = "GameTooltipText"
+                rawset(_G, name, fs)
             end
         end
     end
-    -- What templates provide as fields (read from wow-ui-source, forever branch).
-    if hasTemplate(template, "UICheckButtonTemplate") then
-        w.Text = child(w, "FontString")
-    elseif hasTemplate(template, "UIPanelScrollFrameTemplate") then
-        w.ScrollBar = child(w, "Slider")
-    elseif hasTemplate(template, "UIPanelButtonTemplate") then
-        w.Text = child(w, "FontString")
-    end
-    return w
 end
 
--- Geometry and visibility
-function Widget:SetSize(wd, h) guard(self, "SetSize") self.width, self.height = wd, h end
-function Widget:SetWidth(wd) guard(self, "SetWidth") self.width = wd end
-function Widget:SetHeight(h) guard(self, "SetHeight") self.height = h end
-function Widget:GetWidth() return self.width end
-function Widget:GetHeight() return self.height end
-function Widget:GetSize() return self.width, self.height end
-function Widget:SetPoint(...) guard(self, "SetPoint") self.points[#self.points + 1] = { ... } end
-function Widget:ClearAllPoints() guard(self, "ClearAllPoints") self.points = {} end
-function Widget:GetPoint(i)
-    local p = self.points[i or 1] or { "CENTER", nil, "CENTER", 0, 0 }
-    return p[1], p[2], p[3], p[4], p[5]
+-- What templates provide as fields (wow-ui-source, forever branch, 70959).
+local function textRegion(w, font)
+    local fs = WoW.addRegion(w, WoW.newWidget("FontString", w, w._name and (w._name .. "Text")))
+    fs._fontTemplate = font
+    return fs
 end
-function Widget:GetNumPoints() return #self.points end
-function Widget:SetAllPoints() guard(self, "SetAllPoints") end
-function Widget:GetCenter() return 500, 400 end
-function Widget:GetLeft() return 400 end
-function Widget:GetRight() return 600 end
-function Widget:GetTop() return 500 end
-function Widget:GetBottom() return 300 end
-function Widget:Show()
-    guard(self, "Show")
-    local was = self.shown
-    self.shown = true
-    if not was and self.scripts.OnShow then self.scripts.OnShow(self) end
-end
-function Widget:Hide()
-    guard(self, "Hide")
-    local was = self.shown
-    self.shown = false
-    if was and self.scripts.OnHide then self.scripts.OnHide(self) end
-end
-function Widget:SetShown(v) if v then self:Show() else self:Hide() end end
-function Widget:IsShown() return self.shown end
-function Widget:IsVisible()
-    local f = self
-    while f do
-        if not f.shown then return false end
-        f = f.parent
-    end
-    return true
-end
-function Widget:SetScale(s) guard(self, "SetScale") self.scale = s end
-function Widget:GetScale() return self.scale end
-function Widget:GetEffectiveScale()
-    local s, f = 1, self
-    while f do s = s * (f.scale or 1) f = f.parent end
-    return s
-end
-function Widget:SetAlpha(a) self.alpha = a end
-function Widget:GetAlpha() return self.alpha end
-function Widget:SetParent(p) guard(self, "SetParent") self.parent = p end
-function Widget:GetParent() return self.parent end
-function Widget:GetName() return self.name end
-function Widget:GetObjectType() return self.kind end
-function Widget:IsForbidden() return false end
-function Widget:IsProtected() return isProtected(self), self.secure end
-function Widget:SetFrameStrata(s) self.strata = s end
-function Widget:GetFrameStrata() return self.strata or "MEDIUM" end
-function Widget:SetFrameLevel(l) self.level = l end
-function Widget:GetFrameLevel() return self.level end
-function Widget:SetToplevel() end
-function Widget:SetClampedToScreen() guard(self, "SetClampedToScreen") end
-function Widget:SetMovable(v) self.movable = v end
-function Widget:SetResizable(v) self.resizable = v end
-function Widget:SetResizeBounds(minW, minH, maxW, maxH) self.resizeBounds = { minW, minH, maxW, maxH } end
-function Widget:StartMoving() guard(self, "StartMoving") self.moving = true end
-function Widget:StartSizing() guard(self, "StartSizing") self.sizing = true end
-function Widget:StopMovingOrSizing() guard(self, "StopMovingOrSizing") self.moving, self.sizing = false, false end
-function Widget:RegisterForDrag(...) self.drag = { ... } end
-function Widget:EnableMouse(v) self.mouse = v end
-function Widget:EnableMouseWheel(v) self.mouseWheel = v end
-function Widget:IsMouseOver() return false end
-
--- Scripts and events
-function Widget:SetScript(name, fn) self.scripts[name] = fn end
-function Widget:GetScript(name) return self.scripts[name] end
-function Widget:HookScript(name, fn)
-    local prev = self.scripts[name]
-    self.scripts[name] = function(...)
-        if prev then prev(...) end
-        return fn(...)
-    end
-end
--- Unknown names throw, refused ones return false (both measured, section 3).
-function Widget:RegisterEvent(event)
-    if WoW.badEvents[event] then error("Attempt to register unknown event \"" .. event .. "\"") end
-    if WoW.refusedEvents[event] then return false end
-    WoW.events[self] = WoW.events[self] or {}
-    WoW.events[self][event] = true
-    return true
-end
-function Widget:UnregisterEvent(event) if WoW.events[self] then WoW.events[self][event] = nil end end
-function Widget:UnregisterAllEvents() WoW.events[self] = nil end
-function Widget:IsEventRegistered(event) return WoW.events[self] and WoW.events[self][event] or false end
-
--- Secure attributes: blocked on a protected frame in combat. Raising here
--- (rather than silently dropping the write) makes such a call fail the suite.
-function Widget:SetAttribute(k, v) guard(self, "SetAttribute") self.attrs[k] = v end
-function Widget:GetAttribute(k) return self.attrs[k] end
--- Frame:GetChildren (dump): child frames only, never regions (FontStrings,
--- Textures), in creation order.
-function Widget:GetChildren()
-    local list = {}
-    for _, c in ipairs(self.children) do
-        if c.kind ~= "FontString" and c.kind ~= "Texture" then list[#list + 1] = c end
-    end
-    return unpack(list)
-end
-function Widget:RegisterForClicks(...) guard(self, "RegisterForClicks") self.clicks = { ... } end
-
--- Buttons
--- Protected (SimpleButtonAPIDocumentation: IsProtectedFunction).
-function Widget:Enable() guard(self, "Enable") self.enabled = true end
-function Widget:Disable() guard(self, "Disable") self.enabled = false end
-function Widget:SetEnabled(v) guard(self, "SetEnabled") self.enabled = v and true or false end
-function Widget:IsEnabled() return self.enabled end
-function Widget:SetNormalTexture(t) self.normalTexture = t end
-function Widget:SetPushedTexture(t) self.pushedTexture = t end
-function Widget:SetHighlightTexture(t) self.highlightTexture = t end
-function Widget:GetNormalTexture() self.normalTex = self.normalTex or child(self, "Texture") return self.normalTex end
-function Widget:GetHighlightTexture() self.highlightTex = self.highlightTex or child(self, "Texture") return self.highlightTex end
-function Widget:Click(button, down)
-    if self.scripts.OnClick then self.scripts.OnClick(self, button or "LeftButton", down) end
-end
-
--- Regions
-function Widget:CreateFontString(name) return child(self, "FontString", name) end
-function Widget:CreateTexture(name, layer, template, sublevel)
-    local t = child(self, "Texture", name)
-    t.drawLayer, t.sublevel = layer, sublevel
-    return t
-end
--- Masks and sliced/tiled textures, what LibGlass builds its material from,
--- each only on the object types the dump gives it: CreateMaskTexture on
--- frames (SimpleFrameAPI), AddMaskTexture on a Texture (SimpleTextureAPI),
--- the rest on a Texture or a MaskTexture (SimpleTextureBaseAPI). The generic
--- Widget would otherwise let a frame take a texture's call, which errors on
--- the client.
-local REGION_KINDS = { Texture = true, MaskTexture = true, FontString = true }
-local TEXTURE = { Texture = true }
-local TEXTURE_BASE = { Texture = true, MaskTexture = true }
-local function only(self, method, kinds)
-    local ok
-    if kinds then ok = kinds[self.kind] else ok = not REGION_KINDS[self.kind] end
-    if not ok then error(tostring(self.kind) .. " has no method " .. method, 3) end
-end
-function Widget:CreateMaskTexture(name)
-    only(self, "CreateMaskTexture")
-    return child(self, "MaskTexture", name)
-end
-function Widget:AddMaskTexture(mask)
-    only(self, "AddMaskTexture", TEXTURE)
-    self.masks = self.masks or {}
-    self.masks[#self.masks + 1] = mask
-end
-function Widget:SetTextureSliceMargins(...) only(self, "SetTextureSliceMargins", TEXTURE_BASE) self.sliceMargins = { ... } end
-function Widget:SetTextureSliceMode(m) only(self, "SetTextureSliceMode", TEXTURE_BASE) self.sliceMode = m end
-function Widget:SetHorizTile(v) only(self, "SetHorizTile", TEXTURE_BASE) self.horizTile = v end
-function Widget:SetVertTile(v) only(self, "SetVertTile", TEXTURE_BASE) self.vertTile = v end
-function Widget:SetGradient(orientation, minColor, maxColor)
-    only(self, "SetGradient", TEXTURE_BASE)
-    self.gradient = { orientation, minColor, maxColor }
-end
-function Widget:SetText(t) self._text = t == nil and "" or tostring(t) end
-function Widget:GetText() return self._text end
-function Widget:SetFormattedText(fmt, ...) self._text = string.format(fmt, ...) end
-function Widget:GetStringWidth() return #(self._text or "") * 6 end
-function Widget:SetTextColor(...) self.textColor = { ... } end
-function Widget:SetFontObject(f) self.fontObject = f end
-function Widget:SetJustifyH(j) self.justifyH = j end
-function Widget:SetJustifyV(j) self.justifyV = j end
-function Widget:SetWordWrap(v) self.wordWrap = v end
-function Widget:SetNonSpaceWrap(v) self.nonSpaceWrap = v end
-function Widget:SetMaxLines(n) self.maxLines = n end
-function Widget:SetTexture(t) self.texture = t end
-function Widget:GetTexture() return self.texture end
-function Widget:SetColorTexture(...) self.colorTexture = { ... } end
-function Widget:SetTexCoord(...) self.texCoord = { ... } end
-function Widget:SetVertexColor(...) self.vertexColor = { ... } end
-function Widget:SetBlendMode(m) self.blendMode = m end
-function Widget:SetDrawLayer(l) self.drawLayer = l end
-
--- Check buttons, scroll frames, sliders, status bars, edit boxes
-function Widget:SetChecked(v) self.checked = v and true or false end
-function Widget:GetChecked() return self.checked end
-function Widget:SetScrollChild(c) self.scrollChild = c end
-function Widget:GetScrollChild() return self.scrollChild end
-function Widget:SetVerticalScroll(v) self.vscroll = v end
-function Widget:GetVerticalScroll() return self.vscroll or 0 end
-function Widget:GetVerticalScrollRange() return self.vscrollRange or 0 end
-function Widget:SetMinMaxValues(lo, hi) self.min, self.max = lo, hi end
-function Widget:GetMinMaxValues() return self.min or 0, self.max or 0 end
-function Widget:SetValue(v) self.value = v end
-function Widget:GetValue() return self.value or 0 end
-function Widget:SetStatusBarTexture(t) self.statusBarTexture = t end
-function Widget:SetStatusBarColor(...) self.statusBarColor = { ... } end
-function Widget:SetAutoFocus(v) self.autoFocus = v end
-function Widget:SetMaxLetters(n) self.maxLetters = n end
-function Widget:SetTextInsets() end
-function Widget:SetMultiLine(v) self.multiLine = v end
--- As the client does, focus changes fire OnEditFocusGained / OnEditFocusLost.
-function Widget:SetFocus()
-    if self.focus then return end
-    self.focus = true
-    local fn = self.scripts.OnEditFocusGained
-    if fn then fn(self) end
-end
-function Widget:ClearFocus()
-    if not self.focus then return end
-    self.focus = false
-    local fn = self.scripts.OnEditFocusLost
-    if fn then fn(self) end
-end
-function Widget:HasFocus() return self.focus or false end
-function Widget:HighlightText() end
-function Widget:SetCursorPosition() end
-function Widget:SetNumeric(v) self.numeric = v end
-
--- ScrollingMessageFrame-ish chat frame
-function WoW.chatFrame()
-    return {
-        AddMessage = function(_, msg) WoW.messages[#WoW.messages + 1] = tostring(msg) end,
-    }
-end
-
-function CreateFrame(kind, name, parent, template)
-    local w = newWidget(kind, name, parent, template)
-    if parent then parent.children[#parent.children + 1] = w end
-    return w
-end
+-- CheckButtonTemplates.xml:54: $parentText, GameFontNormalSmall.
+WoW.templates.UICheckButtonTemplate = function(w) w.Text = textRegion(w, "GameFontNormalSmall") end
+-- SecureUIPanelTemplates.xml: ButtonText $parentText, NormalFont GameFontNormal.
+WoW.templates.UIPanelButtonTemplate = function(w) w.Text = textRegion(w, "GameFontNormal") end
 
 ------------------------------------------------------------
 -- Secure click dispatch, modelled on SecureActionButton_OnClick
 -- (Blizzard_FrameXML/SecureTemplates.lua, forever branch): the client calls
 -- PreClick, OnClick and PostClick for EVERY registered edge; OnClick performs
--- the action only on the edge where `down == useOnKeyDown`.
+-- the action only on the edge where `down == useOnKeyDown`. The kit's secure
+-- action doesn't resolve modified attributes (*type1, *spell1,
+-- *target-bag1...) or press-and-hold's typerelease, which Shatter Next uses:
+-- this template's OnClick does.
 ------------------------------------------------------------
 
 local BUTTON_SUFFIX = { LeftButton = "1", RightButton = "2", MiddleButton = "3" }
 
 local function registeredFor(w, button, down)
-    for _, spec in ipairs(w.clicks or {}) do
+    for _, spec in ipairs(w._registeredClicks or {}) do
         if spec == "AnyUp" and not down then return true end
         if spec == "AnyDown" and down then return true end
         if spec == button .. (down and "Down" or "Up") then return true end
@@ -514,8 +321,9 @@ end
 
 local function modifiedAttribute(w, base, button)
     local n = BUTTON_SUFFIX[button] or ""
+    local attrs = w._attrs or {}
     for _, key in ipairs({ "*" .. base .. n, base .. n, "*" .. base .. "*", base }) do
-        local v = w.attrs[key]
+        local v = attrs[key]
         if v ~= nil then return v end
     end
     return nil
@@ -550,43 +358,51 @@ local function runSpell(w, button)
     end
 end
 
+-- SecureActionButton_OnClick. Returns true when the secure action ran.
+local function secureOnClick(w, button, down)
+    -- SecureActionButton_ShouldUseOnKeyDown: the attribute, else the CVar.
+    local useOnKeyDown = (w._attrs or {}).useOnKeyDown
+    if useOnKeyDown == nil then useOnKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1" end
+    if (down and useOnKeyDown) or (not down and not useOnKeyDown) then
+        local kind = modifiedAttribute(w, "type", button)
+        if kind == "macro" then
+            local text = modifiedAttribute(w, "macrotext", button)
+            if text and text ~= "" then runMacro(text) return true end
+        elseif kind == "spell" then
+            runSpell(w, button)
+            return true
+        end
+    elseif not down and WoW.cvars.ActionButtonUseKeyHeldSpell == "1" then
+        -- Press-and-hold release resolves "typerelease", not "type".
+        local kind = modifiedAttribute(w, "typerelease", button)
+        if kind == "spell" then runSpell(w, button) return true end
+    end
+    return false
+end
+WoW.templates.SecureActionButtonTemplate = function(w)
+    w._protected = true
+    w._scripts.OnClick = secureOnClick
+end
+
 -- One mouse edge. Returns true when the secure action ran. A mouse can't
 -- click what isn't visible; a bound key can (`viaBinding`, below).
 function WoW.clickEdge(w, button, down, viaBinding)
-    if (not viaBinding and not w:IsVisible()) or not w.enabled then return false end
+    if (not viaBinding and not w:IsVisible()) or w._disabled then return false end
     if not registeredFor(w, button, down) then return false end
     -- A script error is reported and the click carries on: an error in
     -- PreClick does not cancel the secure action that follows it.
-    if w.scripts.PreClick then
-        local ok, err = pcall(w.scripts.PreClick, w, button, down)
+    if w._scripts.PreClick then
+        local ok, err = pcall(w._scripts.PreClick, w, button, down)
         if not ok then WoW.scriptErrors[#WoW.scriptErrors + 1] = err end
     end
     -- An ordinary button's OnClick runs on every edge it registered for; the
     -- down == useOnKeyDown filter lives inside SecureActionButton_OnClick.
-    if not w.secure then
-        if w.scripts.OnClick then w.scripts.OnClick(w, button, down) end
-        if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
-        return false
-    end
-    -- SecureActionButton_ShouldUseOnKeyDown: the attribute, else the CVar.
-    local useOnKeyDown = w.attrs.useOnKeyDown
-    if useOnKeyDown == nil then useOnKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1" end
     local acted = false
-    if (down and useOnKeyDown) or (not down and not useOnKeyDown) then
-        local kind = w.secure and modifiedAttribute(w, "type", button)
-        if kind == "macro" then
-            local text = modifiedAttribute(w, "macrotext", button)
-            if text and text ~= "" then runMacro(text) acted = true end
-        elseif kind == "spell" then
-            runSpell(w, button)
-            acted = true
-        end
-    elseif not down and w.secure and WoW.cvars.ActionButtonUseKeyHeldSpell == "1" then
-        -- Press-and-hold release resolves "typerelease", not "type".
-        local kind = modifiedAttribute(w, "typerelease", button)
-        if kind == "spell" then runSpell(w, button) acted = true end
+    if w._scripts.OnClick then
+        local r = w._scripts.OnClick(w, button, down)
+        acted = w._scripts.OnClick == secureOnClick and r == true
     end
-    if w.scripts.PostClick then w.scripts.PostClick(w, button, down) end
+    if w._scripts.PostClick then w._scripts.PostClick(w, button, down) end
     return acted
 end
 
@@ -601,8 +417,8 @@ function WoW.pressBinding(action, repeats)
     return WoW.clickEdge(w, button, false, true) or acted
 end
 
--- A whole press: down edge, then up edge.
-function WoW.click(w, button)
+-- A whole press: down edge, then up edge (the kit's WoW.click is one edge).
+function WoW.press(w, button)
     button = button or "LeftButton"
     local a = WoW.clickEdge(w, button, true)
     local b = WoW.clickEdge(w, button, false)
@@ -613,17 +429,18 @@ end
 -- Blizzard frames and constants that exist at login
 ------------------------------------------------------------
 
-UIParent = newWidget("Frame", "UIParent")
-Minimap = newWidget("Frame", "Minimap", UIParent)
-GameTooltip = newWidget("GameTooltip", "GameTooltip", UIParent)
-MailFrame = newWidget("Frame", "MailFrame", UIParent)
-MailFrame.shown = false
-InboxFrame = newWidget("Frame", "InboxFrame", MailFrame)
-OpenMailFrame = newWidget("Frame", "OpenMailFrame", UIParent)
-OpenMailFrame.shown = false
-SendMailFrame = newWidget("Frame", "SendMailFrame", MailFrame)
-SendMailFrame.shown = false
-DEFAULT_CHAT_FRAME = WoW.chatFrame()
+Minimap = CreateFrame("Minimap", "Minimap", UIParent)
+GameTooltip = CreateFrame("GameTooltip", "GameTooltip", UIParent, "GameTooltipTemplate")
+MailFrame = CreateFrame("Frame", "MailFrame", UIParent)
+InboxFrame = CreateFrame("Frame", "InboxFrame", MailFrame)
+OpenMailFrame = CreateFrame("Frame", "OpenMailFrame", UIParent)
+SendMailFrame = CreateFrame("Frame", "SendMailFrame", MailFrame)
+WoW.setShown(MailFrame, false)
+WoW.setShown(OpenMailFrame, false)
+WoW.setShown(SendMailFrame, false)
+-- The chat frame: its lines go through print, so WoW.chat has them all and
+-- done() checks each for a stray "|".
+DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) print(tostring(msg)) end }
 UISpecialFrames = {}
 SlashCmdList = {}
 
@@ -647,19 +464,15 @@ Enum = {
 
 function GameTooltip_Hide() GameTooltip:Hide() end
 function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
-strmatch = string.match
 
 ------------------------------------------------------------
 -- Game state
 ------------------------------------------------------------
 
-function GetTime() return WoW.time end
 function time() return WoW.epoch end
-function InCombatLockdown() return WoW.inCombat end
 function IsShiftKeyDown() return WoW.shift end
 -- dump 5496: Shift, Alt or Ctrl.
 function IsModifierKeyDown() return WoW.shift or WoW.alt or WoW.ctrl or false end
-function GetCursorPosition() return WoW.cursor[1], WoW.cursor[2] end
 function GetBuildInfo() return "1.60.1", WoW.build, "Oct 6 2026", 16001, "", " " end
 function GetCVarBool(name) return WoW.cvars[name] == "1" end
 -- Key bindings: WoW.bindings[action] = key (GetBindingKey, dump).
@@ -738,10 +551,10 @@ function WoW.showItemTooltip(itemID, tooltip)
     tooltip:ClearLines()
     tooltip:AddLine("[item " .. itemID .. "]")
     local data = { type = Enum.TooltipDataType.Item, id = itemID, hyperlink = WoW.link(itemID) }
-    tooltip.tooltipData = data
+    tooltip._tooltipData = data
     tooltip:Show()
     for _, fn in ipairs(WoW.tooltipPostCalls[Enum.TooltipDataType.Item] or {}) do fn(tooltip, data) end
-    return tooltip.lines
+    return tooltip._lines
 end
 
 -- dump 3414-3417, 9141: SkillLineAttributes tables; an index past the end, or
@@ -767,8 +580,7 @@ function C_SkillInfo.GetSkillLineInfoByID(id)
         if line.skillID == id then return line end
     end
 end
--- dump 6610, 4911.
-function issecretvalue() return false end
+-- dump 4911.
 function GetGameMessageInfo(errorType) return WoW.gameErrors[errorType] end
 
 C_ClassColor = {}
@@ -778,9 +590,6 @@ function C_ClassColor.GetClassColor(className)
     local c = CLASS_COLORS[className]
     if c then return { r = c[1], g = c[2], b = c[3] } end
 end
-
-C_Timer = {}
-function C_Timer.After(delay, fn) WoW.timers[#WoW.timers + 1] = { due = WoW.time + (delay or 0), fn = fn } end
 
 C_AddOns = {}
 function C_AddOns.GetAddOnMetadata(name, key)
@@ -1010,77 +819,6 @@ function GetLootSlotInfo(slot)
 end
 
 ------------------------------------------------------------
--- Strict globals
-------------------------------------------------------------
-
-local KNOWN_ABSENT = {
-    -- Removed on this client (dump + porting guide), or only provided by the
-    -- Blizzard_Deprecated* fallbacks the addon must not depend on.
-    GetItemInfo = true, GetItemInfoInstant = true, GetItemCount = true, GetItemIcon = true,
-    GetSpellInfo = true, GetSpellBookItemName = true, BOOKTYPE_SPELL = true,
-    IsSpellKnown = true, IsPlayerSpell = true,
-    GetAddOnMetadata = true, GetAddOnInfo = true, IsAddOnLoaded = true, LoadAddOn = true,
-    GetContainerNumSlots = true, GetContainerItemInfo = true, GetContainerItemLink = true,
-    GetContainerItemID = true, GetContainerNumFreeSlots = true, UseContainerItem = true,
-    PickupContainerItem = true, MouseIsOver = true, MAX_PLAYER_LEVEL = true,
-    -- Optional third-party addons: absent unless a test installs them.
-    TSM_API = true, Auctionator = true, AucAdvanced = true, Postal = true, Postal_Select = true,
-    Gargul = true, GL = true, GlassUI = true, GlassMail = true,
-    -- The probe host and its modules' saved tables (Tools/ShatterProbe).
-    ForeverProbe = true, ForeverProbeDB = true, ShatterProbeDB = true,
-    -- The addon's own globals, nil until it creates them / SavedVariables load.
-    Shatter = true, ShatterDB = true,
-    -- Embedded LibStub (LibGlass-1.0's bundled copy) reads it before creating it.
-    LibStub = true,
-}
-
--- Blizzard-owned tables: assigning the global (even to itself) taints.
-local PROTECTED_GLOBALS = {
-    SlashCmdList = true, UISpecialFrames = true, StaticPopupDialogs = true,
-    UIParent = true, GameTooltip = true, DEFAULT_CHAT_FRAME = true,
-}
-
--- The only globals the addon may create.
-local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true, LibStub = true,
-    ["BINDING_NAME_CLICK ShatterNextButton:LeftButton"] = true }
-
-function WoW.allowGlobal(name) KNOWN_ABSENT[name] = true end
-
-local strict = false
-local addonLoading = false
-
-setmetatable(_G, {
-    __index = function(_, k)
-        if not strict or KNOWN_ABSENT[k] then return nil end
-        -- Postal's inbox checkboxes and Shatter's own scan tooltip lines.
-        if type(k) == "string" and (k:match("^PostalInboxCB%d+$") or k:match("^ShatterScanTooltip")) then return nil end
-        error("read of undefined global '" .. tostring(k) ..
-            "' - stub it (only if the dump/source confirms it exists) or add it to " ..
-            "KNOWN_ABSENT in tests/wow_stubs.lua", 2)
-    end,
-    __newindex = function(t, k, v)
-        if addonLoading then
-            if PROTECTED_GLOBALS[k] then
-                error("write to Blizzard global '" .. tostring(k) .. "' taints secure macros", 2)
-            end
-            WoW.globalWrites[k] = true
-            if not ALLOWED_WRITES[k] then
-                error("addon created undeclared global '" .. tostring(k) .. "'", 2)
-            end
-        end
-        rawset(t, k, v)
-    end,
-})
-
--- Rejected writes to existing globals (rawset already holds them, so
--- __newindex never sees a reassignment): catch those by snapshot.
-local function snapshotProtected()
-    local snap = {}
-    for k in pairs(PROTECTED_GLOBALS) do snap[k] = rawget(_G, k) end
-    return snap
-end
-
-------------------------------------------------------------
 -- Loading, the way the client does it
 ------------------------------------------------------------
 
@@ -1110,24 +848,72 @@ end
 
 -- `withoutLibs`: an install from a git clone, with no Libs folder.
 local function tocFiles(withoutLibs)
-    local text = assert(readText("Shatter.toc"), "run from the repo root")
     local files = {}
-    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
-        local file = line:match("^%s*([^#%s].-)%s*$")
-        if file then
-            file = file:gsub("\\", "/")
-            if file:match("%.xml$") then
-                if not withoutLibs then
-                    for _, script in ipairs(libFiles(file)) do files[#files + 1] = script end
-                end
-            else
-                files[#files + 1] = file
+    for _, line in ipairs(Kit.tocLines("Shatter.toc")) do
+        local file = line:gsub("\\", "/")
+        if file:match("%.xml$") then
+            if not withoutLibs then
+                for _, script in ipairs(libFiles(file)) do files[#files + 1] = script end
             end
+        else
+            files[#files + 1] = file
         end
     end
     return files
 end
 WoW.tocFiles = tocFiles
+
+------------------------------------------------------------
+-- Strict globals
+------------------------------------------------------------
+
+local KNOWN_ABSENT = {
+    -- Removed on this client (dump + porting guide), or only provided by the
+    -- Blizzard_Deprecated* fallbacks the addon must not depend on.
+    GetItemInfo = true, GetItemInfoInstant = true, GetItemCount = true, GetItemIcon = true,
+    GetSpellInfo = true, GetSpellBookItemName = true, BOOKTYPE_SPELL = true,
+    IsSpellKnown = true, IsPlayerSpell = true,
+    GetAddOnMetadata = true, GetAddOnInfo = true, IsAddOnLoaded = true, LoadAddOn = true,
+    GetContainerNumSlots = true, GetContainerItemInfo = true, GetContainerItemLink = true,
+    GetContainerItemID = true, GetContainerNumFreeSlots = true, UseContainerItem = true,
+    PickupContainerItem = true, MouseIsOver = true, MAX_PLAYER_LEVEL = true,
+    -- Optional third-party addons: absent unless a test installs them.
+    TSM_API = true, Auctionator = true, AucAdvanced = true, Postal = true, Postal_Select = true,
+    Gargul = true, GL = true, GlassUI = true, GlassMail = true,
+    -- The probe host and its modules' saved tables (Tools/ShatterProbe).
+    ForeverProbe = true, ForeverProbeDB = true, ShatterProbeDB = true,
+    -- The addon's own globals, nil until it creates them / SavedVariables load.
+    Shatter = true, ShatterDB = true,
+    -- Embedded LibStub (LibGlass-1.0's bundled copy) reads it before creating it.
+    LibStub = true,
+}
+-- Postal's inbox checkboxes and Shatter's own scan tooltip lines past the
+-- template's 30 read as nil too.
+setmetatable(KNOWN_ABSENT, { __index = function(_, k)
+    if type(k) == "string" and (k:match("^PostalInboxCB%d+$") or k:match("^ShatterScanTooltip")) then return true end
+end })
+
+function WoW.allowGlobal(name) rawset(KNOWN_ABSENT, name, true) end
+
+-- Blizzard-owned tables: assigning the global (even to itself) taints.
+local PROTECTED_GLOBALS = {
+    SlashCmdList = true, UISpecialFrames = true, StaticPopupDialogs = true,
+    UIParent = true, GameTooltip = true, DEFAULT_CHAT_FRAME = true,
+}
+
+-- The only globals the addon may create.
+local ALLOWED_WRITES = { Shatter = true, ShatterDB = true, SLASH_SHATTER1 = true, SLASH_SHATTER2 = true, LibStub = true,
+    ["BINDING_NAME_CLICK ShatterNextButton:LeftButton"] = true }
+
+local addonLoading = false
+
+-- Rejected writes to existing globals (rawset already holds them, so
+-- __newindex never sees a reassignment): catch those by snapshot.
+local function snapshotProtected()
+    local snap = {}
+    for k in pairs(PROTECTED_GLOBALS) do snap[k] = rawget(_G, k) end
+    return snap
+end
 
 -- Runs every TOC file with ("Shatter", ns), hands it the SavedVariables, then
 -- fires ADDON_LOADED and (unless opts.login == false) PLAYER_LOGIN.
@@ -1180,4 +966,17 @@ function WoW.enchanter()
     WoW.knownSpells[7411] = true
 end
 
-strict = true
+Kit.strict(KNOWN_ABSENT)
+-- The kit's strict globals check reads; this stub checks writes too.
+getmetatable(_G).__newindex = function(t, k, v)
+    if addonLoading then
+        if PROTECTED_GLOBALS[k] then
+            error("write to Blizzard global '" .. tostring(k) .. "' taints secure macros", 2)
+        end
+        WoW.globalWrites[k] = true
+        if not ALLOWED_WRITES[k] then
+            error("addon created undeclared global '" .. tostring(k) .. "'", 2)
+        end
+    end
+    rawset(t, k, v)
+end

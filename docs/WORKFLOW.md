@@ -14,8 +14,8 @@ issue  ->  branch  ->  PR  ->  owner review  ->  address  ->  merge
    as fact.
 2. **Branch off `main`**, named for the milestone: `m2/compat-gate`, `m3/secure-click`.
    Never commit directly to `main` once the scaffold is in.
-3. **Before pushing:** `pwsh tests/run.ps1` green (luac over every Lua file + the strict-stub
-   suite).
+3. **Before pushing:** `pwsh tests/run.ps1` green (luac over every Lua file + the unit
+   tests, on WowTestKit).
 4. **Open a PR** with `Closes #N`.
 5. **Code review is done manually by the owner.** Agents do not run automated PR reviews (Codex
    or otherwise) and do not post review comments on their own initiative.

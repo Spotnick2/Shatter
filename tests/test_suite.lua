@@ -68,118 +68,118 @@ local function last(S) return S.reports[#S.reports] and S.reports[#S.reports].st
 -- 1. Following, smoked and ice: the suite's body and accent.
 local S, main = setup({ tint = "smoked", accent = "ice" })
 local Skin, C = Shatter.Skin, Shatter.C
-H.eq(S.asked, 1, "Theme asked once")
-H.eq(S.askedFor, "Shatter", "...for Shatter")
+eq(S.asked, 1, "Theme asked once")
+eq(S.askedFor, "Shatter", "...for Shatter")
 local state = last(S)
-H.eq(S.reports[#S.reports].addon, "Shatter", "the report is Shatter's")
-H.eq(state.api, 1, "report: api 1")
-H.eq(state.built, "pearl", "report: built Pearl")
-H.eq(state.live, false, "report: not live (a suite change waits for a /reload)")
-H.eq(state.minor, Shatter.GlassMinor, "report: the library's MINOR")
-H.check(state.look and state.look.tint == "smoked" and state.look.accent == "ice", "report: the look built, smoked and ice")
-H.check(state.own and state.own.backing == true, "report: the backing is Shatter's own (never painted)")
-H.eq(state.declined, nil, "report: nothing declined")
-H.eq(type(state.options), "function", "report: an options function")
-H.eq(Skin.Shown(), "suite", "Shatter shows Glass UI's look")
-H.eq(Shatter.Database:GetSettings().skin, "forever", "...and the saved skin (the default) is untouched")
+eq(S.reports[#S.reports].addon, "Shatter", "the report is Shatter's")
+eq(state.api, 1, "report: api 1")
+eq(state.built, "pearl", "report: built Pearl")
+eq(state.live, false, "report: not live (a suite change waits for a /reload)")
+eq(state.minor, Shatter.GlassMinor, "report: the library's MINOR")
+check(state.look and state.look.tint == "smoked" and state.look.accent == "ice", "report: the look built, smoked and ice")
+check(state.own and state.own.backing == true, "report: the backing is Shatter's own (never painted)")
+eq(state.declined, nil, "report: nothing declined")
+eq(type(state.options), "function", "report: an options function")
+eq(Skin.Shown(), "suite", "Shatter shows Glass UI's look")
+eq(Shatter.Database:GetSettings().skin, "forever", "...and the saved skin (the default) is untouched")
 local window = Skin.Surface(main.frame)
-H.check(window.panel:IsShown() and same(window.g.tint.colorTexture, BODY.smoked.tint), "the body is the suite's smoked tint")
-H.check(math.abs(window.g.wash.gradient[3].a - Shatter.Glass.STYLE.wash * BODY.smoked.wash) < 1e-9,
+check(window.panel:IsShown() and same(window.g.tint._color, BODY.smoked.tint), "the body is the suite's smoked tint")
+check(math.abs(window.g.wash._gradient[3].a - Shatter.Glass.STYLE.wash * BODY.smoked.wash) < 1e-9,
     "...its wash a factor of Pearl's")
-H.check(same(Skin.Surface(main.queuePanel).fill.colorTexture, Skin.PRESETS.smoked.pane), "panes take Smoked's")
-H.check(same(C.ACCENT, ACCENTS.ice), "the accent is the suite's ice")
-H.check(same(Skin.Surface(main.tabSolo).fill.colorTexture, { ACCENTS.ice[1], ACCENTS.ice[2], ACCENTS.ice[3], 0.18 }),
+check(same(Skin.Surface(main.queuePanel).fill._color, Skin.PRESETS.smoked.pane), "panes take Smoked's")
+check(same(C.ACCENT, ACCENTS.ice), "the accent is the suite's ice")
+check(same(Skin.Surface(main.tabSolo).fill._color, { ACCENTS.ice[1], ACCENTS.ice[2], ACCENTS.ice[3], 0.18 }),
     "the active tab's accent fill is ice")
 
 -- WoW Forever, Clear and Smoked are Glass UI's to set.
 SlashCmdList.SHATTER("skin smoked")
-H.eq(Shatter.Database:GetSettings().skin, "forever", "/shatter skin smoked is refused while following")
-H.check(WoW.chat():find("follows Glass UI's look", 1, true), "...and says where to set it")
-H.eq(select(2, Skin.Set("forever")), "suite", "...and so is WoW Forever")
-H.check(window.forever and not window.forever:IsShown(), "...whose window body stays hidden")
+eq(Shatter.Database:GetSettings().skin, "forever", "/shatter skin smoked is refused while following")
+check(WoW.chatText():find("follows Glass UI's look", 1, true), "...and says where to set it")
+eq(select(2, Skin.Set("forever")), "suite", "...and so is WoW Forever")
+check(window.forever and not window.forever:IsShown(), "...whose window body stays hidden")
 
 -- Settings: Glass UI and Flat.
 Shatter.SettingsUI:Toggle()
 local buttons = Shatter.SettingsUI.skinButtons
-H.check(buttons.suite and buttons.flat and not buttons.clear and not buttons.smoked and not buttons.forever,
+check(buttons.suite and buttons.flat and not buttons.clear and not buttons.smoked and not buttons.forever,
     "Settings offers Glass UI and Flat")
-H.check(same(Skin.Surface(buttons.suite).fill.colorTexture, { ACCENTS.ice[1], ACCENTS.ice[2], ACCENTS.ice[3], 0.18 }),
+check(same(Skin.Surface(buttons.suite).fill._color, { ACCENTS.ice[1], ACCENTS.ice[2], ACCENTS.ice[3], 0.18 }),
     "...Glass UI marked")
-buttons.suite.scripts.OnClick(buttons.suite)
-H.eq(S.opened, true, "clicking the chosen Glass UI opens Glass UI's page")
+buttons.suite._scripts.OnClick(buttons.suite)
+eq(S.opened, true, "clicking the chosen Glass UI opens Glass UI's page")
 
 -- Flat declines, live; Clear brings the suite's glass back.
 local reports = #S.reports
-buttons.flat.scripts.OnClick(buttons.flat)
-H.eq(Shatter.Database:GetSettings().skin, "flat", "Flat is still the player's")
-H.check(not window.panel:IsShown(), "...the window turns flat at once")
-H.check(#S.reports > reports and last(S).declined == "Flat" and last(S).built == nil, "...reported as declined")
-buttons.suite.scripts.OnClick(buttons.suite)
-H.eq(Skin.Shown(), "suite", "Glass UI from Flat: back to the suite's look")
-H.check(window.panel:IsShown() and same(window.g.tint.colorTexture, BODY.smoked.tint), "...its body again")
-H.eq(last(S).built, "pearl", "...reported as built")
+buttons.flat._scripts.OnClick(buttons.flat)
+eq(Shatter.Database:GetSettings().skin, "flat", "Flat is still the player's")
+check(not window.panel:IsShown(), "...the window turns flat at once")
+check(#S.reports > reports and last(S).declined == "Flat" and last(S).built == nil, "...reported as declined")
+buttons.suite._scripts.OnClick(buttons.suite)
+eq(Skin.Shown(), "suite", "Glass UI from Flat: back to the suite's look")
+check(window.panel:IsShown() and same(window.g.tint._color, BODY.smoked.tint), "...its body again")
+eq(last(S).built, "pearl", "...reported as built")
 SlashCmdList.SHATTER("skin flat")
 SlashCmdList.SHATTER("skin smoked")
-H.eq(Skin.Shown(), "suite", "/shatter skin smoked from Flat goes back to the suite too")
-H.eq(Shatter.Database:GetSettings().skin, "smoked", "...saving Smoked for a session that doesn't follow")
+eq(Skin.Shown(), "suite", "/shatter skin smoked from Flat goes back to the suite too")
+eq(Shatter.Database:GetSettings().skin, "smoked", "...saving Smoked for a session that doesn't follow")
 
 -- The options function opens Shatter's settings.
 Shatter.SettingsUI:Toggle()
-H.check(not Shatter.SettingsUI.frame:IsShown(), "settings closed")
+check(not Shatter.SettingsUI.frame:IsShown(), "settings closed")
 last(S).options()
-H.check(Shatter.SettingsUI.frame:IsShown(), "Glass UI's page opens Shatter's settings")
+check(Shatter.SettingsUI.frame:IsShown(), "Glass UI's page opens Shatter's settings")
 
 -- 2. A class tint: the class colour times its shade, at Clear's alpha.
 S, main = setup({ tint = "class", class = "MAGE" })
 window = Shatter.Skin.Surface(main.frame)
-H.check(same(window.g.tint.colorTexture, { 0.25 * 0.6, 0.78 * 0.6, 0.92 * 0.6, 0.24 }), "class: the mage colour, shaded")
-H.eq(last(S).look.tint, "class", "...reported as class")
+check(same(window.g.tint._color, { 0.25 * 0.6, 0.78 * 0.6, 0.92 * 0.6, 0.24 }), "class: the mage colour, shaded")
+eq(last(S).look.tint, "class", "...reported as class")
 
 -- 3. Not following: Shatter's own skins, gold, still reported.
 S, main = setup({ following = false, accent = "ice" })
 Skin, C = Shatter.Skin, Shatter.C
-H.eq(Skin.Shown(), "forever", "not following: Shatter's own look, WoW Forever")
-H.check(same(C.ACCENT, ACCENTS.gold), "...in Shatter's gold")
+eq(Skin.Shown(), "forever", "not following: Shatter's own look, WoW Forever")
+check(same(C.ACCENT, ACCENTS.gold), "...in Shatter's gold")
 state = last(S)
-H.check(state and state.built == nil and state.declined == nil and state.reason == nil, "...reported, nothing built from the suite")
+check(state and state.built == nil and state.declined == nil and state.reason == nil, "...reported, nothing built from the suite")
 SlashCmdList.SHATTER("skin smoked")
-H.eq(Shatter.Database:GetSettings().skin, "smoked", "...and /shatter skin smoked works")
+eq(Shatter.Database:GetSettings().skin, "smoked", "...and /shatter skin smoked works")
 
 -- 4. Flat at login: declined, and the accent stays gold until a reload.
 S, main = setup({ savedDB = { settings = { skin = "flat" } }, accent = "ice" })
 Skin, C = Shatter.Skin, Shatter.C
-H.eq(last(S).declined, "Flat", "Flat at login: declined")
-H.check(same(C.ACCENT, ACCENTS.gold), "...the accent stays gold")
+eq(last(S).declined, "Flat", "Flat at login: declined")
+check(same(C.ACCENT, ACCENTS.gold), "...the accent stays gold")
 SlashCmdList.SHATTER("skin clear")
-H.eq(Skin.Shown(), "suite", "choosing glass follows the suite")
-H.check(last(S).built == "pearl" and last(S).look.accent == "gold",
+eq(Skin.Shown(), "suite", "choosing glass follows the suite")
+check(last(S).built == "pearl" and last(S).look.accent == "gold",
     "...reported with the gold it built, so Glass UI asks for a /reload")
 
 -- 5. No library: a failed build, WoW Forever.
 S, main = setup({ noLib = true })
-H.eq(Shatter.Glass, nil, "no LibGlass")
-H.eq(last(S).reason, "library-too-old", "a missing library is reported as library-too-old")
-H.eq(last(S).built, nil, "...nothing built")
-H.eq(Shatter.Skin.Shown(), "forever", "...and Shatter draws WoW Forever")
-H.eq(Shatter.Suite.Offered(), false, "...without following")
+eq(Shatter.Glass, nil, "no LibGlass")
+eq(last(S).reason, "library-too-old", "a missing library is reported as library-too-old")
+eq(last(S).built, nil, "...nothing built")
+eq(Shatter.Skin.Shown(), "forever", "...and Shatter draws WoW Forever")
+eq(Shatter.Suite.Offered(), false, "...without following")
 
 -- 6. An inactive character (no Disenchant) never asks, and keeps ShatterDB nil.
 S = setup({ enchanter = false })
-H.eq(Shatter.isActive, false, "a character without Disenchant stays inactive")
-H.eq(S.asked, 0, "...never asks Glass UI")
-H.eq(#S.reports, 0, "...never reports")
-H.eq(rawget(_G, "ShatterDB"), nil, "...and never creates ShatterDB")
+eq(Shatter.isActive, false, "a character without Disenchant stays inactive")
+eq(S.asked, 0, "...never asks Glass UI")
+eq(#S.reports, 0, "...never reports")
+eq(rawget(_G, "ShatterDB"), nil, "...and never creates ShatterDB")
 
 -- 7. A Glass UI speaking another API counts as absent.
 S = setup({ api = 2 })
-H.eq(S.asked, 0, "API 2 is not asked")
-H.eq(Shatter.Skin.Shown(), "forever", "...Shatter keeps its own look")
+eq(S.asked, 0, "API 2 is not asked")
+eq(Shatter.Skin.Shown(), "forever", "...Shatter keeps its own look")
 
 -- 8. No Glass UI at all.
 setup({ suite = false })
-H.eq(Shatter.Suite.Offered(), false, "no Glass UI: not following")
-H.eq(rawget(_G, "GlassUI"), nil, "no GlassUI global")
-H.eq(Shatter.Skin.Shown(), "forever", "...WoW Forever, the default")
-H.eq(Shatter.Database:GetSettings().skin, "forever", "...saved as the default")
+eq(Shatter.Suite.Offered(), false, "no Glass UI: not following")
+eq(rawget(_G, "GlassUI"), nil, "no GlassUI global")
+eq(Shatter.Skin.Shown(), "forever", "...WoW Forever, the default")
+eq(Shatter.Database:GetSettings().skin, "forever", "...saved as the default")
 
-H.done("test_suite")
+done("test_suite")

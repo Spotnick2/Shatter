@@ -29,33 +29,33 @@ end
 
 local function enterCombat()
     WoW.fire("PLAYER_REGEN_DISABLED")   -- fires just before lockdown
-    WoW.inCombat = true
+    WoW.combat = true
 end
 
 local function leaveCombat()
-    WoW.inCombat = false
+    WoW.combat = false
     WoW.fire("PLAYER_REGEN_ENABLED")
 end
 
-H.check(WoW.frames and setup():IsProtected(), "the main frame is protected (it parents a secure button)")
+check(WoW.frames and setup():IsProtected(), "the main frame is protected (it parents a secure button)")
 
 -- Opening in combat waits; /shatter and the minimap say so.
 local frame = setup()
 enterCombat()
 H.ok(function() SlashCmdList.SHATTER("") end, "toggle in combat raises nothing")
-H.eq(frame:IsShown(), false, "not shown during combat")
-H.check(WoW.chat():find("opens when combat ends", 1, true), "the player is told it opens after combat")
+eq(frame:IsShown(), false, "not shown during combat")
+check(WoW.chatText():find("opens when combat ends", 1, true), "the player is told it opens after combat")
 leaveCombat()
-H.eq(frame:IsShown(), true, "shown once combat ends")
+eq(frame:IsShown(), true, "shown once combat ends")
 
 -- Closing in combat (title-bar x) waits too.
 frame = setup()
 Shatter.MainFrame:Show()
 enterCombat()
 H.ok(function() Shatter.MainFrame:RequestShown(false) end, "close in combat raises nothing")
-H.eq(frame:IsShown(), true, "still shown during combat")
+eq(frame:IsShown(), true, "still shown during combat")
 leaveCombat()
-H.eq(frame:IsShown(), false, "closed once combat ends")
+eq(frame:IsShown(), false, "closed once combat ends")
 
 -- Open then close again within the same fight: nothing to do afterwards.
 frame = setup()
@@ -63,7 +63,7 @@ enterCombat()
 Shatter.MainFrame:Show()
 Shatter.MainFrame:RequestShown(false)
 leaveCombat()
-H.eq(frame:IsShown(), false, "open+close in one fight cancels out")
+eq(frame:IsShown(), false, "open+close in one fight cancels out")
 
 -- Two /shatter toggles in one fight cancel out (the second inverts the
 -- queued request, not the still-hidden frame).
@@ -71,9 +71,9 @@ frame = setup()
 enterCombat()
 SlashCmdList.SHATTER("")
 SlashCmdList.SHATTER("")
-H.check(WoW.chat():find("stays closed", 1, true), "the second toggle says the open is cancelled")
+check(WoW.chatText():find("stays closed", 1, true), "the second toggle says the open is cancelled")
 leaveCombat()
-H.eq(frame:IsShown(), false, "hidden window: two toggles in combat leave it hidden")
+eq(frame:IsShown(), false, "hidden window: two toggles in combat leave it hidden")
 
 -- Same from a shown window: two toggles leave it shown.
 frame = setup()
@@ -82,7 +82,7 @@ enterCombat()
 Shatter.MainFrame:Toggle()
 Shatter.MainFrame:Toggle()
 leaveCombat()
-H.eq(frame:IsShown(), true, "shown window: two toggles in combat leave it shown")
+eq(frame:IsShown(), true, "shown window: two toggles in combat leave it shown")
 
 -- Three toggles still end up toggled.
 frame = setup()
@@ -91,19 +91,19 @@ Shatter.MainFrame:Toggle()
 Shatter.MainFrame:Toggle()
 Shatter.MainFrame:Toggle()
 leaveCombat()
-H.eq(frame:IsShown(), true, "three toggles in combat open the window")
+eq(frame:IsShown(), true, "three toggles in combat open the window")
 
 -- Escape: the frame leaves UISpecialFrames for the fight and comes back.
 frame = setup()
-H.eq(inSpecialFrames(), true, "Escape closes the window out of combat")
+eq(inSpecialFrames(), true, "Escape closes the window out of combat")
 enterCombat()
-H.eq(inSpecialFrames(), false, "removed from UISpecialFrames in combat (a tainted Hide would be blocked)")
+eq(inSpecialFrames(), false, "removed from UISpecialFrames in combat (a tainted Hide would be blocked)")
 leaveCombat()
-H.eq(inSpecialFrames(), true, "restored after combat")
+eq(inSpecialFrames(), true, "restored after combat")
 leaveCombat()
 local n = 0
 for _, name in ipairs(UISpecialFrames) do if name == "ShatterMainFrame" then n = n + 1 end end
-H.eq(n, 1, "never listed twice")
+eq(n, 1, "never listed twice")
 
 -- A drag that combat interrupts: PLAYER_REGEN_DISABLED (before lockdown)
 -- stops it and saves; nothing touches the frame under lockdown.
@@ -111,7 +111,7 @@ frame = setup()
 Shatter.MainFrame:Show()
 frame:StartMoving()
 enterCombat()
-H.eq(frame.moving, false, "drag stopped at PLAYER_REGEN_DISABLED")
+eq(frame._moving, false, "drag stopped at PLAYER_REGEN_DISABLED")
 leaveCombat()
 
 -- Drag and resize attempts during combat are ignored, not blocked.
@@ -120,22 +120,22 @@ Shatter.MainFrame:Show()
 frame:SetScale(1.2)
 enterCombat()
 local titleDrag
-for _, child in ipairs(frame.children) do
-    if child.scripts.OnDragStart then titleDrag = child break end
+for _, child in ipairs(frame._children) do
+    if child._scripts.OnDragStart then titleDrag = child break end
 end
 H.ok(function()
-    titleDrag.scripts.OnDragStart(titleDrag)
-    titleDrag.scripts.OnDragStop(titleDrag)
+    titleDrag._scripts.OnDragStart(titleDrag)
+    titleDrag._scripts.OnDragStop(titleDrag)
 end, "title drag in combat raises nothing")
 local grip = Shatter.MainFrame.resizeGrip
 H.ok(function()
-    grip.scripts.OnMouseDown(grip, "LeftButton")
-    grip.scripts.OnMouseUp(grip, "LeftButton")
+    grip._scripts.OnMouseDown(grip, "LeftButton")
+    grip._scripts.OnMouseUp(grip, "LeftButton")
 end, "resize grip in combat raises nothing")
-H.ok(function() grip.scripts.OnMouseUp(grip, "RightButton") end, "reset in combat raises nothing")
+H.ok(function() grip._scripts.OnMouseUp(grip, "RightButton") end, "reset in combat raises nothing")
 H.ok(function() Shatter.MainFrame:ApplyPosition() end, "profile/window apply in combat raises nothing")
 leaveCombat()
-H.eq(frame.scale, 1, "reset applied after combat")
+eq(frame:GetScale(), 1, "reset applied after combat")
 
 -- Events that update the window in combat (cast results, bag updates) never
 -- touch the protected button's visibility.
@@ -150,7 +150,7 @@ H.ok(function()
     WoW.flushTimers()
 end, "view switches and updates in combat raise nothing")
 leaveCombat()
-H.eq(Shatter.MainFrame.primary:IsShown(), true, "Shatter Next visible again after combat")
+eq(Shatter.MainFrame.primary:IsShown(), true, "Shatter Next visible again after combat")
 
 -- A mailbox opened in combat (it can happen at the edge of a fight).
 frame = setup()
@@ -163,25 +163,25 @@ leaveCombat()
 -- combat must not disable it there, and the change lands after combat.
 frame = setup()
 Shatter.MainFrame:Show()
-H.eq(Shatter.MainFrame.primary:IsEnabled(), true, "Shatter Next enabled with an item queued")
+eq(Shatter.MainFrame.primary:IsEnabled(), true, "Shatter Next enabled with an item queued")
 enterCombat()
 WoW.bags[0][1] = nil
 H.ok(function() WoW.fire("BAG_UPDATE_DELAYED") WoW.flushTimers() Shatter.MainFrame:Update() end,
     "queue emptied in combat: no protected Enable/Disable")
 leaveCombat()
 WoW.flushTimers()
-H.eq(Shatter.MainFrame.primary:IsEnabled(), false, "disabled after combat once the queue is empty")
+eq(Shatter.MainFrame.primary:IsEnabled(), false, "disabled after combat once the queue is empty")
 
 -- View changes across combat are replayed: Settings -> Solo in a fight
 -- brings Shatter Next back after it.
 frame = setup()
 Shatter.MainFrame:Show()
 Shatter.MainFrame:SetActiveView("settings")
-H.eq(Shatter.MainFrame.primary:IsShown(), false, "Settings hides Shatter Next")
+eq(Shatter.MainFrame.primary:IsShown(), false, "Settings hides Shatter Next")
 enterCombat()
 Shatter.MainFrame:SetActiveView("solo")
 leaveCombat()
-H.eq(Shatter.MainFrame.primary:IsShown(), true, "Solo chosen in combat: Shatter Next shown after it")
+eq(Shatter.MainFrame.primary:IsShown(), true, "Solo chosen in combat: Shatter Next shown after it")
 
 -- Solo -> Settings in a fight: hidden after it, and inert meanwhile.
 frame = setup()
@@ -189,6 +189,6 @@ Shatter.MainFrame:Show()
 enterCombat()
 Shatter.MainFrame:SetActiveView("settings")
 leaveCombat()
-H.eq(Shatter.MainFrame.primary:IsShown(), false, "Settings chosen in combat: Shatter Next hidden after it")
+eq(Shatter.MainFrame.primary:IsShown(), false, "Settings chosen in combat: Shatter Next hidden after it")
 
-H.done("test_combat")
+done("test_combat")
