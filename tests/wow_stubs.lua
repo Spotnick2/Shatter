@@ -189,7 +189,8 @@ function Methods.RegisterEvent(w, event)
     return coreRegisterEvent(w, event)
 end
 
--- Methods the kit doesn't implement (each in the dump's widget methods).
+-- WowTestKit #89: methods the kit doesn't implement (each in the dump's widget
+-- methods).
 function Methods.GetSize(w) return w._width, w._height end   -- WowTestKit #78
 function Methods.GetNumPoints(w) return #w._points end
 function Methods.SetScale(w, s) w._scale = s end
@@ -222,7 +223,7 @@ function Methods.ClearFocus(e)
 end
 function Methods.HasFocus(e) return e._focus or false end
 
--- GameTooltip's own (C) methods: the lines it holds, and its owner.
+-- WowTestKit #89: GameTooltip's own (C) methods: the lines it holds, and its owner.
 function Methods.SetOwner(tt, owner, anchor) tt._owner, tt._lines, tt._tooltipData = owner, {}, nil end
 function Methods.GetOwner(tt) return tt._owner end
 function Methods.AddLine(tt, text) tt._lines = tt._lines or {}; tt._lines[#tt._lines + 1] = text end
@@ -305,7 +306,7 @@ WoW.templates.UIPanelButtonTemplate = function(w) w.Text = textRegion(w, "GameFo
 -- the action only on the edge where `down == useOnKeyDown`. The kit's secure
 -- action doesn't resolve modified attributes (*type1, *spell1,
 -- *target-bag1...) or press-and-hold's typerelease, which Shatter Next uses:
--- this template's OnClick does.
+-- WowTestKit #88. This template's OnClick does.
 ------------------------------------------------------------
 
 local BUTTON_SUFFIX = { LeftButton = "1", RightButton = "2", MiddleButton = "3" }
