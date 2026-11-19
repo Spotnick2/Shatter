@@ -30,33 +30,33 @@ WoW.cacheMiss[7005] = true
 
 H.ok(function() WoW.loadAddon() WoW.flushTimers() end, "login and first scan")
 local ids = queuedIDs()
-H.check(ids[2589], "uncommon armor queued")
-H.check(ids[4002], "rare weapon queued")
-H.check(not ids[3001], "soulbound (isBound from the container struct) excluded by default")
-H.check(not ids[5003], "common trade goods excluded")
-H.check(not ids[6004], "non-equipment green excluded (class/slot from C_Item.GetItemInfoInstant)")
-H.check(not ids[7005], "cache miss: not queued yet")
+check(ids[2589], "uncommon armor queued")
+check(ids[4002], "rare weapon queued")
+check(not ids[3001], "soulbound (isBound from the container struct) excluded by default")
+check(not ids[5003], "common trade goods excluded")
+check(not ids[6004], "non-equipment green excluded (class/slot from C_Item.GetItemInfoInstant)")
+check(not ids[7005], "cache miss: not queued yet")
 
 -- The item data arrives: GET_ITEM_INFO_RECEIVED schedules a rescan.
 WoW.cacheMiss[7005] = nil
 WoW.fire("GET_ITEM_INFO_RECEIVED", 7005, true)
 WoW.flushTimers()
-H.check(queuedIDs()[7005], "cache resolved: queued after GET_ITEM_INFO_RECEIVED")
+check(queuedIDs()[7005], "cache resolved: queued after GET_ITEM_INFO_RECEIVED")
 
 -- Including soulbound items brings the bracers in.
 Shatter.Database:GetSettings().includeSoulbound = true
 Shatter.SoloMode:ScheduleScan("SETTINGS", 0)
 WoW.flushTimers()
-H.check(queuedIDs()[3001], "soulbound queued when the setting allows it")
+check(queuedIDs()[3001], "soulbound queued when the setting allows it")
 
 -- The version comes from C_AddOns; an unpackaged copy reads "dev".
-H.eq(Shatter.VERSION, "v0.2.0-alpha", "version from C_AddOns.GetAddOnMetadata")
+eq(Shatter.VERSION, "v0.2.0-alpha", "version from C_AddOns.GetAddOnMetadata")
 WoW.version = "@" .. "project-version" .. "@"
-H.eq(Shatter.API.GetAddOnVersion("Shatter"), "dev", "unsubstituted token reads as dev")
+eq(Shatter.API.GetAddOnVersion("Shatter"), "dev", "unsubstituted token reads as dev")
 
 -- The main frame uses SetResizeBounds with the documented bounds.
-local bounds = Shatter.MainFrame.frame.resizeBounds
-H.check(bounds and bounds[1] == 620 and bounds[2] == 400 and bounds[3] == 900 and bounds[4] == 650,
+local bounds = Shatter.MainFrame.frame._resizeBounds
+check(bounds and bounds[1] == 620 and bounds[2] == 400 and bounds[3] == 900 and bounds[4] == 650,
     "SetResizeBounds(620, 400, 900, 650)")
 
-H.done("test_scan")
+done("test_scan")

@@ -41,40 +41,40 @@ end
 -- 1. The generated list: what the generator wrote, and only that.
 setup()
 local list = Shatter.NoDisenchant
-H.check(list and list.ids, "Data/NoDisenchant.lua is loaded from the TOC")
-H.check(list.build:match("^%d+%.%d+%.%d+%.%d+$") ~= nil, "...and names one source build (" .. tostring(list.build) .. ")")
+check(list and list.ids, "Data/NoDisenchant.lua is loaded from the TOC")
+check(list.build:match("^%d+%.%d+%.%d+%.%d+$") ~= nil, "...and names one source build (" .. tostring(list.build) .. ")")
 local n = 0
 for _ in pairs(list.ids) do n = n + 1 end
-H.eq(n, list.count, "every id once")
-H.check(list.ids[WAND] and list.ids[11288] and list.ids[11289], "the enchanter-made wands")
-H.check(list.ids[INSIGNIA], "a PvP insignia")
-H.check(list.ids[4614], "a quest pendant")
-H.check(not list.ids[SWORD] and not list.ids[744] and not list.ids[763], "unflagged greens aren't listed")
-H.check(not list.ids[247789], "a flagged white item isn't (Disenchant takes no whites anyway)")
+eq(n, list.count, "every id once")
+check(list.ids[WAND] and list.ids[11288] and list.ids[11289], "the enchanter-made wands")
+check(list.ids[INSIGNIA], "a PvP insignia")
+check(list.ids[4614], "a quest pendant")
+check(not list.ids[SWORD] and not list.ids[744] and not list.ids[763], "unflagged greens aren't listed")
+check(not list.ids[247789], "a flagged white item isn't (Disenchant takes no whites anyway)")
 
 -- 2. Solo: a flagged item isn't queued; an unflagged green is.
 setup({ bags = { { 0, 1, WAND }, { 0, 2, INSIGNIA }, { 0, 3, SWORD } } })
 Shatter.SoloMode:ScheduleScan("TEST", 0)
 WoW.flushTimers()
-H.check(queued(SWORD), "an unflagged green is queued")
-H.check(not queued(WAND) and not queued(INSIGNIA), "the wand and the insignia aren't")
+check(queued(SWORD), "an unflagged green is queued")
+check(not queued(WAND) and not queued(INSIGNIA), "the wand and the insignia aren't")
 local wand = Shatter.ItemScanner:BuildItem(0, 1)
 local ok, why = Shatter.ItemScanner:IsCandidateDisenchantable(wand)
-H.check(not ok and why == "can't be disenchanted", "...the reason: can't be disenchanted")
-H.eq(select(2, Shatter.ItemScanner:CanBeDisenchanted(wand)), "can't be disenchanted", "CanBeDisenchanted says the same")
+check(not ok and why == "can't be disenchanted", "...the reason: can't be disenchanted")
+eq(select(2, Shatter.ItemScanner:CanBeDisenchanted(wand)), "can't be disenchanted", "CanBeDisenchanted says the same")
 Shatter.Database:SetIgnored(WAND, true)
-H.eq(select(2, Shatter.ItemScanner:IsCandidateDisenchantable(wand)), "ignored", "an ignored item says ignored first")
+eq(select(2, Shatter.ItemScanner:IsCandidateDisenchantable(wand)), "ignored", "an ignored item says ignored first")
 Shatter.Database:SetIgnored(WAND, false)
 
 -- 3. The tooltip uses the same check.
-H.eq(#WoW.showItemTooltip(WAND), 1, "the wand's tooltip: nothing added")
-H.check(#WoW.showItemTooltip(SWORD) > 1, "the sword's: what it disenchants into")
+eq(#WoW.showItemTooltip(WAND), 1, "the wand's tooltip: nothing added")
+check(#WoW.showItemTooltip(SWORD) > 1, "the sword's: what it disenchants into")
 
 -- 4. The switch: off, the flagged items are queued again.
 Shatter.Constants.USE_NO_DISENCHANT_LIST = false
 Shatter.SoloMode:ScheduleScan("TEST", 0)
 WoW.flushTimers()
-H.check(queued(WAND) and queued(INSIGNIA), "USE_NO_DISENCHANT_LIST = false: queued again")
+check(queued(WAND) and queued(INSIGNIA), "USE_NO_DISENCHANT_LIST = false: queued again")
 Shatter.Constants.USE_NO_DISENCHANT_LIST = true
 
 -- 5. Mail intake: a flagged attachment is never taken.
@@ -88,8 +88,8 @@ WoW.flushTimers()
 local session = Shatter.MailSession:Get()
 local byID = {}
 for _, input in ipairs(session.inputItems or {}) do byID[input.itemID] = input end
-H.check(byID[SWORD], "the sword is a Mail input")
-H.eq(byID[WAND], nil, "the wand isn't: never taken")
+check(byID[SWORD], "the sword is a Mail input")
+eq(byID[WAND], nil, "the wand isn't: never taken")
 
 -- 6. A received item that can't be disenchanted (a session from before the
 -- list): failed, still reserved; the other item goes on; the session is done
@@ -118,40 +118,40 @@ deliver(2, 0, 3)
 WoW.flushTimers()
 byID = {}
 for _, input in ipairs(session.inputItems or {}) do byID[input.itemID] = input end
-H.check(byID[VEST] and byID[SWORD] and byID[SWORD].bag == 0 and byID[SWORD].slot == 3, "both received")
+check(byID[VEST] and byID[SWORD] and byID[SWORD].bag == 0 and byID[SWORD].slot == 3, "both received")
 -- The rule arrives after the sword was received.
 Shatter.NoDisenchant.ids[SWORD] = true
 Shatter.MailMode:PrepareDisenchantQueue()
-H.eq(byID[SWORD].disenchantStatus, "failed", "the sword: failed, not queued")
-H.eq(byID[SWORD].sourceSender, "Alpha Smith", "...still Alpha's")
-H.check(byID[SWORD].itemGUID ~= nil, "...its GUID kept")
+eq(byID[SWORD].disenchantStatus, "failed", "the sword: failed, not queued")
+eq(byID[SWORD].sourceSender, "Alpha Smith", "...still Alpha's")
+check(byID[SWORD].itemGUID ~= nil, "...its GUID kept")
 local reserved = Shatter.MailSession:GetReservedSlots()
-H.eq(reserved["0:3"], SWORD, "...and its slot still reserved")
-H.check(not queued(SWORD) and queued(VEST), "the vest is queued and the sword isn't")
+eq(reserved["0:3"], SWORD, "...and its slot still reserved")
+check(not queued(SWORD) and queued(VEST), "the vest is queued and the sword isn't")
 Shatter.MainFrame:SetActiveView("mail")
-WoW.click(Shatter.MainFrame.primary, "LeftButton")
+WoW.press(Shatter.MainFrame.primary, "LeftButton")
 WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
 WoW.bags[0][2] = nil
 WoW.SetBagItem(0, 7, { itemID = 10940, count = 2 })
 WoW.fire("BAG_UPDATE_DELAYED")
 WoW.flushTimers()
-H.eq(byID[VEST].status, "disenchanted", "the vest is disenchanted")
-H.eq(session.status, Shatter.Constants.MAIL_STATE.COMPLETE, "nothing left to do: done")
+eq(byID[VEST].status, "disenchanted", "the vest is disenchanted")
+eq(session.status, Shatter.Constants.MAIL_STATE.COMPLETE, "nothing left to do: done")
 local text, warn = Shatter.MailMode:GetStatus()
-H.check(text:find("1 item couldn't be disenchanted and is still in your bags", 1, true) and warn,
+check(text:find("1 item couldn't be disenchanted and is still in your bags", 1, true) and warn,
     "...but the status says what's left in the bags")
-H.eq(Shatter.MailSession:HasUnresolvedWork(), true, "the sword counts as unresolved")
-H.eq((Shatter.MailSession:Close()), false, "an ordinary Close is refused")
-H.check(Shatter.MailSession:Get() ~= nil, "...the session stays")
+eq(Shatter.MailSession:HasUnresolvedWork(), true, "the sword counts as unresolved")
+eq((Shatter.MailSession:Close()), false, "an ordinary Close is refused")
+check(Shatter.MailSession:Get() ~= nil, "...the session stays")
 -- Unticking it (its row, or None) doesn't give it back.
 byID[SWORD].selected = false
 Shatter.MailMode:SelectInputItems("none")
-H.eq(Shatter.MailSession:CountReceivedFailed(), 1, "unticked: still counted")
-H.check((Shatter.MailMode:GetStatus()):find("1 item couldn't be disenchanted", 1, true), "...still in the status")
-H.eq((Shatter.MailSession:Close()), false, "...and an ordinary Close still refused")
-H.eq(Shatter.MailSession:GetReservedSlots()["0:3"], SWORD, "...its slot still reserved")
-H.eq((Shatter.MailSession:Close(true)), true, "Confirm Close (forced) archives it")
-H.eq(Shatter.MailSession:Get(), nil, "...no active session")
+eq(Shatter.MailSession:CountReceivedFailed(), 1, "unticked: still counted")
+check((Shatter.MailMode:GetStatus()):find("1 item couldn't be disenchanted", 1, true), "...still in the status")
+eq((Shatter.MailSession:Close()), false, "...and an ordinary Close still refused")
+eq(Shatter.MailSession:GetReservedSlots()["0:3"], SWORD, "...its slot still reserved")
+eq((Shatter.MailSession:Close(true)), true, "Confirm Close (forced) archives it")
+eq(Shatter.MailSession:Get(), nil, "...no active session")
 Shatter.NoDisenchant.ids[SWORD] = nil
 
 -- 7. UI errors are traced, pending or not.
@@ -166,7 +166,7 @@ Shatter.Debug.Log = function(self, level, message, ...)
 end
 WoW.fire("UI_ERROR_MESSAGE", 50, "Item cannot be disenchanted")
 Shatter.Debug.Log = log
-H.check(logged and logged:find("50: Item cannot be disenchanted (attempt: none)", 1, true),
+check(logged and logged:find("50: Item cannot be disenchanted (attempt: none)", 1, true),
     "a UI error with no attempt pending is traced (" .. tostring(logged) .. ")")
 
-H.done("test_no_disenchant")
+done("test_no_disenchant")

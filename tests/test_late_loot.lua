@@ -53,11 +53,11 @@ end
 -- the attempt resolves 0.2 s later without a loot window.
 local function castBagFirst(button)
     local item = Shatter.Queue:GetSelected()
-    WoW.click(button, "LeftButton")
+    WoW.press(button, "LeftButton")
     WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-" .. item.itemID, 13262)
     WoW.bags[item.bag][item.slot] = nil
     WoW.fire("BAG_UPDATE_DELAYED")
-    WoW.runTimers(0.2)
+    WoW.advance(0.2)
     return item
 end
 
@@ -66,37 +66,37 @@ end
 local button = setup()
 spy()
 local first = Shatter.Queue:GetSelected()
-WoW.click(button, "LeftButton")
+WoW.press(button, "LeftButton")
 WoW.fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
 WoW.bags[first.bag][first.slot] = nil
 WoW.loot = DUST_LOOT
 WoW.fire("LOOT_READY", false)
 WoW.fire("LOOT_OPENED", false, true)
-H.check(traced("Loot event LOOT_OPENED (autoLoot false, isFromItem true), reads 10940x2; no attempt resolved yet; attempt "
+check(traced("Loot event LOOT_OPENED (autoLoot false, isFromItem true), reads 10940x2; no attempt resolved yet; attempt "
     .. first.itemID .. " pending, succeeded"), "the window is traced with its flags, what it read and the attempt")
 WoW.loot = {}
 WoW.fire("LOOT_CLOSED")
-WoW.runTimers(0.2)
-H.eq(records, 1, "loot first: one yield recorded")
+WoW.advance(0.2)
+eq(records, 1, "loot first: one yield recorded")
 local n = Shatter.Database:GetYields()["2:4:16-20"].n
 
 -- 2. The bag update first, then a late window with nothing pending: traced,
 -- nothing learned.
-WoW.runTimers(0.2)                          -- the queue's rescan
+WoW.advance(0.2)                          -- the queue's rescan
 local second = castBagFirst(button)
 local before = records
-WoW.runTimers(0.3)
+WoW.advance(0.3)
 WoW.loot = DUST_LOOT
 WoW.fire("LOOT_READY", false)
 WoW.fire("LOOT_OPENED", false, true)
 local line = traced("Loot event LOOT_OPENED (autoLoot false, isFromItem true), reads 10940x2; 0.30 s after item "
     .. second.itemID .. " resolved (bag update; loot event none, loot read none); nothing pending")
-H.check(line, "a late window: traced after the attempt that resolved without one")
+check(line, "a late window: traced after the attempt that resolved without one")
 WoW.loot = {}
 WoW.fire("LOOT_CLOSED")
-WoW.runTimers(0.5)
-H.eq(records, before, "...no yield recorded from it")
-H.eq(Shatter.Database:GetYields()["2:4:16-20"].n, n, "...the measured bucket unchanged")
+WoW.advance(0.5)
+eq(records, before, "...no yield recorded from it")
+eq(Shatter.Database:GetYields()["2:4:16-20"].n, n, "...the measured bucket unchanged")
 
 -- 3. A's late window while B is pending: today B takes A's loot. The known
 -- exposure (#10), pinned so the fix flips this test.
@@ -105,15 +105,15 @@ WoW.SetBagItem(0, 5, { itemID = VEST })
 Shatter.SoloMode:ScheduleScan("TEST", 0)
 WoW.flushTimers()
 local a = castBagFirst(button)
-WoW.runTimers(0.2)                          -- the queue's rescan
+WoW.advance(0.2)                          -- the queue's rescan
 local b = Shatter.Queue:GetSelected()
-H.check(b and not (b.bag == a.bag and b.slot == a.slot), "B is another item")
-WoW.click(button, "LeftButton")             -- B pending, not succeeded yet
+check(b and not (b.bag == a.bag and b.slot == a.slot), "B is another item")
+WoW.press(button, "LeftButton")             -- B pending, not succeeded yet
 WoW.loot = DUST_LOOT
 WoW.fire("LOOT_READY", false)
-H.check(traced("resolved (bag update; loot event none, loot read none); attempt " .. b.itemID .. " pending, not succeeded"),
+check(traced("resolved (bag update; loot event none, loot read none); attempt " .. b.itemID .. " pending, not succeeded"),
     "A's late window while B is pending: the trace says so")
-H.eq(Shatter.Disenchant.pending and Shatter.Disenchant.pending.loot and Shatter.Disenchant.pending.loot[DUST], 2,
+eq(Shatter.Disenchant.pending and Shatter.Disenchant.pending.loot and Shatter.Disenchant.pending.loot[DUST], 2,
     "KNOWN EXPOSURE (#10): B's attempt takes A's loot today")
 WoW.loot = {}
 
@@ -127,7 +127,7 @@ WoW.loot = DUST_LOOT
 WoW.fire("LOOT_READY", false)
 WoW.fire("LOOT_OPENED", false, true)
 Shatter.MaterialTracker.ReadLoot = readLoot
-H.eq(reads, 0, "tracing off, nothing pending: no loot read")
-H.eq(Shatter.Disenchant.lastResolved, nil, "...and nothing resolved to compare with")
+eq(reads, 0, "tracing off, nothing pending: no loot read")
+eq(Shatter.Disenchant.lastResolved, nil, "...and nothing resolved to compare with")
 
-H.done("test_late_loot")
+done("test_late_loot")

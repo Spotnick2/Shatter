@@ -109,9 +109,18 @@ heavy runtime dependencies.
 
 ## Build, test, deploy
 - `pwsh tests/run.ps1` - luac -p over every Lua file, then every `tests/test_*.lua` under Lua 5.1
-  (`C:\Program Files (x86)\Lua\5.1`). Must be green before every push.
-- `tests/wow_stubs.lua` models **Forever, not Classic**: strict globals (reading an unstubbed global
-  errors), strict widgets (no catch-all methods), and a list of known absences. Never add a stub
+  (`C:\Program Files (x86)\Lua\5.1`), then the Python tool tests. Must be green before every push.
+- The test scaffolding is WowTestKit (`C:\Projects\WoW\WowTestKit`; its README is the reference)
+  at the commit and client build `tests\kit.pin` names. `tests\run.ps1` puts that commit in
+  `%LOCALAPPDATA%\WowTestKit\<sha>` and hands off to the kit's runner; CI fetches it with
+  `tests\fetch_kit.sh`. `tests\kit.lua`, `kit.ps1` and `fetch_kit.sh` are the kit's bootstrap
+  copies: never edit them here. A kit need is an issue on the kit, worked around in
+  `tests\wow_stubs.lua` with a `-- WowTestKit #N:` comment meanwhile. `tests\run.ps1 -KitDev`
+  runs against the `..\WowTestKit` working copy instead of the pin.
+- `tests/wow_stubs.lua` models **Forever, not Classic**: on top of the kit's strict globals and
+  strict widgets (a method the pinned build lacks reads as nil), a list of known absences, checked
+  global writes, and a refused call on a protected frame in combat raises. `tests/test_methods.lua`
+  checks every widget method the exercise reaches against the pinned build. Never add a stub
   because a test failed; confirm the API in the dump or source first.
 - `pwsh Tools/deploy.ps1` copies the TOC, LICENSE and every TOC-listed file to
   `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter`, preserving

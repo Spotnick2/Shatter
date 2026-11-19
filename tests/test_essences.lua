@@ -59,71 +59,71 @@ local T, C = Shatter.DisenchantTables, Shatter.Constants
 local tiers = 0
 for lesser, greater in pairs(C.ESSENCE_GREATER) do
     tiers = tiers + 1
-    H.check(C.MATERIAL_ITEM_IDS[lesser] and C.MATERIAL_ITEM_IDS[greater], "both sizes are materials: " .. lesser .. "/" .. greater)
+    check(C.MATERIAL_ITEM_IDS[lesser] and C.MATERIAL_ITEM_IDS[greater], "both sizes are materials: " .. lesser .. "/" .. greater)
 end
-H.eq(tiers, 5, "five essence tiers")
-H.eq(C.ESSENCE_LESSER_PER_GREATER, 3, "three lesser to one greater")
+eq(tiers, 5, "five essence tiers")
+eq(C.ESSENCE_LESSER_PER_GREATER, 3, "three lesser to one greater")
 
 -- 2. Every tier, both ways: one size priced, the other derives it.
 for lesser, greater in pairs(C.ESSENCE_GREATER) do
     price({ [greater] = 3000 })
     local v, source, from = T:GetMaterialValue(lesser)
-    H.eq(v, 1000, "lesser " .. lesser .. " = greater / 3")
-    H.eq(source, "Auctionator", "...from the same source")
-    H.eq(from, greater, "...naming the greater")
+    eq(v, 1000, "lesser " .. lesser .. " = greater / 3")
+    eq(source, "Auctionator", "...from the same source")
+    eq(from, greater, "...naming the greater")
     price({ [lesser] = 1000 })
     v, source, from = T:GetMaterialValue(greater)
-    H.eq(v, 3000, "greater " .. greater .. " = lesser x 3")
-    H.eq(from, lesser, "...naming the lesser")
+    eq(v, 3000, "greater " .. greater .. " = lesser x 3")
+    eq(from, lesser, "...naming the lesser")
 end
 
 -- 3. Its own price first; neither priced, no price; not an essence, no pair.
 price({ [LESSER_MAGIC] = 1500, [GREATER_MAGIC] = 3000 })
 local v, _, from = T:GetMaterialValue(LESSER_MAGIC)
-H.eq(v, 1500, "both priced: the lesser keeps its own")
-H.eq(from, nil, "...not derived")
+eq(v, 1500, "both priced: the lesser keeps its own")
+eq(from, nil, "...not derived")
 v, _, from = T:GetMaterialValue(GREATER_MAGIC)
-H.eq(v, 3000, "both priced: the greater keeps its own")
-H.eq(from, nil, "...not derived")
+eq(v, 3000, "both priced: the greater keeps its own")
+eq(from, nil, "...not derived")
 price({})
-H.eq(T:GetMaterialValue(LESSER_MAGIC), nil, "neither priced: no price")
+eq(T:GetMaterialValue(LESSER_MAGIC), nil, "neither priced: no price")
 price({ [GREATER_MAGIC] = 3000 })
-H.eq(T:GetMaterialValue(DUST), nil, "dust has no other size")
+eq(T:GetMaterialValue(DUST), nil, "dust has no other size")
 
 -- 4. The estimate: a vest's greater essence priced from the lesser.
 price({ [LESSER_MAGIC] = 1000 })
 local e = estimate(VEST)
 local m = material(e, GREATER_MAGIC)
-H.eq(m and m.valueCopper, 3000, "the vest's greater essence: 3 x the lesser")
-H.eq(m and m.valueFrom, LESSER_MAGIC, "...priced from the lesser")
-H.eq(e.expectedValueCopper, 0.20 * 1.5 * 3000, "the expected value counts it")
-H.eq(e.valueDerived, true, "the estimate says a price is derived")
-H.eq(T:FormatDerivedPrices(e), "Greater Magic Essence from Lesser Magic Essence", "...and which")
-H.check(T:FormatEstimate(e):find("(Greater Magic Essence from Lesser Magic Essence)", 1, true), "the text estimate says so")
+eq(m and m.valueCopper, 3000, "the vest's greater essence: 3 x the lesser")
+eq(m and m.valueFrom, LESSER_MAGIC, "...priced from the lesser")
+eq(e.expectedValueCopper, 0.20 * 1.5 * 3000, "the expected value counts it")
+eq(e.valueDerived, true, "the estimate says a price is derived")
+eq(T:FormatDerivedPrices(e), "Greater Magic Essence from Lesser Magic Essence", "...and which")
+check(T:FormatEstimate(e):find("(Greater Magic Essence from Lesser Magic Essence)", 1, true), "the text estimate says so")
 
 price({ [GREATER_MAGIC] = 3000 })
 e = estimate(BLADE)
 m = material(e, LESSER_MAGIC)
-H.eq(m and m.valueCopper, 1000, "the blade's lesser essence: the greater / 3")
-H.eq(e.expectedValueCopper, 0.80 * 1.5 * 1000, "...in the expected value")
-H.eq(T:FormatDerivedPrices(e), "Lesser Magic Essence from Greater Magic Essence", "...named")
+eq(m and m.valueCopper, 1000, "the blade's lesser essence: the greater / 3")
+eq(e.expectedValueCopper, 0.80 * 1.5 * 1000, "...in the expected value")
+eq(T:FormatDerivedPrices(e), "Lesser Magic Essence from Greater Magic Essence", "...named")
 
 price({ [LESSER_MAGIC] = 1500, [GREATER_MAGIC] = 3000 })
 e = estimate(BLADE)
-H.eq(e.expectedValueCopper, 0.80 * 1.5 * 1500, "both priced: the blade's own lesser price")
-H.eq(e.valueDerived, nil, "...nothing derived")
-H.eq(T:FormatDerivedPrices(e), nil, "...nothing named")
+eq(e.expectedValueCopper, 0.80 * 1.5 * 1500, "both priced: the blade's own lesser price")
+eq(e.valueDerived, nil, "...nothing derived")
+eq(T:FormatDerivedPrices(e), nil, "...nothing named")
 
 price({})
 e = estimate(BLADE)
-H.eq(e.expectedValueCopper, nil, "nothing priced: no value, as before")
+eq(e.expectedValueCopper, nil, "nothing priced: no value, as before")
 
 -- 5. The tooltip shows the derived value.
 price({ [LESSER_MAGIC] = 1000 })
 local lines = WoW.showItemTooltip(VEST)
 local valueLine
 for _, line in ipairs(lines) do if tostring(line):find("Expected value", 1, true) then valueLine = line end end
-H.check(valueLine and valueLine:find(T:FormatMoney(0.20 * 1.5 * 3000), 1, true), "the tooltip's value uses the derived price (" .. tostring(valueLine) .. ")")
+check(valueLine and valueLine:find(T:FormatMoney(0.20 * 1.5 * 3000), 1, true), "the tooltip's value uses the derived price (" .. tostring(valueLine) .. ")")
 
 -- 6. The value filter: the blade's dust is priced at 1c, its essence only
 -- through the greater. At 1g minimum, the derived price keeps it queued.
@@ -141,19 +141,19 @@ price({ [DUST] = 1 })
 Shatter.MainFrame:Show()
 Shatter.SoloMode:ScheduleScan("TEST", 0)
 WoW.flushTimers()
-H.check(not queued(BLADE), "only the dust priced: under 1g, left out")
+check(not queued(BLADE), "only the dust priced: under 1g, left out")
 price({ [DUST] = 1, [GREATER_MAGIC] = 30000 })
 Shatter.SoloMode:ScheduleScan("TEST", 0)
 WoW.flushTimers()
 local item = queued(BLADE)
-H.check(item, "the lesser essence priced from the greater: over 1g, queued")
-H.eq(item and item.expectedValueCopper, 0.80 * 1.5 * 10000 + 0.20 * 1.5 * 1, "...at the derived value")
+check(item, "the lesser essence priced from the greater: over 1g, queued")
+eq(item and item.expectedValueCopper, 0.80 * 1.5 * 10000 + 0.20 * 1.5 * 1, "...at the derived value")
 
 -- 7. The main frame names the derived price under the source.
 Shatter.Queue:Select(1)
 Shatter.MainFrame:Update()
 local text = Shatter.MainFrame.detailPanel.valueText:GetText() or ""
-H.check(text:find("Source: Auctionator (Lesser Magic Essence from Greater Magic Essence)", 1, true), "the detail names the derived price (" .. text .. ")")
+check(text:find("Source: Auctionator (Lesser Magic Essence from Greater Magic Essence)", 1, true), "the detail names the derived price (" .. text .. ")")
 
 rawset(_G, "Auctionator", nil)
-H.done("test_essences")
+done("test_essences")

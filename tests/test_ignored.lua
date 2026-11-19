@@ -52,81 +52,81 @@ end
 
 -- 1. Ignore: out of the queue for good, and it says how to undo it.
 local main = setup()
-H.check(queued(VEST) and queued(BOOTS) and queued(SWORD), "three items queued")
+check(queued(VEST) and queued(BOOTS) and queued(SWORD), "three items queued")
 ignore(VEST)
-H.check(not queued(VEST), "Ignore takes the item out of the queue")
-H.eq(Shatter.Database:IsIgnored(VEST), true, "...and saves it")
-H.check(WoW.chat():find("/shatter unignore 2589", 1, true), "...and says how to undo it")
+check(not queued(VEST), "Ignore takes the item out of the queue")
+eq(Shatter.Database:IsIgnored(VEST), true, "...and saves it")
+check(WoW.chatText():find("/shatter unignore 2589", 1, true), "...and says how to undo it")
 WoW.fire("BAG_UPDATE_DELAYED")
 WoW.flushTimers()
-H.check(not queued(VEST), "a rescan keeps it out")
-H.eq(ShatterDB.settings.ignoredItems[VEST], true, "the saved shape is still [itemID] = true")
+check(not queued(VEST), "a rescan keeps it out")
+eq(ShatterDB.settings.ignoredItems[VEST], true, "the saved shape is still [itemID] = true")
 
 -- Skip and Ignore say which is which.
-main.skipButton.scripts.OnEnter(main.skipButton)
-H.check(GameTooltip.lines[1] == "Skip" and GameTooltip.lines[2]:find("/reload", 1, true), "Skip's tooltip: until a /reload")
-main.skipButton.scripts.OnLeave(main.skipButton)
-main.ignoreButton.scripts.OnEnter(main.ignoreButton)
-H.check(GameTooltip.lines[1] == "Ignore" and GameTooltip.lines[2]:find("Settings", 1, true), "Ignore's tooltip: until removed in Settings")
-main.ignoreButton.scripts.OnLeave(main.ignoreButton)
+main.skipButton._scripts.OnEnter(main.skipButton)
+check(GameTooltip._lines[1] == "Skip" and GameTooltip._lines[2]:find("/reload", 1, true), "Skip's tooltip: until a /reload")
+main.skipButton._scripts.OnLeave(main.skipButton)
+main.ignoreButton._scripts.OnEnter(main.ignoreButton)
+check(GameTooltip._lines[1] == "Ignore" and GameTooltip._lines[2]:find("Settings", 1, true), "Ignore's tooltip: until removed in Settings")
+main.ignoreButton._scripts.OnLeave(main.ignoreButton)
 
 -- 2. Settings lists it; Remove brings it back at once.
 Shatter.SettingsUI:Toggle()
 local ui = Shatter.SettingsUI
-H.eq(ui.ignoredLabel:GetText(), "Ignored items (1)", "Settings: the count")
+eq(ui.ignoredLabel:GetText(), "Ignored items (1)", "Settings: the count")
 local row = ui.ignoredRows[1]
-H.check(row and row:IsShown() and row.itemID == VEST, "...one row, the vest")
-H.check(row.text:GetText():find("Green Vest", 1, true), "...shown by its link")
-H.check(not ui.ignoredEmpty:IsShown() and ui.resetIgnored:IsShown(), "...with Reset all, no empty note")
-row.remove.scripts.OnClick(row.remove)
+check(row and row:IsShown() and row.itemID == VEST, "...one row, the vest")
+check(row.text:GetText():find("Green Vest", 1, true), "...shown by its link")
+check(not ui.ignoredEmpty:IsShown() and ui.resetIgnored:IsShown(), "...with Reset all, no empty note")
+row.remove._scripts.OnClick(row.remove)
 WoW.flushTimers()
-H.eq(Shatter.Database:IsIgnored(VEST), false, "Remove forgets it")
-H.eq(ShatterDB.settings.ignoredItems[VEST], nil, "...in the saved table too")
-H.check(queued(VEST), "...and it is back in the queue at once")
-H.check(not row:IsShown() and ui.ignoredEmpty:IsShown(), "...the list is empty again")
-H.check(not ui.resetIgnored:IsShown(), "...and Reset all is hidden")
-H.eq(ui.ignoredLabel:GetText(), "Ignored items", "...no count")
+eq(Shatter.Database:IsIgnored(VEST), false, "Remove forgets it")
+eq(ShatterDB.settings.ignoredItems[VEST], nil, "...in the saved table too")
+check(queued(VEST), "...and it is back in the queue at once")
+check(not row:IsShown() and ui.ignoredEmpty:IsShown(), "...the list is empty again")
+check(not ui.resetIgnored:IsShown(), "...and Reset all is hidden")
+eq(ui.ignoredLabel:GetText(), "Ignored items", "...no count")
 
 -- 3. Reset all asks again in place, then clears every entry.
 ignore(VEST)
 ignore(SWORD)
 ui:Refresh()
-H.eq(ui.ignoredLabel:GetText(), "Ignored items (2)", "two ignored")
-H.check(ui.ignoredRows[1].itemID == SWORD and ui.ignoredRows[2].itemID == VEST, "...alphabetical: Bronze Sword, Green Vest")
+eq(ui.ignoredLabel:GetText(), "Ignored items (2)", "two ignored")
+check(ui.ignoredRows[1].itemID == SWORD and ui.ignoredRows[2].itemID == VEST, "...alphabetical: Bronze Sword, Green Vest")
 local reset = ui.resetIgnored
-reset.scripts.OnClick(reset)
-H.eq(reset.text:GetText(), "Click to confirm", "the first click asks again")
-H.eq(#Shatter.Database:GetIgnoredItems(), 2, "...and clears nothing")
-WoW.runTimers(6)
-H.eq(reset.text:GetText(), "Reset all", "unconfirmed, it disarms after a few seconds")
-reset.scripts.OnClick(reset)
-reset.scripts.OnClick(reset)
+reset._scripts.OnClick(reset)
+eq(reset.text:GetText(), "Click to confirm", "the first click asks again")
+eq(#Shatter.Database:GetIgnoredItems(), 2, "...and clears nothing")
+WoW.advance(6)
+eq(reset.text:GetText(), "Reset all", "unconfirmed, it disarms after a few seconds")
+reset._scripts.OnClick(reset)
+reset._scripts.OnClick(reset)
 WoW.flushTimers()
-H.eq(#Shatter.Database:GetIgnoredItems(), 0, "two clicks clear every ignored item")
-H.check(queued(VEST) and queued(SWORD), "...and both are back in the queue")
+eq(#Shatter.Database:GetIgnoredItems(), 0, "two clicks clear every ignored item")
+check(queued(VEST) and queued(SWORD), "...and both are back in the queue")
 
 -- 4. The slash commands.
 SlashCmdList.SHATTER("ignored")
-H.check(WoW.chat():find("No ignored items.", 1, true), "/shatter ignored with none")
+check(WoW.chatText():find("No ignored items.", 1, true), "/shatter ignored with none")
 ignore(BOOTS)
 ignore(SWORD)
-WoW.messages = {}
+WoW.chat = {}
 SlashCmdList.SHATTER("ignored")
-H.check(WoW.chat():find("Ignored items (2):", 1, true) and WoW.chat():find("(2590)", 1, true)
-    and WoW.chat():find("(2591)", 1, true), "/shatter ignored lists them with their IDs")
+check(WoW.chatText():find("Ignored items (2):", 1, true) and WoW.chatText():find("(2590)", 1, true)
+    and WoW.chatText():find("(2591)", 1, true), "/shatter ignored lists them with their IDs")
 SlashCmdList.SHATTER("unignore 2590")
 WoW.flushTimers()
-H.eq(Shatter.Database:IsIgnored(BOOTS), false, "/shatter unignore <itemID>")
-H.check(queued(BOOTS), "...back in the queue")
+eq(Shatter.Database:IsIgnored(BOOTS), false, "/shatter unignore <itemID>")
+check(queued(BOOTS), "...back in the queue")
 SlashCmdList.SHATTER("unignore " .. WoW.link(SWORD))
 WoW.flushTimers()
-H.eq(Shatter.Database:IsIgnored(SWORD), false, "/shatter unignore <link>")
-WoW.messages = {}
+eq(Shatter.Database:IsIgnored(SWORD), false, "/shatter unignore <link>")
+WoW.chat = {}
 SlashCmdList.SHATTER("unignore 2590")
-H.check(WoW.chat():find("isn't ignored", 1, true), "an item that isn't ignored is said so")
-WoW.messages = {}
+check(WoW.chatText():find("isn't ignored", 1, true), "an item that isn't ignored is said so")
+WoW.chat = {}
 SlashCmdList.SHATTER("unignore vest")
-H.check(WoW.chat():find("Use /shatter unignore", 1, true), "anything else gets the usage")
+check(WoW.chatText():find("Use /shatter unignore", 1, true), "anything else gets the usage")
 
 -- 5. An uncached item is requested, and shown when it arrives.
 main = setup()
@@ -134,20 +134,20 @@ ignore(VEST)
 WoW.cacheMiss[VEST] = true
 Shatter.SettingsUI:Toggle()
 ui = Shatter.SettingsUI
-H.eq(ui.ignoredRows[1].text:GetText(), "Item 2589", "uncached: shown by its ID")
+eq(ui.ignoredRows[1].text:GetText(), "Item 2589", "uncached: shown by its ID")
 local requested = false
 for _, id in ipairs(WoW.itemRequests) do requested = requested or id == VEST end
-H.check(requested, "...and its data requested")
+check(requested, "...and its data requested")
 WoW.cacheMiss[VEST] = nil
 WoW.fire("GET_ITEM_INFO_RECEIVED", VEST, true)
-H.check(ui.ignoredRows[1].text:GetText():find("Green Vest", 1, true), "...its link once the data arrives")
+check(ui.ignoredRows[1].text:GetText():find("Green Vest", 1, true), "...its link once the data arrives")
 
 -- 6. A long list grows the settings' scroll content.
 local base = ui.content:GetHeight()
 ignore(BOOTS)
 ignore(SWORD)
 ui:Refresh()
-H.check(ui.content:GetHeight() > base, "more rows, taller content")
+check(ui.content:GetHeight() > base, "more rows, taller content")
 
 -- 7. With a mail session: the Mail queue rescans only while the mailbox is
 -- open, and nothing errors either way (the client has no IsMailboxOpen
@@ -159,7 +159,7 @@ WoW.fire("MAIL_SHOW")
 WoW.flushTimers()
 Shatter.MailMode:StartNewSessionFromLaunchPanel()
 WoW.flushTimers()
-H.check(Shatter.MailSession:HasActiveSession(), "a mail session is active")
+check(Shatter.MailSession:HasActiveSession(), "a mail session is active")
 local mailScans = {}
 local scheduleScan = Shatter.MailMode.ScheduleScan
 Shatter.MailMode.ScheduleScan = function(self, reason, ...)
@@ -169,30 +169,30 @@ end
 ignore(VEST)
 Shatter.SettingsUI:Toggle()
 ui = Shatter.SettingsUI
-H.ok(function() ui.ignoredRows[1].remove.scripts.OnClick(ui.ignoredRows[1].remove) end,
+H.ok(function() ui.ignoredRows[1].remove._scripts.OnClick(ui.ignoredRows[1].remove) end,
     "mailbox open: Remove doesn't error")
-H.eq(mailScans[#mailScans], "ITEM_UNIGNORED", "...and rescans the Mail queue")
-H.check(ui.ignoredEmpty:IsShown(), "...and Settings redraws")
+eq(mailScans[#mailScans], "ITEM_UNIGNORED", "...and rescans the Mail queue")
+check(ui.ignoredEmpty:IsShown(), "...and Settings redraws")
 
 MailFrame:Hide()
 WoW.fire("MAIL_CLOSED")
 WoW.flushTimers()
-H.check(Shatter.MailSession:HasActiveSession(), "the session outlives the closed mailbox")
+check(Shatter.MailSession:HasActiveSession(), "the session outlives the closed mailbox")
 -- The queue may be the session's now, so the item is ignored directly.
 Shatter.Database:SetIgnored(VEST, true)
 ui:Refresh()
 local scansBefore = #mailScans
 H.ok(function() SlashCmdList.SHATTER("unignore 2589") end, "mailbox closed: /shatter unignore doesn't error")
-H.eq(#mailScans, scansBefore, "...and doesn't rescan the Mail queue (#26)")
-H.eq(Shatter.Database:IsIgnored(VEST), false, "...the item is no longer ignored")
-H.check(ui.ignoredEmpty:IsShown(), "...Settings redraws")
+eq(#mailScans, scansBefore, "...and doesn't rescan the Mail queue (#26)")
+eq(Shatter.Database:IsIgnored(VEST), false, "...the item is no longer ignored")
+check(ui.ignoredEmpty:IsShown(), "...Settings redraws")
 Shatter.Database:SetIgnored(VEST, true)
 ui:Refresh()
 H.ok(function()
-    ui.resetIgnored.scripts.OnClick(ui.resetIgnored)
-    ui.resetIgnored.scripts.OnClick(ui.resetIgnored)
+    ui.resetIgnored._scripts.OnClick(ui.resetIgnored)
+    ui.resetIgnored._scripts.OnClick(ui.resetIgnored)
 end, "mailbox closed: Reset all doesn't error")
-H.eq(#Shatter.Database:GetIgnoredItems(), 0, "...and clears the list")
+eq(#Shatter.Database:GetIgnoredItems(), 0, "...and clears the list")
 Shatter.MailMode.ScheduleScan = scheduleScan
 
-H.done("test_ignored")
+done("test_ignored")

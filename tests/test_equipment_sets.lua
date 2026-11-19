@@ -38,58 +38,58 @@ end
 
 -- 1. Per slot: the set's vest stays out, the other copy and the blade go in.
 setup()
-H.eq(queued(0, 1), false, "the vest in a set isn't queued")
-H.eq(queued(0, 2), true, "...a second vest, not in the set, is")
-H.eq(queued(0, 3), true, "...and so is the blade")
+eq(queued(0, 1), false, "the vest in a set isn't queued")
+eq(queued(0, 2), true, "...a second vest, not in the set, is")
+eq(queued(0, 3), true, "...and so is the blade")
 local ok, reason = Shatter.ItemScanner:IsCandidateDisenchantable(Shatter.ItemScanner:BuildItem(0, 1))
-H.check(not ok and reason == "in an equipment set", "...with the reason (" .. tostring(reason) .. ")")
+check(not ok and reason == "in an equipment set", "...with the reason (" .. tostring(reason) .. ")")
 
 -- 2. The queue follows the sets.
 WoW.bags[0][3].inSet = true
 WoW.fire("EQUIPMENT_SETS_CHANGED")
 WoW.flushTimers()
-H.eq(queued(0, 3), false, "the blade saved in a set: out after EQUIPMENT_SETS_CHANGED")
+eq(queued(0, 3), false, "the blade saved in a set: out after EQUIPMENT_SETS_CHANGED")
 WoW.bags[0][1].inSet = false
 WoW.fire("EQUIPMENT_SETS_CHANGED")
 WoW.flushTimers()
-H.eq(queued(0, 1), true, "the vest removed from its set: back")
+eq(queued(0, 1), true, "the vest removed from its set: back")
 
 -- 3. Put in a set after the scan, before the click: the click is refused.
 setup()
 local selected = Shatter.Queue:GetSelected()
-H.check(selected and not (selected.bag == 0 and selected.slot == 1), "an item outside the set is selected")
+check(selected and not (selected.bag == 0 and selected.slot == 1), "an item outside the set is selected")
 WoW.bags[selected.bag][selected.slot].inSet = true
-WoW.click(Shatter.MainFrame.primary, "LeftButton")
-H.eq(#WoW.actionsOf("cast"), 0, "saved in a set since the scan: no cast")
+WoW.press(Shatter.MainFrame.primary, "LeftButton")
+eq(#WoW.actionsOf("cast"), 0, "saved in a set since the scan: no cast")
 local shown = Shatter.MainFrame.status:GetText()
-H.check(tostring(shown):find("in an equipment set", 1, true), "...and the status says why (" .. tostring(shown) .. ")")
+check(tostring(shown):find("in an equipment set", 1, true), "...and the status says why (" .. tostring(shown) .. ")")
 
 -- 4. Without the call (sets unmeasured on Forever), nothing is filtered.
 setup({ noSetCall = true })
-H.eq(queued(0, 1), true, "no set call: the vest is queued (fail open)")
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "...the adapter says it can't tell")
+eq(queued(0, 1), true, "no set call: the vest is queued (fail open)")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "...the adapter says it can't tell")
 
 -- 5. A call that throws or answers oddly can't tell either.
 C_Container.GetContainerItemEquipmentSetInfo = function() error("boom") end
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing call: can't tell")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing call: can't tell")
 C_Container.GetContainerItemEquipmentSetInfo = function() return 1, "x" end
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean answer: can't tell")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean answer: can't tell")
 
 -- 6. Sets disabled (CanUseEquipmentSets false): nothing is filtered, even
 -- with the slot call answering true; the same without the capability call,
 -- or with one that throws or answers oddly.
 setup({ canUseSets = false })
-H.eq(queued(0, 1), true, "sets disabled: the vest is queued")
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "...the adapter says it can't tell")
+eq(queued(0, 1), true, "sets disabled: the vest is queued")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "...the adapter says it can't tell")
 local okCan = C_EquipmentSet.CanUseEquipmentSets
 C_EquipmentSet.CanUseEquipmentSets = nil
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "no capability call: can't tell")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "no capability call: can't tell")
 C_EquipmentSet.CanUseEquipmentSets = function() error("boom") end
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing capability call: can't tell")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a throwing capability call: can't tell")
 C_EquipmentSet.CanUseEquipmentSets = function() return 1 end
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean capability: can't tell")
+eq(Shatter.API.IsInEquipmentSet(0, 1), nil, "a non-boolean capability: can't tell")
 C_EquipmentSet.CanUseEquipmentSets = okCan
 WoW.canUseSets = true
-H.eq(Shatter.API.IsInEquipmentSet(0, 1), true, "...and with sets usable, the slot is in a set")
+eq(Shatter.API.IsInEquipmentSet(0, 1), true, "...and with sets usable, the slot is in a set")
 
-H.done("test_equipment_sets")
+done("test_equipment_sets")
