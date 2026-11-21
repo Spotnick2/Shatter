@@ -112,7 +112,7 @@ WoW.shift = false
 WoW.chat = {}
 SlashCmdList.SHATTER("tooltip sometimes")
 eq(Shatter.Database:GetSettings().tooltip, "never", "an unknown mode is refused")
-check(WoW.chatText():find("Use /shatter tooltip always|modifier|never", 1, true), "...with the choices")
+check(WoW.chatText():find("Use /shatter tooltip always/modifier/never", 1, true), "...with the choices")
 SlashCmdList.SHATTER("tooltip always")
 eq(#WoW.showItemTooltip(VEST), 5, "always: the lines")
 
@@ -193,5 +193,4 @@ eq(rawget(_G, "ShatterDB"), nil, "...and has no ShatterDB")
 setup({ savedDB = { settings = { tooltip = "sometimes" } } })
 eq(Shatter.Database:GetSettings().tooltip, "always", "an unknown saved mode: always")
 
-H.acceptKnownStrays()   -- FINDING Shatter#70: the help line's bare |
 done("test_tooltip")

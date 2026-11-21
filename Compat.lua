@@ -5,7 +5,7 @@
 -- Every such call goes through Shatter.API; nothing here is written to _G
 -- (an addon-owned global changes capability detection for every other addon).
 --
--- Shapes, from the 1.60.1.70334 dump (C:\Projects\WoW\References\Forever\api):
+-- Shapes, from the 1.60.1.71037 dump (C:\Projects\WoW\References\Forever\api):
 --   C_Item.GetItemInfo         Classic 18-value tuple; returns NOTHING on a cache miss
 --   C_Item.GetItemInfoInstant  Classic 7-value tuple; no cache needed
 --   C_Container.GetContainerItemInfo   a STRUCT (itemID, hyperlink, stackCount,
@@ -95,7 +95,7 @@ end
 
 -- Whether the bag slot's item is in one of the player's equipment sets
 -- (C_Container.GetContainerItemEquipmentSetInfo -> inSet, setList; dump
--- 70532). Sets are unmeasured on Forever (#36): with sets unusable
+-- 71037). Sets are unmeasured on Forever (#36): with sets unusable
 -- (C_EquipmentSet.CanUseEquipmentSets not a plain true), or the call absent,
 -- failing or not a plain boolean, it is nil, and the caller doesn't filter.
 function API.IsInEquipmentSet(bag, slot)
@@ -111,8 +111,8 @@ function API.IsInEquipmentSet(bag, slot)
 end
 
 -- An item instance's own level (#37): C_Item.GetCurrentItemLevel on its
--- location (dump 2222, optional), else C_Item.GetDetailedItemLevelInfo on its
--- link (dump 2226, may return nothing). nil when neither can say: the item's
+-- location (dump 2226, optional), else C_Item.GetDetailedItemLevelInfo on its
+-- link (dump 2230, may return nothing). nil when neither can say: the item's
 -- generic level (C_Item.GetItemInfo) isn't the instance's, so it never stands in.
 local function PositiveLevel(ok, level)
     if ok and type(level) == "number" and level > 0 then return level end

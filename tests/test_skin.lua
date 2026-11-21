@@ -167,7 +167,7 @@ WoW.fire("PLAYER_REGEN_ENABLED")
 -- 6. Unknown names: refused by the command, normalised when saved.
 SlashCmdList.SHATTER("skin pink")
 eq(Shatter.Database:GetSettings().skin, "smoked", "an unknown skin is refused")
-check(WoW.chatText():find("Use /shatter skin forever|clear|smoked|flat", 1, true), "...with the choices")
+check(WoW.chatText():find("Use /shatter skin forever/clear/smoked/flat", 1, true), "...with the choices")
 setup({ savedDB = { settings = { skin = "pink" } } })
 eq(Shatter.Database:GetSettings().skin, "forever", "an unknown saved skin falls back to WoW Forever")
 
@@ -288,5 +288,4 @@ check(same(Shatter.SettingsUI.skinButtons.forever._backdropColor, { 1, 0.82, 0, 
 SlashCmdList.SHATTER("skin flat")
 check(same(main.frame._backdropColor, C.BG_MAIN), "Flat still works without the library")
 
-H.acceptKnownStrays()   -- FINDING Shatter#70: the help line's bare |
 done("test_skin")

@@ -12,10 +12,10 @@ Constants.SPELL_DISENCHANT = 13262
 Constants.SPELL_BOOSTED_DISENCHANTING = 1283701
 
 -- The client build the Forever port was last measured on (API dump
--- References/Forever/api/forever-api-1.60.1.70334.md). A human bumps it after
+-- References/Forever/api/forever-api-1.60.1.71037.md). A human bumps it after
 -- re-measuring; tests/test_build.lua holds the same literal on purpose, so a
 -- stale constant cannot agree with itself.
-Constants.MEASURED_ON_BUILD = "1.60.1.70334"
+Constants.MEASURED_ON_BUILD = "1.60.1.71037"
 Constants.MAX_LOAD_STAMPS = 30
 -- Learning mode (#40): the raw disenchant log keeps this many, oldest dropped.
 Constants.YIELD_LOG_MAX = 2000

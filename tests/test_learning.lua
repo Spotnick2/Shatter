@@ -210,7 +210,7 @@ SlashCmdList.SHATTER("learn clear")
 eq(#entries(), 0, "learn clear: empties the log")
 eq(ShatterDB.yieldLog.enabled, true, "...and keeps it on")
 SlashCmdList.SHATTER("learn bogus")
-check(WoW.chatText():find("Use /shatter learn on|off|clear.", 1, true), "an unknown argument shows the usage")
+check(WoW.chatText():find("Use /shatter learn on/off/clear.", 1, true), "an unknown argument shows the usage")
 
 -- 9. /shatter learn lists the flagged entries, newest first.
 button = setup()
@@ -255,5 +255,4 @@ button = setup(nil, { yieldLog = { enabled = "yes", entries = "x" } })
 eq(Shatter.Database:GetYieldLog().enabled, false, "an enabled flag that isn't true reads as off")
 eq(type(Shatter.Database:GetYieldLog().entries), "table", "entries that aren't a table start empty")
 
-H.acceptKnownStrays()   -- FINDING Shatter#70: the help line's bare |
 done("test_learning")
