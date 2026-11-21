@@ -97,15 +97,20 @@ function MailSession:Initialize()
     end
 
     -- After that import, which may have filled old keys (#73): the buckets
-    -- under this character's full name and an old realm are its own. Once
-    -- per login, apart from the settings' adoption (which a skin read can
-    -- reach first), and never again in the login: StartNew calls this, and
-    -- must not have a parked session moved in under its new one.
+    -- under this character's full name and an old realm are its own, and so
+    -- are those under its first name that the player said were (a session
+    -- parked when they said so is resumed here, at a later login). Once per
+    -- login, apart from the settings' adoption (which a skin read can reach
+    -- first), and never again in the login: StartNew calls this, and must
+    -- not have a parked session moved in under its new one.
     local fullName = Shatter.Database:GetFullName()
     if fullName and self.adoptedFor ~= fullName then
         self.adoptedFor = fullName
-        local full = Shatter.Database.OldKeysIn(db.sessions.byCharacter, fullName)
-        if #full > 0 then self:AdoptBuckets(full) end
+        local keys = Shatter.Database.OldKeysIn(db.sessions.byCharacter, fullName)
+        for _, key in ipairs(Shatter.Database:GetFirstNameKeys("mine")) do
+            if db.sessions.byCharacter[key] ~= nil then keys[#keys + 1] = key end
+        end
+        if #keys > 0 then self:AdoptBuckets(keys) end
     end
 end
 

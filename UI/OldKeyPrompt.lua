@@ -53,48 +53,53 @@ function OldKeyPrompt:Create()
     return frame
 end
 
--- "Example", and the realms its keys name ("Realm" is the hotfix's
--- placeholder, not a realm).
-local function Describe(keys)
-    local first, realms, seen = nil, {}, {}
-    for _, key in ipairs(keys) do
-        local name, realm = key:match("^([^-]+)%-(.+)$")
-        first = first or name
-        if realm and realm ~= "Realm" and not seen[realm] then
-            seen[realm] = true
-            realms[#realms + 1] = realm
-        end
+-- What one old key says: the first name, and where it was saved ("Realm" is
+-- the hotfix's placeholder, not a realm).
+local function Describe(key)
+    local name, realm = key:match("^([^-]+)%-(.+)$")
+    if realm == "Realm" then
+        return name or "?", "after the realm change of 2026-11-20, so with no realm"
     end
-    return first or "?", realms
+    return name or "?", "on " .. (realm or "?") .. ", before the realm change of 2026-11-20"
+end
+
+-- One old key at a time: two characters sharing a first name may each own
+-- one of them (Codex on #74), so each is answered on its own.
+function OldKeyPrompt:ShowNext()
+    local key = self.keys and self.keys[1]
+    if not key then
+        self.keys = nil
+        if self.frame then self.frame:Hide() end
+        return false
+    end
+    self:Create()
+    local first, where = Describe(key)
+    local count = self.total > 1 and string.format(" (%d of %d)", self.total - #self.keys + 1, self.total) or ""
+    self.text:SetText(string.format(
+        "Shatter has settings or a mail session saved for \"%s\" %s%s. "
+            .. "Another character with that first name may have saved them.\n\nAre they %s's?",
+        first, where, count, Shatter.Database:GetFullName() or "this character"))
+    self.frame:Show()
+    return true
 end
 
 -- Shows the question when there is anything to ask; true if it did.
 function OldKeyPrompt:Check()
     local db = Shatter.Database
-    local fullName = db and db:GetFullName()
-    if not fullName then return false end
+    if not (db and db:GetFullName()) then return false end
     local keys = db:GetFirstNameKeys()
     if #keys == 0 then return false end
-    self.keys = keys
-    self:Create()
-    local first, realms = Describe(keys)
-    local where = #realms > 0 and (" (" .. table.concat(realms, ", ") .. ")") or ""
-    self.text:SetText(string.format(
-        "Shatter has settings or mail sessions saved for \"%s\"%s, from before the realm change of 2026-11-20. "
-            .. "Another character with that first name may have saved them.\n\nAre they %s's?",
-        first, where, fullName))
-    self.frame:Show()
-    return true
+    self.keys, self.total = keys, #keys
+    return self:ShowNext()
 end
 
 function OldKeyPrompt:Answer(mine)
-    local keys = self.keys or {}
-    self.keys = nil
-    if self.frame then self.frame:Hide() end
-    Shatter.Database:AnswerFirstNameKeys(keys, mine)
+    local key = self.keys and table.remove(self.keys, 1)
+    if key then Shatter.Database:AnswerFirstNameKey(key, mine) end
     if mine then
-        Shatter.Print("Your earlier settings and mail sessions are back. Type /reload to apply them everywhere.")
+        Shatter.Print("Taken back: what was saved as " .. tostring(key) .. ". Type /reload to apply it everywhere.")
     else
-        Shatter.Print("Left for the character they belong to. Its mail items stay reserved, so Shatter won't disenchant them.")
+        Shatter.Print("Left for its owner: " .. tostring(key) .. ". Items received in its mail session stay reserved, so Shatter won't disenchant them.")
     end
+    self:ShowNext()
 end

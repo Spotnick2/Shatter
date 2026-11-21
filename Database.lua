@@ -274,41 +274,51 @@ local function OldKeyStores()
     return { ShatterDB.characterSettings, ShatterDB.profileScopeByCharacter, sessions.byCharacter }
 end
 
--- Old keys under this character's first name alone that it hasn't answered
--- for. Another character may share the first name, so only the player can
--- say whose they are.
-function Database:GetFirstNameKeys()
+local function Answers(fullName)
+    local all = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
+    return type(all[fullName]) == "table" and all[fullName] or {}
+end
+
+-- Old keys under this character's first name alone, `answer` given ("mine",
+-- "not mine") or none yet (nil). Another character may share the first name,
+-- so only the player can say whose each one is. The hotfix's "-Realm" key
+-- first: the latest one, written after the others could no longer be read.
+function Database:GetFirstNameKeys(answer)
     local fullName = PlayerFullName()
     if not fullName or type(ShatterDB) ~= "table" then return {} end
-    local answers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers[fullName]
-    answers = type(answers) == "table" and answers or {}
+    local answers = Answers(fullName)
     local seen, keys = {}, {}
     for _, store in ipairs(OldKeyStores()) do
         local _, first = Database.OldKeysIn(store, fullName)
         for _, key in ipairs(first) do
-            if not seen[key] and answers[key] == nil then
+            if not seen[key] and answers[key] == answer then
                 seen[key] = true
                 keys[#keys + 1] = key
             end
         end
     end
-    table.sort(keys)
+    table.sort(keys, function(a, b)
+        local pa, pb = a:match("^[^-]+%-Realm$") ~= nil, b:match("^[^-]+%-Realm$") ~= nil
+        if pa ~= pb then return pa end
+        return a < b
+    end)
     return keys
 end
 
--- The player's answer for `keys`, kept so they are asked once. Mine: their
--- settings, profile choice and mail sessions move to this character.
-function Database:AnswerFirstNameKeys(keys, mine)
+-- The player's answer for one old key, kept so it is asked once. Mine: its
+-- settings, profile choice and mail session move to this character (each
+-- unless this character has one already).
+function Database:AnswerFirstNameKey(key, mine)
     local fullName = PlayerFullName()
-    if not fullName or type(ShatterDB) ~= "table" then return end
+    if not fullName or type(ShatterDB) ~= "table" or type(key) ~= "string" then return end
     ShatterDB.oldKeyAnswers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
-    local answers = type(ShatterDB.oldKeyAnswers[fullName]) == "table" and ShatterDB.oldKeyAnswers[fullName] or {}
+    local answers = Answers(fullName)
     ShatterDB.oldKeyAnswers[fullName] = answers
-    for _, key in ipairs(keys) do answers[key] = mine and "mine" or "not mine" end
+    answers[key] = mine and "mine" or "not mine"
     if not mine then return end
-    Adopt(ShatterDB.characterSettings, fullName, keys)
-    Adopt(ShatterDB.profileScopeByCharacter, fullName, keys)
-    if Shatter.MailSession then Shatter.MailSession:AdoptBuckets(keys) end
+    Adopt(ShatterDB.characterSettings, fullName, { key })
+    Adopt(ShatterDB.profileScopeByCharacter, fullName, { key })
+    if Shatter.MailSession then Shatter.MailSession:AdoptBuckets({ key }) end
 end
 
 function Database:Initialize()

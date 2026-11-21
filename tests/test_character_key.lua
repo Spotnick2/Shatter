@@ -182,7 +182,7 @@ end
 db = load(firstDB, { split = true, bags = firstBags })
 eq(db:GetProfileScope(), "GLOBAL", "a first name alone is not taken")
 check(prompted(), "...it is asked about")
-check(Shatter.OldKeyPrompt.text:GetText():find("\"Example\" (ClassicBetaPvE)", 1, true) ~= nil, "...naming the first name and realm")
+check(Shatter.OldKeyPrompt.text:GetText():find("\"Example\" on ClassicBetaPvE,", 1, true) ~= nil, "...naming the first name and realm")
 check(Shatter.OldKeyPrompt.text:GetText():find("Example Surname's?", 1, true) ~= nil, "...and this character")
 eq(Shatter.MailSession:Get(), nil, "its session is not this character's yet")
 eq((Shatter.MailSession:GetReservedSlots())["0:1"], VEST, "...but its received item is reserved")
@@ -220,7 +220,51 @@ eq(ShatterDB.sessions.byCharacter[FIRST], nil, "...moved, not copied")
 db = load(ShatterDB, { split = true })
 check(not prompted(), "the owner isn't asked again")
 
--- 12. No name yet: "Unknown", nothing adopted, nothing asked.
+-- 12. Codex on #74: two characters sharing a first name may each own one of
+-- its keys. Each key is asked about on its own, the hotfix's "-Realm" one
+-- first: No to it, Yes to the other, and only the other comes across.
+local mineSession = openSession(FIRST .. ":100", 100)
+local theirs = openSession("Example-Realm:300", 300)
+db = load({ sessions = { byCharacter = {
+    [FIRST] = { activeMail = mineSession, mailHistory = {} },
+    ["Example-Realm"] = { activeMail = theirs, mailHistory = {} },
+} } }, { split = true })
+check(prompted(), "two first-name keys: asked")
+local text = Shatter.OldKeyPrompt.text:GetText()
+check(text:find("with no realm", 1, true) ~= nil and text:find("(1 of 2)", 1, true) ~= nil, "...the -Realm key first, on its own")
+Shatter.OldKeyPrompt:Answer(false)
+check(prompted(), "...then the next one")
+check(Shatter.OldKeyPrompt.text:GetText():find("on ClassicBetaPvE", 1, true) ~= nil, "...naming its realm")
+Shatter.OldKeyPrompt:Answer(true)
+check(not prompted(), "...and then done")
+check(Shatter.MailSession:Get() == mineSession, "the key said Yes to comes across")
+check(ShatterDB.sessions.byCharacter["Example-Realm"].activeMail == theirs, "the key said No to stays for its owner")
+eq(ShatterDB.oldKeyAnswers["Example Surname"]["Example-Realm"], "not mine", "each answer is kept")
+eq(ShatterDB.oldKeyAnswers["Example Surname"][FIRST], "mine", "...on its own")
+
+-- 13. Codex on #74: a first-name session said Yes to while this character
+-- has its own open session waits under its old key, reserved, and is
+-- resumed at a later login once the own one is closed.
+local own = openSession("Example Surname:400", 400)
+local confirmed = openSession(FIRST .. ":100", 100)
+db = load({ sessions = { byCharacter = {
+    ["Example Surname"] = { activeMail = own, mailHistory = {} },
+    [FIRST] = { activeMail = confirmed, mailHistory = {} },
+} } }, { split = true, bags = function()
+    WoW.SetBagItem(0, 1, { itemID = VEST })
+    confirmed.inputItems[1].itemGUID = WoW.bags[0][1].guid
+end })
+Shatter.OldKeyPrompt:Answer(true)
+check(Shatter.MailSession:Get() == own, "Yes while a session is open: the own one stays active")
+check(ShatterDB.sessions.byCharacter[FIRST].activeMail == confirmed, "...the confirmed one waits under its old key")
+eq((Shatter.MailSession:GetReservedSlots())["0:1"], VEST, "...its received item reserved")
+check(Shatter.MailSession:Close(true), "the own session closes")
+db = load(ShatterDB, { split = true })
+check(not prompted(), "the next login doesn't ask again")
+check(Shatter.MailSession:Get() == confirmed, "...and resumes the confirmed session")
+eq(ShatterDB.sessions.byCharacter[FIRST], nil, "...from its old key")
+
+-- 14. No name yet: "Unknown", nothing adopted, nothing asked.
 db = load({ profileScopeByCharacter = { [OLD] = "PERSONAL", ["Unknown-Realm"] = "PERSONAL" } }, { before = function()
     UnitName = function() return nil end
 end })
