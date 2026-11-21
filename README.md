@@ -118,6 +118,12 @@ it for Settings.
 
 - **Only for enchanters.** On a character without Enchanting, Shatter stays off and says so. It
   turns on when you learn Enchanting, without a reload.
+- **Settings and mail sessions from before the 2026-11-20 realm change** come back on each
+  character's first login, unless it already has its own. Only one mail session can be open: if
+  two were left unfinished, the newer one is resumed, and the other comes back at a login after
+  that one is closed. If something was saved under the character's first name alone, Shatter asks
+  once whether it's this character's, since another character may share that first name. Until a
+  waiting mail session comes back, and whatever the answer, its received items stay reserved.
 - **It never acts on its own.** Every disenchant is a click or key press of yours on Shatter Next,
   for one item.
 - **The rates are Vanilla's** until your own disenchants correct them. Two kinds of item show
