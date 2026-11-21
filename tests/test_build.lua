@@ -9,7 +9,7 @@ dofile("tests/wow_stubs.lua")
 
 -- This literal is the point: it must be edited by hand together with the
 -- constant after re-measuring a new client build (porting guide, section 0).
-local MEASURED = "1.60.1.70334"
+local MEASURED = "1.60.1.71037"
 -- A dev copy: the TOC still carries the packager's token (assembled, since
 -- the packager rewrites the token wherever it appears).
 local DEV = "@" .. "project-version" .. "@"

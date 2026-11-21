@@ -151,5 +151,4 @@ local recorded = Kit.checkMethods({ allow = {
 } })
 check(recorded >= 140, "the exercise reached the windows (" .. recorded .. " recorded)")
 
-H.acceptKnownStrays()   -- FINDING Shatter#70: the tooltip and skin help lines' bare |
 done("test_methods")

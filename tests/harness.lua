@@ -66,26 +66,4 @@ function H.tocFiles(libs)
     return files
 end
 
--- FINDING (Shatter#70): three help lines print a bare "|" between the
--- choices ("/shatter learn on|off|clear", "/shatter tooltip always|...",
--- "/shatter skin forever|..."), which the client reads as an escape. done()
--- fails on any stray "|"; a test that prints one lets exactly those lines
--- through until it's fixed, so any other stray still fails. Checks it let
--- at least one through, and returns how many.
-local KNOWN_STRAYS = { "Use /shatter learn on|off|clear.", "Use /shatter tooltip always|modifier|never.",
-                       "Use /shatter skin forever|clear|smoked|flat." }
-function H.acceptKnownStrays()
-    local keep, known = {}, 0
-    for _, line in ipairs(WoW.strays) do
-        local isKnown = false
-        for _, s in ipairs(KNOWN_STRAYS) do
-            if line:find(s, 1, true) then isKnown = true break end
-        end
-        if isKnown then known = known + 1 else keep[#keep + 1] = line end
-    end
-    WoW.strays = keep
-    check(known > 0, "a known stray-| help line (FINDING Shatter#70) was printed")
-    return known
-end
-
 return H

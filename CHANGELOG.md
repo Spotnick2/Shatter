@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `/shatter tooltip` and `/shatter skin` list their choices legibly again. They were separated by `|`, which the game hides along with the letter after it ("alwaysodifierever"); they now read `always/modifier/never` and `forever/clear/smoked/flat`.
+
 ## v1.0.2 - 2026-11-20
 
 - Personal profiles work again. Since the 2026-11-20 hotfix, the game no longer tells addons the realm's name, so a character set to Personal quietly used the Global settings, and its mail session seemed to vanish. Shatter now knows each character by its full name ("First Surname"), and brings back what it saved under the old name and realm on that character's first login: the Personal choice and settings, and the mail sessions, including one still in progress (each unless the character already has its own). Only one mail session can be open: if two were left unfinished, the newer one is resumed, and the other comes back at a login after that one is closed, with its received items reserved meanwhile. Data saved under the first name alone (the game sometimes gave only that) could be another character's with the same first name, so Shatter asks once about each before taking it.

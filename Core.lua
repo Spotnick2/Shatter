@@ -287,7 +287,7 @@ SlashCmdList.SHATTER = function(message)
             local log = Shatter.Database:GetYieldLog()
             if log then log.entries = {} end
         elseif message ~= "learn" then
-            Shatter.Print("Use /shatter learn on|off|clear.")
+            Shatter.Print("Use /shatter learn on/off/clear.")
             return
         end
         for _, line in ipairs(Shatter.DisenchantTables:FormatLog()) do Shatter.Print(line) end
@@ -326,7 +326,7 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Print("Item tooltips: " .. LABELS[mode] .. ".")
         else
             Shatter.Print("Item tooltips: " .. LABELS[Shatter.Database:GetSettings().tooltip] .. ". Use /shatter tooltip "
-                .. table.concat(Shatter.Constants.TOOLTIP_MODE_NAMES, "|") .. ".")
+                .. table.concat(Shatter.Constants.TOOLTIP_MODE_NAMES, "/") .. ".")
         end
         return
     elseif message == "skin" or message:match("^skin ") then
@@ -341,7 +341,7 @@ SlashCmdList.SHATTER = function(message)
             Shatter.Print("Shatter follows Glass UI's look: set it in Glass UI (/glassui), or use /shatter skin flat.")
         else
             Shatter.Print("Look: " .. (Shatter.Skin.LABELS[Shatter.Skin.Shown()] or "?") .. ". Use /shatter skin "
-                .. table.concat(Shatter.Skin.NAMES, "|") .. ".")
+                .. table.concat(Shatter.Skin.NAMES, "/") .. ".")
         end
         return
     elseif message == "simreset" then

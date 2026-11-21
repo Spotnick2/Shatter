@@ -17,7 +17,7 @@
 -- clock (WoW.now, WoW.advance, WoW.flushTimers), WoW.fire, check / eq / done.
 --
 -- This file adds Shatter's own client APIs, each verified present on build
--- 1.60.1.70334 (the API dump in C:\Projects\WoW\References\Forever\api and the
+-- 1.60.1.71037 (the API dump in C:\Projects\WoW\References\Forever\api and the
 -- client UI source), and what Shatter's tests rely on beyond the kit, each
 -- with its reason. On top of the kit's strictness:
 --   * KNOWN_ABSENT models a client with the Blizzard_Deprecated* fallbacks
@@ -38,7 +38,7 @@
 dofile("tests/kit.lua")
 local Methods = WoW.Methods
 
-local MEASURED_BUILD = "70334"
+local MEASURED_BUILD = "71037"
 
 ------------------------------------------------------------
 -- State, reset by WoW.reset() with the kit's
@@ -163,10 +163,9 @@ local function hasTemplate(template, name)
 end
 
 -- A protected frame refuses these in combat. The kit's list, plus what this
--- stub refused before the kit: SetScale (WowTestKit #83), SetParent,
--- StartSizing, and the button's Enable / Disable / SetEnabled (protected in
--- SimpleButtonAPIDocumentation: IsProtectedFunction).
-for _, m in ipairs({ "SetScale", "SetParent", "StartSizing", "Enable", "Disable", "SetEnabled" }) do
+-- stub refused before the kit: SetParent, and the button's Enable / Disable /
+-- SetEnabled (protected in SimpleButtonAPIDocumentation: IsProtectedFunction).
+for _, m in ipairs({ "SetParent", "Enable", "Disable", "SetEnabled" }) do
     WoW.PROTECTED[m] = true
 end
 -- ...and the refusal raises, as this stub's did: any path that reaches one in
@@ -189,55 +188,16 @@ function Methods.RegisterEvent(w, event)
     return coreRegisterEvent(w, event)
 end
 
--- WowTestKit #89: methods the kit doesn't implement (each in the dump's widget
--- methods).
-function Methods.GetSize(w) return w._width, w._height end   -- WowTestKit #78
-function Methods.GetNumPoints(w) return #w._points end
-function Methods.SetScale(w, s) w._scale = s end
-function Methods.GetScale(w) return w._scale or 1 end
-function Methods.SetResizeBounds(w, minW, minH, maxW, maxH) w._resizeBounds = { minW, minH, maxW, maxH } end
-function Methods.StartMoving(w) w._moving = true end
-function Methods.StartSizing(w) w._sizing = true end
-function Methods.StopMovingOrSizing(w) w._moving, w._sizing = false, false end
-function Methods.RegisterForClicks(w, ...) w._registeredClicks = { ... } end
-function Methods.GetTexture(t) return t._file end
-function Methods.GetStringWidth(fs) return #(type(fs._text) == "string" and fs._text or "") * 6 end
-function Methods.GetMinMaxValues(b) return b._min or 0, b._max or 0 end
-function Methods.SetScrollChild(sf, c) sf._scrollChild = c end
-function Methods.GetScrollChild(sf) return sf._scrollChild end
-function Methods.SetVerticalScroll(sf, v) sf._vscroll = v end
-function Methods.GetVerticalScroll(sf) return sf._vscroll or 0 end
-function Methods.GetVerticalScrollRange(sf) return sf._vscrollRange or 0 end
--- As the client does, focus changes fire OnEditFocusGained / OnEditFocusLost.
-function Methods.SetFocus(e)
-    if e._focus then return end
-    e._focus = true
-    local fn = e._scripts.OnEditFocusGained
-    if fn then fn(e) end
+-- The tooltip data TooltipMixin keeps (below) goes with the lines: the kit's
+-- SetOwner and GameTooltip:SetText clear the lines only.
+local coreSetOwner, coreSetText = Methods.SetOwner, Methods.SetText
+function Methods.SetOwner(tt, ...)
+    tt._tooltipData = nil
+    return coreSetOwner(tt, ...)
 end
-function Methods.ClearFocus(e)
-    if not e._focus then return end
-    e._focus = false
-    local fn = e._scripts.OnEditFocusLost
-    if fn then fn(e) end
-end
-function Methods.HasFocus(e) return e._focus or false end
-
--- WowTestKit #89: GameTooltip's own (C) methods: the lines it holds, and its owner.
-function Methods.SetOwner(tt, owner, anchor) tt._owner, tt._lines, tt._tooltipData = owner, {}, nil end
-function Methods.GetOwner(tt) return tt._owner end
-function Methods.AddLine(tt, text) tt._lines = tt._lines or {}; tt._lines[#tt._lines + 1] = text end
-function Methods.AddDoubleLine(tt, l, r) tt._lines = tt._lines or {}; tt._lines[#tt._lines + 1] = tostring(l) .. "\t" .. tostring(r) end
-function Methods.ClearLines(tt) tt._lines = {} end
-function Methods.NumLines(tt) return #(tt._lines or {}) end
--- GameTooltip:SetText replaces the lines; everything else's is the kit's.
-local coreSetText = Methods.SetText
-function Methods.SetText(w, text, ...)
-    if w._type == "GameTooltip" then
-        w._lines, w._tooltipData = { text }, nil
-        return
-    end
-    return coreSetText(w, text, ...)
+function Methods.SetText(w, ...)
+    if w._type == "GameTooltip" then w._tooltipData = nil end
+    return coreSetText(w, ...)
 end
 
 -- A mixin's methods, installed on the widget by its template as Lua does
@@ -288,7 +248,7 @@ WoW.templates.GameTooltipTemplate = function(w)
     end
 end
 
--- What templates provide as fields (wow-ui-source, forever branch, 70959).
+-- What templates provide as fields (wow-ui-source, forever branch, 71037).
 local function textRegion(w, font)
     local fs = WoW.addRegion(w, WoW.newWidget("FontString", w, w._name and (w._name .. "Text")))
     fs._fontTemplate = font
@@ -300,16 +260,15 @@ WoW.templates.UICheckButtonTemplate = function(w) w.Text = textRegion(w, "GameFo
 WoW.templates.UIPanelButtonTemplate = function(w) w.Text = textRegion(w, "GameFontNormal") end
 
 ------------------------------------------------------------
--- Secure click dispatch, modelled on SecureActionButton_OnClick
--- (Blizzard_FrameXML/SecureTemplates.lua, forever branch): the client calls
--- PreClick, OnClick and PostClick for EVERY registered edge; OnClick performs
--- the action only on the edge where `down == useOnKeyDown`. The kit's secure
--- action doesn't resolve modified attributes (*type1, *spell1,
--- *target-bag1...) or press-and-hold's typerelease, which Shatter Next uses:
--- WowTestKit #88. This template's OnClick does.
+-- Secure clicks. The kit's SecureActionButtonTemplate is the client's
+-- SecureActionButton_OnClick (Blizzard_FrameXML/SecureTemplates.lua, forever
+-- branch): it acts only on the edge where `down == useOnKeyDown`, resolves
+-- the modified attributes (*type1, *spell1, *target-bag1...) and
+-- press-and-hold's typerelease, and records what it resolved in
+-- WoW.secureActions. Its two flags are this stub's CVars. What the client
+-- then does with that action is modelled here: the cast, and the item a
+-- waiting spell takes (WoW.actions).
 ------------------------------------------------------------
-
-local BUTTON_SUFFIX = { LeftButton = "1", RightButton = "2", MiddleButton = "3" }
 
 local function registeredFor(w, button, down)
     for _, spec in ipairs(w._registeredClicks or {}) do
@@ -318,16 +277,6 @@ local function registeredFor(w, button, down)
         if spec == button .. (down and "Down" or "Up") then return true end
     end
     return false
-end
-
-local function modifiedAttribute(w, base, button)
-    local n = BUTTON_SUFFIX[button] or ""
-    local attrs = w._attrs or {}
-    for _, key in ipairs({ "*" .. base .. n, base .. n, "*" .. base .. "*", base }) do
-        local v = attrs[key]
-        if v ~= nil then return v end
-    end
-    return nil
 end
 
 local function runMacro(text)
@@ -342,47 +291,28 @@ end
 
 -- type=spell (SECURE_ACTIONS.spell -> CastSpellByID), then OnActionButtonClick
 -- targets target-bag/target-slot ONLY while the spell awaits an item target.
-local function runSpell(w, button)
-    local spell = modifiedAttribute(w, "spell", button)
-    local spellID = tonumber(spell)
-    WoW.actions[#WoW.actions + 1] = { kind = "cast", spell = spellID or spell }
+local function runSpell(action)
+    local spellID = tonumber(action.spell)
+    WoW.actions[#WoW.actions + 1] = { kind = "cast", spell = spellID or action.spell }
     -- A refused cast (moving, already casting) raises no cursor of its own,
     -- but a cursor some OTHER spell left up still takes the item.
     if not WoW.castRefused then WoW.targeting = true end
-    if WoW.targeting then
-        local bag = modifiedAttribute(w, "target-bag", button)
-        local slot = modifiedAttribute(w, "target-slot", button)
-        if slot then
-            WoW.actions[#WoW.actions + 1] = { kind = "use", bag = tonumber(bag), slot = tonumber(slot) }
-            WoW.targeting = false
-        end
+    if WoW.targeting and action.targetSlot then
+        WoW.actions[#WoW.actions + 1] = { kind = "use", bag = tonumber(action.targetBag), slot = tonumber(action.targetSlot) }
+        WoW.targeting = false
     end
 end
 
--- SecureActionButton_OnClick. Returns true when the secure action ran.
-local function secureOnClick(w, button, down)
-    -- SecureActionButton_ShouldUseOnKeyDown: the attribute, else the CVar.
-    local useOnKeyDown = (w._attrs or {}).useOnKeyDown
-    if useOnKeyDown == nil then useOnKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1" end
-    if (down and useOnKeyDown) or (not down and not useOnKeyDown) then
-        local kind = modifiedAttribute(w, "type", button)
-        if kind == "macro" then
-            local text = modifiedAttribute(w, "macrotext", button)
-            if text and text ~= "" then runMacro(text) return true end
-        elseif kind == "spell" then
-            runSpell(w, button)
-            return true
-        end
-    elseif not down and WoW.cvars.ActionButtonUseKeyHeldSpell == "1" then
-        -- Press-and-hold release resolves "typerelease", not "type".
-        local kind = modifiedAttribute(w, "typerelease", button)
-        if kind == "spell" then runSpell(w, button) return true end
+-- One secure action the kit recorded. Returns true when it did something.
+local function perform(action)
+    if action.type == "macro" and action.macrotext then
+        runMacro(action.macrotext)
+        return true
+    elseif action.type == "spell" then
+        runSpell(action)
+        return true
     end
     return false
-end
-WoW.templates.SecureActionButtonTemplate = function(w)
-    w._protected = true
-    w._scripts.OnClick = secureOnClick
 end
 
 -- One mouse edge. Returns true when the secure action ran. A mouse can't
@@ -398,10 +328,12 @@ function WoW.clickEdge(w, button, down, viaBinding)
     end
     -- An ordinary button's OnClick runs on every edge it registered for; the
     -- down == useOnKeyDown filter lives inside SecureActionButton_OnClick.
-    local acted = false
-    if w._scripts.OnClick then
-        local r = w._scripts.OnClick(w, button, down)
-        acted = w._scripts.OnClick == secureOnClick and r == true
+    WoW.useKeyDown = WoW.cvars.ActionButtonUseKeyDown == "1"
+    WoW.useKeyHeldSpell = WoW.cvars.ActionButtonUseKeyHeldSpell == "1"
+    local before, acted = #WoW.secureActions, false
+    if w._scripts.OnClick then w._scripts.OnClick(w, button, down) end
+    for i = before + 1, #WoW.secureActions do
+        acted = perform(WoW.secureActions[i]) or acted
     end
     if w._scripts.PostClick then w._scripts.PostClick(w, button, down) end
     return acted
@@ -472,7 +404,7 @@ function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 
 function time() return WoW.epoch end
 function IsShiftKeyDown() return WoW.shift end
--- dump 5496: Shift, Alt or Ctrl.
+-- dump 5516: Shift, Alt or Ctrl.
 function IsModifierKeyDown() return WoW.shift or WoW.alt or WoW.ctrl or false end
 function GetBuildInfo() return "1.60.1", WoW.build, "Oct 6 2026", 16001, "", " " end
 function GetCVarBool(name) return WoW.cvars[name] == "1" end
@@ -492,7 +424,7 @@ end
 function GetRealmName() return "" end
 function GetNormalizedRealmName() return (WoW.player.realm:gsub("%s", "")) end
 function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end end
--- dump 6405: className, classFilename, classID.
+-- dump 6425: className, classFilename, classID.
 local CLASS_IDS = { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, SHAMAN = 7, MAGE = 8, WARLOCK = 9, DRUID = 11 }
 function UnitClass(unit)
     if unit ~= "player" then return nil end
@@ -509,7 +441,7 @@ function UnitCastingInfo(unit)
     if not c then return nil end
     return c.name, c.name, 136244, c.startMs, c.endMs, false, "cast-1", false, c.spellID
 end
--- Channels are reported here, not by UnitCastingInfo (dump 6403).
+-- Channels are reported here, not by UnitCastingInfo (dump 6423).
 function UnitChannelInfo(unit)
     local c = unit == "player" and WoW.channeling
     if not c then return nil end
@@ -534,7 +466,7 @@ tinsert, tremove = table.insert, table.remove
 format = string.format
 
 ------------------------------------------------------------
--- Namespaces (shapes from the 70334 dump)
+-- Namespaces (shapes from the 71037 dump)
 ------------------------------------------------------------
 
 -- Blizzard_SharedXMLGame/Tooltip/TooltipDataHandler.lua:199: a post call runs
@@ -556,10 +488,22 @@ function WoW.showItemTooltip(itemID, tooltip)
     tooltip._tooltipData = data
     tooltip:Show()
     for _, fn in ipairs(WoW.tooltipPostCalls[Enum.TooltipDataType.Item] or {}) do fn(tooltip, data) end
-    return tooltip._lines
+    return WoW.tooltipLines(tooltip)
 end
 
--- dump 3414-3417, 9141: SkillLineAttributes tables; an index past the end, or
+-- A tooltip's lines as text, for the tests: the kit keeps a double line's
+-- right text apart (tooltip._linesRight); here it follows the left one after
+-- a tab.
+function WoW.tooltipLines(tooltip)
+    local lines = {}
+    for i, left in ipairs(tooltip._lines or {}) do
+        local right = (tooltip._linesRight or {})[i]
+        lines[i] = right ~= nil and (tostring(left) .. "\t" .. tostring(right)) or left
+    end
+    return lines
+end
+
+-- dump 3420-3423, 9150: SkillLineAttributes tables; an index past the end, or
 -- an unknown ID, gives nil. A collapsed header hides the lines under it (the
 -- Skills tab's behaviour; to be measured, #5).
 C_SkillInfo = {}
@@ -582,11 +526,11 @@ function C_SkillInfo.GetSkillLineInfoByID(id)
         if line.skillID == id then return line end
     end
 end
--- dump 4911.
+-- dump 4918.
 function GetGameMessageInfo(errorType) return WoW.gameErrors[errorType] end
 
 C_ClassColor = {}
--- dump 768: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
+-- dump 774: a colorRGB (a ColorMixin: r, g, b fields) by class filename.
 local CLASS_COLORS = { MAGE = { 0.25, 0.78, 0.92 }, PRIEST = { 1, 1, 1 }, WARRIOR = { 0.78, 0.61, 0.43 } }
 function C_ClassColor.GetClassColor(className)
     local c = CLASS_COLORS[className]
@@ -602,7 +546,7 @@ function C_AddOns.IsAddOnLoaded(name)
     local a = WoW.addons[name]
     return a and a.loaded or false, a and a.loaded or false
 end
--- dump 183: name, title, notes, loadable, reason, security. The name is
+-- dump 184: name, title, notes, loadable, reason, security. The name is
 -- not optional: a missing addon still returns it, with reason "MISSING".
 function C_AddOns.GetAddOnInfo(name)
     local a = WoW.addons[name]
@@ -625,7 +569,7 @@ function C_Spell.GetSpellInfo(spellID)
 end
 
 C_UnitAuras = {}
--- An AuraData table or nil (dump 70334 and 70938). In combat the client
+-- An AuraData table or nil (dump 4292). In combat the client
 -- makes auras secret, and testing one throws; aurasSecret models that as a
 -- throw from the call itself (porting guide, "Auras go dark").
 function C_UnitAuras.GetPlayerAuraBySpellID(spellID)
@@ -700,7 +644,7 @@ local function equippedAt(location)
     return location and location.equipmentSlotIndex and WoW.equipped[location.equipmentSlotIndex]
 end
 function C_Item.DoesItemExist(location) return (bagItemAt(location) or equippedAt(location)) ~= nil end
--- dump 2222: optional number.
+-- dump 2226: optional number.
 function C_Item.GetCurrentItemLevel(location)
     local s = equippedAt(location) or bagItemAt(location)
     if not s then return nil end
@@ -709,7 +653,7 @@ function C_Item.GetCurrentItemLevel(location)
     local i = WoW.items[s.itemID]
     return i and i.itemLevel
 end
--- dump 2226: actualItemLevel, previewLevel, sparseItemLevel; nothing on a
+-- dump 2230: actualItemLevel, previewLevel, sparseItemLevel; nothing on a
 -- cache miss. WoW.linkLevels[itemID] models an instance level in its link.
 function C_Item.GetDetailedItemLevelInfo(item)
     local id = itemIDFrom(item)
@@ -722,7 +666,7 @@ function GetInventoryItemLink(unit, slot)
     local worn = unit == "player" and WoW.equipped[slot]
     return worn and WoW.link(worn.itemID) or nil
 end
--- dump 2232: non-optional WOWGUID; an empty location is a usage error.
+-- dump 2239: non-optional WOWGUID; an empty location is a usage error.
 function C_Item.GetItemGUID(location)
     local s = bagItemAt(location)
     if not s then error("C_Item.GetItemGUID: invalid item location", 2) end
@@ -744,12 +688,12 @@ function C_Container.GetContainerNumFreeSlots(bag)
     return free, 0
 end
 -- A struct, not the old tuple (porting guide section 2).
--- dump 1561, 1569: whether sets can be used, and their IDs (a table).
+-- dump 1564, 1572: whether sets can be used, and their IDs (a table).
 C_EquipmentSet = {
     CanUseEquipmentSets = function() return WoW.canUseSets end,
     GetEquipmentSetIDs = function() return WoW.equipmentSetIDs or {} end,
 }
--- dump 1168: inSet, setList. A slot's `inSet`/`setList` model it (sets are
+-- dump 1171: inSet, setList. A slot's `inSet`/`setList` model it (sets are
 -- unmeasured on Forever, #36).
 function C_Container.GetContainerItemEquipmentSetInfo(bag, slot)
     local b = WoW.bags[bag]
