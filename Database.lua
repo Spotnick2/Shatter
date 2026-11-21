@@ -279,10 +279,20 @@ local function Answers(fullName)
     return type(all[fullName]) == "table" and all[fullName] or {}
 end
 
+-- A "mine" answer is a claim on that key for good, whatever is still under
+-- it: a session parked by it waits there for its claimant (Codex on #74).
+local function ClaimedByAnother(key, fullName)
+    for name, answers in pairs(type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}) do
+        if name ~= fullName and type(answers) == "table" and answers[key] == "mine" then return true end
+    end
+    return false
+end
+
 -- Old keys under this character's first name alone, `answer` given ("mine",
--- "not mine") or none yet (nil). Another character may share the first name,
--- so only the player can say whose each one is. The hotfix's "-Realm" key
--- first: the latest one, written after the others could no longer be read.
+-- "not mine") or none yet (nil); never one another character claimed.
+-- Another character may share the first name, so only the player can say
+-- whose each one is. The hotfix's "-Realm" key first: the latest one,
+-- written after the others could no longer be read.
 function Database:GetFirstNameKeys(answer)
     local fullName = PlayerFullName()
     if not fullName or type(ShatterDB) ~= "table" then return {} end
@@ -291,7 +301,7 @@ function Database:GetFirstNameKeys(answer)
     for _, store in ipairs(OldKeyStores()) do
         local _, first = Database.OldKeysIn(store, fullName)
         for _, key in ipairs(first) do
-            if not seen[key] and answers[key] == answer then
+            if not seen[key] and answers[key] == answer and not ClaimedByAnother(key, fullName) then
                 seen[key] = true
                 keys[#keys + 1] = key
             end
@@ -307,18 +317,21 @@ end
 
 -- The player's answer for one old key, kept so it is asked once. Mine: its
 -- settings, profile choice and mail session move to this character (each
--- unless this character has one already).
+-- unless this character has one already). False, and nothing kept, for a
+-- key another character claimed.
 function Database:AnswerFirstNameKey(key, mine)
     local fullName = PlayerFullName()
-    if not fullName or type(ShatterDB) ~= "table" or type(key) ~= "string" then return end
+    if not fullName or type(ShatterDB) ~= "table" or type(key) ~= "string" then return false end
+    if ClaimedByAnother(key, fullName) then return false end
     ShatterDB.oldKeyAnswers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
     local answers = Answers(fullName)
     ShatterDB.oldKeyAnswers[fullName] = answers
     answers[key] = mine and "mine" or "not mine"
-    if not mine then return end
+    if not mine then return true end
     Adopt(ShatterDB.characterSettings, fullName, { key })
     Adopt(ShatterDB.profileScopeByCharacter, fullName, { key })
     if Shatter.MailSession then Shatter.MailSession:AdoptBuckets({ key }) end
+    return true
 end
 
 function Database:Initialize()

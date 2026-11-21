@@ -95,8 +95,9 @@ end
 
 function OldKeyPrompt:Answer(mine)
     local key = self.keys and table.remove(self.keys, 1)
-    if key then Shatter.Database:AnswerFirstNameKey(key, mine) end
-    if mine then
+    if key and not Shatter.Database:AnswerFirstNameKey(key, mine) then
+        Shatter.Print("Another character already said " .. key .. " was theirs.")
+    elseif mine then
         Shatter.Print("Taken back: what was saved as " .. tostring(key) .. ". Type /reload to apply it everywhere.")
     else
         Shatter.Print("Left for its owner: " .. tostring(key) .. ". Items received in its mail session stay reserved, so Shatter won't disenchant them.")

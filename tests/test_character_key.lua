@@ -168,7 +168,6 @@ eq(imported and imported.sessionId, "MAIL:" .. OLD .. ":100", "...and is this ch
 eq(ShatterDB.sessions.byCharacter[OLD], nil, "...under the new key")
 
 -- 9. The first name alone: not taken, but asked. Meanwhile its received
--- item stays reserved.
 local firstSession = openSession(FIRST .. ":100", 100)
 local firstDB = {
     characterSettings = { [FIRST] = { tooltip = "modifier" } },
@@ -258,6 +257,16 @@ Shatter.OldKeyPrompt:Answer(true)
 check(Shatter.MailSession:Get() == own, "Yes while a session is open: the own one stays active")
 check(ShatterDB.sessions.byCharacter[FIRST].activeMail == confirmed, "...the confirmed one waits under its old key")
 eq((Shatter.MailSession:GetReservedSlots())["0:1"], VEST, "...its received item reserved")
+-- Codex on #74 (5b532c5): another character with that first name logs in
+-- while it waits. The Yes is a claim: it isn't asked and can't take it.
+saved = ShatterDB
+db = load(saved, { name = "Example Other", split = true })
+check(not prompted(), "another character isn't asked about a claimed key")
+eq(db:AnswerFirstNameKey(FIRST, true), false, "...and can't take it")
+check(ShatterDB.sessions.byCharacter[FIRST].activeMail == confirmed, "...the session still waits for its claimant")
+eq(ShatterDB.oldKeyAnswers["Example Other"], nil, "...with no answer kept for the other")
+db = load(saved, { split = true })
+check(Shatter.MailSession:Get() == own, "the claimant's own session is still the active one")
 check(Shatter.MailSession:Close(true), "the own session closes")
 db = load(ShatterDB, { split = true })
 check(not prompted(), "the next login doesn't ask again")
