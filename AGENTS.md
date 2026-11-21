@@ -106,6 +106,10 @@ heavy runtime dependencies.
 - Shatter hard-gates initialization behind the Disenchant spell. Characters without it get slash
   feedback and no active UI/event behaviour.
 - Character names carry a surname on this client ("First Surname"); never key on a first name.
+  The `characterKey` is the full name with no realm (`Database:GetCharacterKey()`): since the
+  2026-11-20 hotfix `GetRealmName()` returns `""` (#73). Old `<name>-<realm>` keys under the full
+  name are adopted on login; under the first name alone only on the player's answer
+  (`UI/OldKeyPrompt.lua`), and an open mail session under any of them keeps its items reserved.
 
 ## Build, test, deploy
 - `pwsh tests/run.ps1` - luac -p over every Lua file, then every `tests/test_*.lua` under Lua 5.1

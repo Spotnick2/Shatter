@@ -172,12 +172,166 @@ local function NormalizeSettings(settings)
     return settings
 end
 
+-- The logged-in character's full name, "First Surname". UnitName("player")
+-- gives it whole or split into first name and surname (porting guide,
+-- "Characters have surnames"); the parts are joined the way Blizzard's own
+-- Forever NameUtil.FormatUnitNameForDisplay joins them.
+local function PlayerFullName()
+    if not UnitName then return nil end
+    local name, surname = UnitName("player")
+    if type(name) ~= "string" or name == "" then return nil end
+    if type(surname) == "string" and surname ~= "" then
+        name = name .. " " .. surname
+    end
+    return name
+end
+
+-- Keys before #73 were "<name>-<realm>": the full name, or the first name
+-- alone when the client split UnitName (70374 and later). From the
+-- 2026-11-20 hotfix, which hides the realm (GetRealmName() returns ""), they
+-- were "<name>-Realm". A name holds no "-", so it is what comes before one.
+local function NameOfOldKey(key)
+    return type(key) == "string" and key:match("^([^-]+)%-") or nil
+end
+
+-- The old keys in `store` written under this character's full name, and
+-- under its first name alone (none when the name has no surname). Sorted, so
+-- every pass takes them in the same order.
+function Database.OldKeysIn(store, fullName)
+    local full, first = {}, {}
+    if type(store) ~= "table" or type(fullName) ~= "string" then return full, first end
+    local firstName = fullName:match("^(%S+)")
+    for key in pairs(store) do
+        local name = NameOfOldKey(key)
+        if name == fullName then
+            full[#full + 1] = key
+        elseif name == firstName and firstName ~= fullName then
+            first[#first + 1] = key
+        end
+    end
+    table.sort(full)
+    table.sort(first)
+    return full, first
+end
+
+-- Of several old keys of this character in one table, the one to take: the
+-- only one, else the hotfix's "<name>-Realm" (written once the others could
+-- no longer be read, so the latest choice), else none.
+local function PickOldKey(keys)
+    if #keys == 1 then return keys[1] end
+    local latest
+    for _, key in ipairs(keys) do
+        if key:match("^[^-]+%-Realm$") then
+            if latest then return nil end
+            latest = key
+        end
+    end
+    return latest
+end
+
+-- Moves one of `keys` in `store` to the new key, unless that has one.
+local function Adopt(store, fullName, keys)
+    if type(store) ~= "table" or store[fullName] ~= nil then return end
+    local present = {}
+    for _, key in ipairs(keys) do
+        if store[key] ~= nil then present[#present + 1] = key end
+    end
+    local old = PickOldKey(present)
+    if old then store[fullName], store[old] = store[old], nil end
+end
+
+-- Once per character and session: the settings and profile choice saved
+-- under its full name and an old realm. Names are unique across the region,
+-- so those are this character's. Mail buckets are MailSession's (adopted in
+-- its Initialize, after the account-wide import), and keys under the first
+-- name alone wait for the player's answer (UI/OldKeyPrompt.lua).
+local adopted = {}
+local function AdoptFullNameKeys(fullName)
+    if adopted[fullName] or type(ShatterDB) ~= "table" then return end
+    adopted[fullName] = true
+    for _, store in ipairs({ ShatterDB.characterSettings, ShatterDB.profileScopeByCharacter }) do
+        Adopt(store, fullName, (Database.OldKeysIn(store, fullName)))
+    end
+end
+
+-- The full name, or nil while the client has none yet.
+function Database:GetFullName()
+    return PlayerFullName()
+end
+
+-- The key of this character's data in ShatterDB: its full name. No realm:
+-- Forever hides it since the 2026-11-20 hotfix, and names are unique across
+-- the region.
 function Database:GetCharacterKey()
-    local name = UnitName and UnitName("player") or nil
-    local realm = GetRealmName and GetRealmName() or nil
-    name = name and name ~= "" and name or "Unknown"
-    realm = realm and realm ~= "" and realm or "Realm"
-    return name .. "-" .. realm
+    local name = PlayerFullName()
+    if not name then return "Unknown" end
+    AdoptFullNameKeys(name)
+    return name
+end
+
+local function OldKeyStores()
+    local sessions = type(ShatterDB.sessions) == "table" and ShatterDB.sessions or {}
+    return { ShatterDB.characterSettings, ShatterDB.profileScopeByCharacter, sessions.byCharacter }
+end
+
+local function Answers(fullName)
+    local all = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
+    return type(all[fullName]) == "table" and all[fullName] or {}
+end
+
+-- A "mine" answer is a claim on that key for good, whatever is still under
+-- it: a session parked by it waits there for its claimant (Codex on #74).
+local function ClaimedByAnother(key, fullName)
+    for name, answers in pairs(type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}) do
+        if name ~= fullName and type(answers) == "table" and answers[key] == "mine" then return true end
+    end
+    return false
+end
+
+-- Old keys under this character's first name alone, `answer` given ("mine",
+-- "not mine") or none yet (nil); never one another character claimed.
+-- Another character may share the first name, so only the player can say
+-- whose each one is. The hotfix's "-Realm" key first: the latest one,
+-- written after the others could no longer be read.
+function Database:GetFirstNameKeys(answer)
+    local fullName = PlayerFullName()
+    if not fullName or type(ShatterDB) ~= "table" then return {} end
+    local answers = Answers(fullName)
+    local seen, keys = {}, {}
+    for _, store in ipairs(OldKeyStores()) do
+        local _, first = Database.OldKeysIn(store, fullName)
+        for _, key in ipairs(first) do
+            if not seen[key] and answers[key] == answer and not ClaimedByAnother(key, fullName) then
+                seen[key] = true
+                keys[#keys + 1] = key
+            end
+        end
+    end
+    table.sort(keys, function(a, b)
+        local pa, pb = a:match("^[^-]+%-Realm$") ~= nil, b:match("^[^-]+%-Realm$") ~= nil
+        if pa ~= pb then return pa end
+        return a < b
+    end)
+    return keys
+end
+
+-- The player's answer for one old key, kept so it is asked once. Mine: its
+-- settings, profile choice and mail session move to this character (each
+-- unless this character has one already). False, and nothing kept, for a
+-- key another character claimed.
+function Database:AnswerFirstNameKey(key, mine)
+    local fullName = PlayerFullName()
+    if not fullName or type(ShatterDB) ~= "table" or type(key) ~= "string" then return false end
+    if ClaimedByAnother(key, fullName) then return false end
+    ShatterDB.oldKeyAnswers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
+    local answers = Answers(fullName)
+    ShatterDB.oldKeyAnswers[fullName] = answers
+    answers[key] = mine and "mine" or "not mine"
+    if not mine then return true end
+    Adopt(ShatterDB.characterSettings, fullName, { key })
+    Adopt(ShatterDB.profileScopeByCharacter, fullName, { key })
+    if Shatter.MailSession then Shatter.MailSession:AdoptBuckets({ key }) end
+    return true
 end
 
 function Database:Initialize()
@@ -194,6 +348,10 @@ function Database:Initialize()
     ShatterDB.sessions.history = type(ShatterDB.sessions.history) == "table" and ShatterDB.sessions.history or {}
     ShatterDB.sessions.mailHistory = type(ShatterDB.sessions.mailHistory) == "table" and ShatterDB.sessions.mailHistory or {}
     ShatterDB.sessions.byCharacter = type(ShatterDB.sessions.byCharacter) == "table" and ShatterDB.sessions.byCharacter or {}
+    -- The answers to OldKeyPrompt, by character; absent until the first.
+    if ShatterDB.oldKeyAnswers ~= nil and type(ShatterDB.oldKeyAnswers) ~= "table" then
+        ShatterDB.oldKeyAnswers = nil
+    end
     NormalizeSettings(ShatterDB.settings)
     for _, settings in pairs(ShatterDB.characterSettings) do
         if type(settings) == "table" then

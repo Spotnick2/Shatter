@@ -145,7 +145,12 @@ function Shatter.EvaluateCapability()
         InitializeModules()
         -- Once, on the first activation, wherever it happens (login, a late
         -- spellbook, the end of combat); inactive characters stay quiet.
-        if firstTime then CheckBuild() end
+        if firstTime then
+            CheckBuild()
+            -- Data saved under the first name alone may be another
+            -- character's: asked once (#73).
+            if Shatter.OldKeyPrompt then SafeCall("OldKeyPrompt", Shatter.OldKeyPrompt.Check, Shatter.OldKeyPrompt) end
+        end
         if not wasActive and not firstTime then
             Reactivate()
         end
