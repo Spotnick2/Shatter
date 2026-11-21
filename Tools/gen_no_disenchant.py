@@ -9,8 +9,8 @@ The inputs are the wago.tools exports kept in References/Forever/db (the shared
 wago-tools skill saves them). Both must be from the same build:
 
     python Tools/gen_no_disenchant.py \
-        --sparse ../References/Forever/db/forever-itemsparse-1.60.1.70532.csv \
-        --item   ../References/Forever/db/forever-item-1.60.1.70532.csv
+        --sparse ../References/Forever/db/forever-itemsparse-1.60.1.71037.csv \
+        --item   ../References/Forever/db/forever-item-1.60.1.71037.csv
 
 Standard library only. tests/test_gen_no_disenchant.py covers it.
 """

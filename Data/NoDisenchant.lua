@@ -6,7 +6,7 @@ local _, Shatter = ...
 -- flags as never disenchantable (ItemSparse Flags_0 & 0x8000,
 -- ITEM_FLAG_NO_DISENCHANT): enchanter-made wands, PvP insignias and rank
 -- gear, some quest items. From the client's ItemSparse and Item tables,
--- build 1.60.1.70532 (wago.tools exports, References/Forever/db).
+-- build 1.60.1.71037 (wago.tools exports, References/Forever/db).
 -- ItemScanner:CanBeDisenchanted reads it; Constants.USE_NO_DISENCHANT_LIST
 -- turns it off.
 
@@ -171,10 +171,10 @@ local ids = {
     281709, 281710, 281711, 281712, 281713, 281714, 281715, 281716, 281717, 281718,
     281719, 281720, 281721, 281722, 281723, 281724, 281725, 281727, 281728, 281729,
     281730, 281731, 281732, 281733, 285352, 285353, 287620, 287621, 287622, 287623,
-    287624, 287625, 287626, 287627, 287628, 287648,
+    287624, 287625, 287626, 287627, 287628, 287648, 289303,
 }
 
 local set = {}
 for _, id in ipairs(ids) do set[id] = true end
 
-Shatter.NoDisenchant = { build = "1.60.1.70532", count = 1606, ids = set }
+Shatter.NoDisenchant = { build = "1.60.1.71037", count = 1607, ids = set }
