@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Personal profiles work again. Since the 2026-11-20 hotfix, the game no longer tells addons the realm's name, so a character set to Personal quietly used the Global settings, and its mail session history seemed to start over. Shatter now knows each character by its full name ("First Surname"), and finds what it saved under the old name-and-realm on its first login: the Personal choice and settings, and the mail sessions, including one still in progress.
+- Personal profiles work again. Since the 2026-11-20 hotfix, the game no longer tells addons the realm's name, so a character set to Personal quietly used the Global settings, and its mail session seemed to vanish. Shatter now knows each character by its full name ("First Surname"), and brings back what it saved under the old name and realm on that character's first login: the Personal choice and settings, and the mail sessions, including one still in progress. Data saved under the first name alone (the game sometimes gave only that) could be another character's with the same first name, so Shatter asks once before taking it.
+- Items received in a mail session are never offered for disenchanting while that session can't be found. Since the hotfix, a mail session started before it was out of reach, and the items taken from its mail were no longer held back.
 
 ## v1.0.1 - 2026-11-16
 

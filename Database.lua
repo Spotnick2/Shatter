@@ -186,57 +186,77 @@ local function PlayerFullName()
     return name
 end
 
--- Keys before #73 were "<name>-<realm>", the name with or without its
--- surname; from the 2026-11-20 hotfix, which hides the realm (GetRealmName()
--- returns ""), "<name>-Realm". The one that is this character's: the only
--- match, else the only full-name match. A first name alone may be another
--- character's, so with several matches and no single full name, none.
-local function FindOldKey(store, fullName)
-    local first = fullName:match("^(%S+)")
-    local matches, fullMatches = 0, 0
-    local match, fullMatch
-    for key in pairs(store) do
-        local name = type(key) == "string" and key:match("^([^-]+)%-") or nil
-        if name == fullName then
-            matches, match = matches + 1, key
-            fullMatches, fullMatch = fullMatches + 1, key
-        elseif name == first then
-            matches, match = matches + 1, key
-        end
-    end
-    if matches == 1 then return match end
-    if fullMatches == 1 then return fullMatch end
-    return nil
+-- Keys before #73 were "<name>-<realm>": the full name, or the first name
+-- alone when the client split UnitName (70374 and later). From the
+-- 2026-11-20 hotfix, which hides the realm (GetRealmName() returns ""), they
+-- were "<name>-Realm". A name holds no "-", so it is what comes before one.
+local function NameOfOldKey(key)
+    return type(key) == "string" and key:match("^([^-]+)%-") or nil
 end
 
--- Once per character and session: what the character stored under its old
--- key, when nothing is under the new one yet. The settings and the profile
--- choice are copied; the session bucket moves, so an active mail session
--- (and the materials it owes) belongs to one key only.
-local migrated = {}
-local function MigrateOldKey(fullName)
-    if migrated[fullName] or type(ShatterDB) ~= "table" then return end
-    migrated[fullName] = true
-    local settings = ShatterDB.characterSettings
-    if type(settings) == "table" and settings[fullName] == nil then
-        local old = FindOldKey(settings, fullName)
-        if old and type(settings[old]) == "table" then
-            settings[fullName] = CopyTable(settings[old])
+-- The old keys in `store` written under this character's full name, and
+-- under its first name alone (none when the name has no surname). Sorted, so
+-- every pass takes them in the same order.
+function Database.OldKeysIn(store, fullName)
+    local full, first = {}, {}
+    if type(store) ~= "table" or type(fullName) ~= "string" then return full, first end
+    local firstName = fullName:match("^(%S+)")
+    for key in pairs(store) do
+        local name = NameOfOldKey(key)
+        if name == fullName then
+            full[#full + 1] = key
+        elseif name == firstName and firstName ~= fullName then
+            first[#first + 1] = key
         end
     end
-    local scopes = ShatterDB.profileScopeByCharacter
-    if type(scopes) == "table" and scopes[fullName] == nil then
-        local old = FindOldKey(scopes, fullName)
-        if old then scopes[fullName] = scopes[old] end
-    end
-    local sessions = ShatterDB.sessions
-    local buckets = type(sessions) == "table" and sessions.byCharacter
-    if type(buckets) == "table" and buckets[fullName] == nil then
-        local old = FindOldKey(buckets, fullName)
-        if old then
-            buckets[fullName], buckets[old] = buckets[old], nil
+    table.sort(full)
+    table.sort(first)
+    return full, first
+end
+
+-- Of several old keys of this character in one table, the one to take: the
+-- only one, else the hotfix's "<name>-Realm" (written once the others could
+-- no longer be read, so the latest choice), else none.
+local function PickOldKey(keys)
+    if #keys == 1 then return keys[1] end
+    local latest
+    for _, key in ipairs(keys) do
+        if key:match("^[^-]+%-Realm$") then
+            if latest then return nil end
+            latest = key
         end
     end
+    return latest
+end
+
+-- Moves one of `keys` in `store` to the new key, unless that has one.
+local function Adopt(store, fullName, keys)
+    if type(store) ~= "table" or store[fullName] ~= nil then return end
+    local present = {}
+    for _, key in ipairs(keys) do
+        if store[key] ~= nil then present[#present + 1] = key end
+    end
+    local old = PickOldKey(present)
+    if old then store[fullName], store[old] = store[old], nil end
+end
+
+-- Once per character and session: the settings and profile choice saved
+-- under its full name and an old realm. Names are unique across the region,
+-- so those are this character's. Mail buckets are MailSession's (adopted in
+-- its Initialize, after the account-wide import), and keys under the first
+-- name alone wait for the player's answer (UI/OldKeyPrompt.lua).
+local adopted = {}
+local function AdoptFullNameKeys(fullName)
+    if adopted[fullName] or type(ShatterDB) ~= "table" then return end
+    adopted[fullName] = true
+    for _, store in ipairs({ ShatterDB.characterSettings, ShatterDB.profileScopeByCharacter }) do
+        Adopt(store, fullName, (Database.OldKeysIn(store, fullName)))
+    end
+end
+
+-- The full name, or nil while the client has none yet.
+function Database:GetFullName()
+    return PlayerFullName()
 end
 
 -- The key of this character's data in ShatterDB: its full name. No realm:
@@ -245,8 +265,50 @@ end
 function Database:GetCharacterKey()
     local name = PlayerFullName()
     if not name then return "Unknown" end
-    MigrateOldKey(name)
+    AdoptFullNameKeys(name)
     return name
+end
+
+local function OldKeyStores()
+    local sessions = type(ShatterDB.sessions) == "table" and ShatterDB.sessions or {}
+    return { ShatterDB.characterSettings, ShatterDB.profileScopeByCharacter, sessions.byCharacter }
+end
+
+-- Old keys under this character's first name alone that it hasn't answered
+-- for. Another character may share the first name, so only the player can
+-- say whose they are.
+function Database:GetFirstNameKeys()
+    local fullName = PlayerFullName()
+    if not fullName or type(ShatterDB) ~= "table" then return {} end
+    local answers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers[fullName]
+    answers = type(answers) == "table" and answers or {}
+    local seen, keys = {}, {}
+    for _, store in ipairs(OldKeyStores()) do
+        local _, first = Database.OldKeysIn(store, fullName)
+        for _, key in ipairs(first) do
+            if not seen[key] and answers[key] == nil then
+                seen[key] = true
+                keys[#keys + 1] = key
+            end
+        end
+    end
+    table.sort(keys)
+    return keys
+end
+
+-- The player's answer for `keys`, kept so they are asked once. Mine: their
+-- settings, profile choice and mail sessions move to this character.
+function Database:AnswerFirstNameKeys(keys, mine)
+    local fullName = PlayerFullName()
+    if not fullName or type(ShatterDB) ~= "table" then return end
+    ShatterDB.oldKeyAnswers = type(ShatterDB.oldKeyAnswers) == "table" and ShatterDB.oldKeyAnswers or {}
+    local answers = type(ShatterDB.oldKeyAnswers[fullName]) == "table" and ShatterDB.oldKeyAnswers[fullName] or {}
+    ShatterDB.oldKeyAnswers[fullName] = answers
+    for _, key in ipairs(keys) do answers[key] = mine and "mine" or "not mine" end
+    if not mine then return end
+    Adopt(ShatterDB.characterSettings, fullName, keys)
+    Adopt(ShatterDB.profileScopeByCharacter, fullName, keys)
+    if Shatter.MailSession then Shatter.MailSession:AdoptBuckets(keys) end
 end
 
 function Database:Initialize()
@@ -263,6 +325,10 @@ function Database:Initialize()
     ShatterDB.sessions.history = type(ShatterDB.sessions.history) == "table" and ShatterDB.sessions.history or {}
     ShatterDB.sessions.mailHistory = type(ShatterDB.sessions.mailHistory) == "table" and ShatterDB.sessions.mailHistory or {}
     ShatterDB.sessions.byCharacter = type(ShatterDB.sessions.byCharacter) == "table" and ShatterDB.sessions.byCharacter or {}
+    -- The answers to OldKeyPrompt, by character; absent until the first.
+    if ShatterDB.oldKeyAnswers ~= nil and type(ShatterDB.oldKeyAnswers) ~= "table" then
+        ShatterDB.oldKeyAnswers = nil
+    end
     NormalizeSettings(ShatterDB.settings)
     for _, settings in pairs(ShatterDB.characterSettings) do
         if type(settings) == "table" then

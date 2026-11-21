@@ -95,6 +95,92 @@ function MailSession:Initialize()
         end
         db.sessions.mailHistory = unattributed
     end
+
+    -- After that import, which may have filled old keys (#73): the buckets
+    -- under this character's full name and an old realm are its own. Once
+    -- per login, apart from the settings' adoption (which a skin read can
+    -- reach first), and never again in the login: StartNew calls this, and
+    -- must not have a parked session moved in under its new one.
+    local fullName = Shatter.Database:GetFullName()
+    if fullName and self.adoptedFor ~= fullName then
+        self.adoptedFor = fullName
+        local full = Shatter.Database.OldKeysIn(db.sessions.byCharacter, fullName)
+        if #full > 0 then self:AdoptBuckets(full) end
+    end
+end
+
+local function IsOpen(session)
+    return type(session) == "table" and session.status ~= Shatter.Constants.MAIL_STATE.CLOSED
+end
+
+-- Anything taken, queued or owed: a session without is safe to close.
+local function HasWork(session)
+    return (type(session.inputItems) == "table" and next(session.inputItems) ~= nil)
+        or (type(session.outputRecipients) == "table" and next(session.outputRecipients) ~= nil)
+end
+
+local function Archive(bucket, session)
+    if session.status ~= Shatter.Constants.MAIL_STATE.CLOSED then
+        session.status = Shatter.Constants.MAIL_STATE.CLOSED
+        session.endedAt = session.endedAt or Now()
+    end
+    table.insert(bucket.mailHistory, session)
+end
+
+-- Merges the buckets under `keys`, old keys of this character, into its own.
+-- Histories join, in the order the sessions started; a session there that
+-- is closed, or open with nothing in it, joins the history. Of the open ones
+-- with work, this character's own stays active, else the latest updated
+-- takes its place. Any other stays under its old key, its received items
+-- still held back (GetReservedSlots), and is adopted at a later login once
+-- this character has no session open.
+function MailSession:AdoptBuckets(keys)
+    local db = Shatter.Database:Get()
+    local buckets = db.sessions.byCharacter
+    local mine = GetBucket(db, true)
+    local parked, merged = {}, false
+    for _, key in ipairs(keys) do
+        local bucket = buckets[key]
+        if type(bucket) == "table" and bucket ~= mine then
+            for _, entry in ipairs(type(bucket.mailHistory) == "table" and bucket.mailHistory or {}) do
+                table.insert(mine.mailHistory, entry)
+                merged = true
+            end
+            bucket.mailHistory = {}
+            local session = bucket.activeMail
+            if type(session) == "table" and not (IsOpen(session) and HasWork(session)) then
+                Archive(mine, session)
+                bucket.activeMail, merged = nil, true
+            elseif type(session) == "table" then
+                parked[#parked + 1] = key
+            end
+            if bucket.activeMail == nil then buckets[key] = nil end
+        end
+    end
+    local own = mine.activeMail
+    if #parked > 0 and not (IsOpen(own) and HasWork(own)) then
+        if type(own) == "table" then Archive(mine, own) end
+        local latest
+        for _, key in ipairs(parked) do
+            local updated = tonumber(buckets[key].activeMail.updatedAt) or 0
+            if not latest or updated > (tonumber(buckets[latest].activeMail.updatedAt) or 0) then
+                latest = key
+            end
+        end
+        mine.activeMail = buckets[latest].activeMail
+        buckets[latest] = nil
+        merged = true
+    end
+    if merged then
+        local order = {}
+        for i, entry in ipairs(mine.mailHistory) do order[entry] = i end
+        table.sort(mine.mailHistory, function(a, b)
+            local ta = type(a) == "table" and tonumber(a.createdAt) or 0
+            local tb = type(b) == "table" and tonumber(b.createdAt) or 0
+            if ta ~= tb then return ta < tb end
+            return order[a] < order[b]
+        end)
+    end
 end
 
 function MailSession:Get()
@@ -111,10 +197,11 @@ end
 -- Never over an active session: its owed-materials ledger would be lost.
 -- The player continues it, or closes it (which archives it) first.
 function MailSession:StartNew()
+    -- Initialize first: what it imports or adopts may be an active session.
+    self:Initialize()
     if self:HasActiveSession() then
         return nil, "A mail session is already active: continue it, or close it first."
     end
-    self:Initialize()
     local db = Shatter.Database:Get()
     local bucket = GetBucket(db, true)
     bucket.activeMail = NewSession()
@@ -339,8 +426,46 @@ end
 --   itemIDs { [itemID] = true } where a slot proves nothing, so every copy
 --           is held back: received items with no GUID, and, while their
 --           locations could not be proven, every received item (away too)
+-- Open sessions under this character's old keys that weren't adopted
+-- (several with work, or a first name not answered for, #73): their received
+-- items are held back too. By GUID, which is unique, so another character's
+-- session holds back nothing of this one's; an item with no GUID, or while
+-- the bags can't be read whole, holds back every copy. Read only: locating
+-- would mark another character's items as gone.
+local function ReserveOldKeys(reserved, reservedIDs)
+    local fullName = Shatter.Database and Shatter.Database:GetFullName()
+    if not fullName then return end
+    local db = Shatter.Database:Get()
+    local buckets = type(db.sessions) == "table" and db.sessions.byCharacter
+    local full, first = Shatter.Database.OldKeysIn(buckets, fullName)
+    local where, looked
+    for _, keys in ipairs({ full, first }) do
+        for _, key in ipairs(keys) do
+            local session = type(buckets[key]) == "table" and buckets[key].activeMail
+            if IsOpen(session) then
+                for _, item in ipairs(type(session.inputItems) == "table" and session.inputItems or {}) do
+                    if item.itemID and (item.received or item.bag) and item.status ~= "disenchanted" then
+                        if not item.itemGUID then
+                            reservedIDs[item.itemID] = true
+                        else
+                            if not looked then where, looked = MapBagGUIDs(), true end
+                            local found = where and where[item.itemGUID]
+                            if found then
+                                reserved[found.bag .. ":" .. found.slot] = item.itemID
+                            elseif not where then
+                                reservedIDs[item.itemID] = true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 function MailSession:GetReservedSlots()
     local reserved, reservedIDs = {}, {}
+    ReserveOldKeys(reserved, reservedIDs)
     local session = self:Get()
     if not session or not self:HasActiveSession() then return reserved, reservedIDs end
     local proven = self:LocateReceived()
