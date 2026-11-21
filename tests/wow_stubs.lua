@@ -488,7 +488,8 @@ function UnitName(unit)
     if unit == "player" then return WoW.player.name, nil end
     return nil
 end
-function GetRealmName() return WoW.player.realm end
+-- The 2026-11-20 hotfix hides the realm: "" (AltStable #412, Shatter #73).
+function GetRealmName() return "" end
 function GetNormalizedRealmName() return (WoW.player.realm:gsub("%s", "")) end
 function UnitGUID(unit) if unit == "player" then return "Player-1-00000001" end end
 -- dump 6405: className, classFilename, classID.

@@ -172,12 +172,81 @@ local function NormalizeSettings(settings)
     return settings
 end
 
+-- The logged-in character's full name, "First Surname". UnitName("player")
+-- gives it whole or split into first name and surname (porting guide,
+-- "Characters have surnames"); the parts are joined the way Blizzard's own
+-- Forever NameUtil.FormatUnitNameForDisplay joins them.
+local function PlayerFullName()
+    if not UnitName then return nil end
+    local name, surname = UnitName("player")
+    if type(name) ~= "string" or name == "" then return nil end
+    if type(surname) == "string" and surname ~= "" then
+        name = name .. " " .. surname
+    end
+    return name
+end
+
+-- Keys before #73 were "<name>-<realm>", the name with or without its
+-- surname; from the 2026-11-20 hotfix, which hides the realm (GetRealmName()
+-- returns ""), "<name>-Realm". The one that is this character's: the only
+-- match, else the only full-name match. A first name alone may be another
+-- character's, so with several matches and no single full name, none.
+local function FindOldKey(store, fullName)
+    local first = fullName:match("^(%S+)")
+    local matches, fullMatches = 0, 0
+    local match, fullMatch
+    for key in pairs(store) do
+        local name = type(key) == "string" and key:match("^([^-]+)%-") or nil
+        if name == fullName then
+            matches, match = matches + 1, key
+            fullMatches, fullMatch = fullMatches + 1, key
+        elseif name == first then
+            matches, match = matches + 1, key
+        end
+    end
+    if matches == 1 then return match end
+    if fullMatches == 1 then return fullMatch end
+    return nil
+end
+
+-- Once per character and session: what the character stored under its old
+-- key, when nothing is under the new one yet. The settings and the profile
+-- choice are copied; the session bucket moves, so an active mail session
+-- (and the materials it owes) belongs to one key only.
+local migrated = {}
+local function MigrateOldKey(fullName)
+    if migrated[fullName] or type(ShatterDB) ~= "table" then return end
+    migrated[fullName] = true
+    local settings = ShatterDB.characterSettings
+    if type(settings) == "table" and settings[fullName] == nil then
+        local old = FindOldKey(settings, fullName)
+        if old and type(settings[old]) == "table" then
+            settings[fullName] = CopyTable(settings[old])
+        end
+    end
+    local scopes = ShatterDB.profileScopeByCharacter
+    if type(scopes) == "table" and scopes[fullName] == nil then
+        local old = FindOldKey(scopes, fullName)
+        if old then scopes[fullName] = scopes[old] end
+    end
+    local sessions = ShatterDB.sessions
+    local buckets = type(sessions) == "table" and sessions.byCharacter
+    if type(buckets) == "table" and buckets[fullName] == nil then
+        local old = FindOldKey(buckets, fullName)
+        if old then
+            buckets[fullName], buckets[old] = buckets[old], nil
+        end
+    end
+end
+
+-- The key of this character's data in ShatterDB: its full name. No realm:
+-- Forever hides it since the 2026-11-20 hotfix, and names are unique across
+-- the region.
 function Database:GetCharacterKey()
-    local name = UnitName and UnitName("player") or nil
-    local realm = GetRealmName and GetRealmName() or nil
-    name = name and name ~= "" and name or "Unknown"
-    realm = realm and realm ~= "" and realm or "Realm"
-    return name .. "-" .. realm
+    local name = PlayerFullName()
+    if not name then return "Unknown" end
+    MigrateOldKey(name)
+    return name
 end
 
 function Database:Initialize()

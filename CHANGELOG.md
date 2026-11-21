@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Personal profiles work again. Since the 2026-11-20 hotfix, the game no longer tells addons the realm's name, so a character set to Personal quietly used the Global settings, and its mail session history seemed to start over. Shatter now knows each character by its full name ("First Surname"), and finds what it saved under the old name-and-realm on its first login: the Personal choice and settings, and the mail sessions, including one still in progress.
+
 ## v1.0.1 - 2026-11-16
 
 - Shatter's cast bar now follows the real Disenchant cast. It used to fill in 1.5 seconds and then wait for the 3-second cast to finish.
