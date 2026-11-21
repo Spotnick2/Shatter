@@ -164,5 +164,5 @@ Write-Host "Done." -ForegroundColor Green
 Write-Host ""
 Write-Host "In-game:" -ForegroundColor Yellow
 Write-Host "  /console scriptErrors 1   (errors are OFF by default on this client)"
-Write-Host "  /reload                   (a brand-new addon folder needs a full client restart once)"
+Write-Host "  /reload"
 Write-Host "  /shatter"

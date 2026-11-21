@@ -130,8 +130,9 @@ heavy runtime dependencies.
 - `pwsh Tools/deploy.ps1` copies the TOC, LICENSE and every TOC-listed file to
   `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Shatter`, preserving
   relative paths, and refuses the `_anniversary_` client. After each implementation iteration,
-  deploy and tell the user whether `/reload` is enough (a brand-new addon folder or new TOC entry
-  needs a full client restart).
+  deploy and tell the user to `/reload`: it loads everything a deploy brings, a brand-new addon
+  folder, new files and textures, and TOC changes (porting guide section 5, re-measured
+  2026-11-16). A full client exit is only for a persistence test.
 - In game: `/console scriptErrors 1` (errors are off by default on this client).
 - **LibGlass-1.0 is embedded** (`.pkgmeta` externals, pinned to a release tag; never committed).
   The tests load it and the deploy copies it from the sibling checkout `..\LibGlass` (or
@@ -172,6 +173,11 @@ heavy runtime dependencies.
   Forever alphas before it were `v0.2.<buildnumber>-alpha` (`v0.2.80-alpha`). Keep
   `## Version: @project-version@`. Add a top changelog entry, merge it, then tag `main` and push
   the tag. The `v0.1.*` tags are the TBC releases: never move or delete them.
+- **A release tag (`vX.Y.Z`, not an alpha or beta) updates both READMEs** in its prep PR
+  (`RELEASING.md` §3): `README.md` and the untracked `README.curseforge.md` describe what this
+  release does (new features, commands, options, changed limits) and nothing it no longer does.
+  The PR says whether `README.curseforge.md` changed: the owner pastes it into CurseForge and
+  Wago after the release (§4).
 - **A tag publishes three times** (`C:\Projects\WoW\References\Docs\RELEASING.md`): CurseForge
   builds its own file from the webhook. `.github/workflows/package-check.yml` checks the zip, then
   its `release` job makes the GitHub Release (zip, `release.json`, the tag's changelog section)

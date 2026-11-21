@@ -18,9 +18,8 @@ Made for **World of Warcraft: Forever**, for characters with Enchanting.
 
 Install **Shatter** from [CurseForge](https://www.curseforge.com/wow/addons/shatter) or
 [Wago](https://addons.wago.io/addons/v63QE4Gb), with their apps or by unzipping it into the
-`Interface\AddOns` folder inside your Forever game folder. Then start the game, or restart it
-if it's running: the game finds a new addon only when it starts (`/reload` is enough for an
-update). Type `/shatter` or click Shatter's minimap button.
+`Interface\AddOns` folder inside your Forever game folder. Then start the game, or type `/reload`
+if it's running. Type `/shatter` or click Shatter's minimap button.
 
 ## How it works
 
@@ -142,8 +141,8 @@ on first (`/console scriptErrors 1`; they're off by default on this client) and 
 
 - **Tests:** `pwsh tests/run.ps1` (Lua 5.1, plus Python for the tools).
 - **Deploy:** from a checkout, `pwsh Tools/deploy.ps1` copies the addon, with the LibGlass-1.0
-  checkout next to it, into `_forever_\Interface\AddOns\Shatter`. A brand-new addon folder needs a
-  full client restart once; after that, `/reload`.
+  checkout next to it, into `_forever_\Interface\AddOns\Shatter`. Then `/reload`, even for a
+  first install.
 - **Diagnostics:** `/shatter debug` and `/shatter trace` log what Shatter does. `/shatter sim`
   turns on simulation: fake results, no casting, nothing consumed, with a SIMULATION badge in the
   window; `/shatter simreset` shows the simulated items again.
