@@ -206,7 +206,8 @@ Constants.NON_DISENCHANTABLE = {
 }
 
 -- The client's no-disenchant flag (Data/NoDisenchant.lua, #6). Taken from
--- the client's item data, not measured against the server yet: the Nov 4
--- check (a flagged wand refused, an unflagged green accepted) comes before
--- the next release. false turns the list off.
+-- the client's item data, not measured against the server yet (a flagged
+-- wand refused, an unflagged green accepted). It ships on unmeasured since
+-- v1.0.0, by choice (#81): a wrong flag only keeps an item out of the queue,
+-- it never casts on one. false turns the list off.
 Constants.USE_NO_DISENCHANT_LIST = true

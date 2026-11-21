@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.3 - 2026-11-20
 
 - `/shatter tooltip` and `/shatter skin` list their choices legibly again. They were separated by `|`, which the game hides along with the letter after it ("alwaysodifierever"); they now read `always/modifier/never` and `forever/clear/smoked/flat`.
 - The list of items the game never lets you disenchant is updated to the current client: the new copy of Rhok'delar, Longbow of the Ancient Keepers is no longer offered.
